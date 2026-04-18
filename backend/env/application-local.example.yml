@@ -1,0 +1,9 @@
+# Copy to application-local.yml and fill in (that file is gitignored).
+spring:
+  mail:
+    username: your-mail@outlook.com
+    password: your-password-or-app-password
+
+pawhub:
+  mail:
+    from: "PawHub <your-mail@outlook.com>"
