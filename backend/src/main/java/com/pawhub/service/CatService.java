@@ -25,12 +25,14 @@ public class CatService {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
 
+    @Transactional(readOnly = true)
     public List<CatDto> mine(SecurityUser principal) {
         return catRepository.findByUserIdOrderByCreatedAtDesc(principal.getId()).stream()
                 .map(this::toDto)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public CatDto get(Long id, SecurityUser principal) {
         Cat cat = catRepository.findById(id).orElseThrow();
         assertOwner(cat, principal);
@@ -45,6 +47,7 @@ public class CatService {
                 .name(req.name())
                 .breed(req.breed())
                 .ageMonths(req.ageMonths())
+                .gender(req.gender())
                 .bio(req.bio())
                 .build();
         catRepository.save(cat);
@@ -58,6 +61,7 @@ public class CatService {
         cat.setName(req.name());
         cat.setBreed(req.breed());
         cat.setAgeMonths(req.ageMonths());
+        cat.setGender(req.gender());
         cat.setBio(req.bio());
         return toDto(cat);
     }
@@ -97,6 +101,7 @@ public class CatService {
                 cat.getName(),
                 cat.getBreed(),
                 cat.getAgeMonths(),
+                cat.getGender() != null ? cat.getGender().name() : null,
                 cat.getBio(),
                 urls);
     }

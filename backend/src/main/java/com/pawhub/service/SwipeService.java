@@ -1,6 +1,7 @@
 package com.pawhub.service;
 
 import com.pawhub.domain.*;
+import com.pawhub.domain.CatGender;
 import com.pawhub.repository.*;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.SwipeRequest;
@@ -77,15 +78,18 @@ public class SwipeService {
         if (!myCat.getUser().getId().equals(principal.getId())) {
             throw new IllegalArgumentException("Not your cat");
         }
+        boolean myIsMale = myCat.getGender() == CatGender.MALE;
         return catRepository
                 .findCandidates(myCatId, principal.getId())
                 .stream()
+                .filter(c -> !myIsMale || c.getGender() != CatGender.MALE)
                 .findFirst()
                 .map(c -> new com.pawhub.web.dto.CatCardDto(
                         c.getId(),
                         c.getName(),
                         c.getBreed(),
                         c.getAgeMonths(),
+                        c.getGender() != null ? c.getGender().name() : null,
                         c.getBio(),
                         c.getPhotos().isEmpty()
                                 ? null

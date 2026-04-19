@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "cats")
@@ -30,6 +32,11 @@ public class Cat {
 
     @Column(name = "age_months")
     private Integer ageMonths;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 16)
+    private CatGender gender;
 
     @Column(columnDefinition = "TEXT")
     private String bio;

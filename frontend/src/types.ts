@@ -3,6 +3,7 @@ export type CatDto = {
   name: string;
   breed: string | null;
   ageMonths: number | null;
+  gender: "MALE" | "FEMALE" | null;
   bio: string | null;
   photoUrls: string[];
 };
@@ -12,6 +13,7 @@ export type CatCardDto = {
   name: string;
   breed: string | null;
   ageMonths: number | null;
+  gender: "MALE" | "FEMALE" | null;
   bio: string | null;
   coverPhotoUrl: string | null;
   ownerDisplayName: string;

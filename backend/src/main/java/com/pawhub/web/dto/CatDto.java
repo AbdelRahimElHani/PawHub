@@ -7,5 +7,6 @@ public record CatDto(
         String name,
         String breed,
         Integer ageMonths,
+        String gender,
         String bio,
         List<String> photoUrls) {}
