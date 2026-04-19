@@ -73,5 +73,8 @@ public class PawhubProperties {
          * instead of hard-rejecting. Set false in production once Gemini is verified working.
          */
         private boolean failOpenOnApiError = true;
+
+        /** Model id for PawBot chat (streaming). Falls back to {@link #model} if blank. */
+        private String whiskerModel = "gemini-2.5-flash";
     }
 }

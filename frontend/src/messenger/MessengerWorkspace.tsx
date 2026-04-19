@@ -1,5 +1,6 @@
 import { Client, type StompSubscription } from "@stomp/stompjs";
 import { ImagePlus, MessagesSquare, MessageSquarePlus, Send, X } from "lucide-react";
+import { CopyMessageButton } from "../components/CopyMessageButton";
 import { type ReactNode, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, getToken } from "../api/client";
@@ -416,6 +417,12 @@ export function MessengerWorkspace({
                 const { text: bodyText, listingId: shareListingId } = m.body
                   ? parseListingShareFromMessage(m.body)
                   : { text: "", listingId: null as number | null };
+                const copyText = (
+                  bodyText.trim() ||
+                  m.body?.trim() ||
+                  m.attachmentUrl?.trim() ||
+                  ""
+                ).trim();
                 return (
                   <div key={m.id} className={"ph-msg-bubble-wrap" + (mine ? " ph-msg-bubble-wrap--mine" : "")}>
                     <div className={"ph-msg-bubble" + (mine ? " ph-msg-bubble--mine" : "")}>
@@ -433,6 +440,7 @@ export function MessengerWorkspace({
                         </div>
                       ) : null}
                     </div>
+                    <CopyMessageButton text={copyText} variant="messaging" />
                     <div className="ph-msg-ts">{new Date(m.createdAt).toLocaleString()}</div>
                   </div>
                 );

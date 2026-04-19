@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { ChatWidget } from "../components/chat/ChatWidget";
 import { MessagingDock } from "../messenger/MessagingDock";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
 
@@ -104,6 +105,7 @@ export function Layout({ children }: { children?: ReactNode }) {
       </header>
       {children !== undefined ? children : <Outlet />}
       {user ? <MessagingDock /> : null}
+      {user ? <ChatWidget /> : null}
     </div>
   );
 }
