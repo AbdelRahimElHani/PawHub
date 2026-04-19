@@ -5,11 +5,13 @@ import {
   MessageCircle,
   ShoppingBag,
   Star,
+  Trash2,
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { HubConfirmDialog } from "../hub/components/HubConfirmDialog";
 import { ProductLocationMap } from "../market/ProductLocationMap";
 import { formatDistance, haversineKm } from "../market/haversine";
 import { useGeolocation } from "../market/useGeolocation";
@@ -172,6 +174,7 @@ export function MarketDetailPage() {
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
   const [activeImg, setActiveImg] = useState(0);
+  const [confirmAdminDel, setConfirmAdminDel] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -246,18 +249,45 @@ export function MarketDetailPage() {
         <ArrowLeft size={14} /> Back to Paw Market
       </Link>
 
-      {isSelf && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
-          <Link className="ph-btn ph-btn-ghost" to="/market/selling">
-            My listings
-          </Link>
-            {isAvailable && !showExpired ? (
-            <Link className="ph-btn ph-btn-primary" to={`/market/${listing.id}/edit`}>
-              Edit listing
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem", alignItems: "center" }}>
+        {isSelf && (
+          <>
+            <Link className="ph-btn ph-btn-ghost" to="/market/selling">
+              My listings
             </Link>
-          ) : null}
-        </div>
-      )}
+            {isAvailable && !showExpired ? (
+              <Link className="ph-btn ph-btn-primary" to={`/market/${listing.id}/edit`}>
+                Edit listing
+              </Link>
+            ) : null}
+          </>
+        )}
+        {user?.role === "ADMIN" && (
+          <>
+            <button
+              type="button"
+              className="ph-btn ph-btn-ghost"
+              style={{ color: "#b42318", borderColor: "rgba(180,35,24,0.35)" }}
+              onClick={() => setConfirmAdminDel(true)}
+            >
+              <Trash2 size={16} style={{ marginRight: "0.35rem" }} aria-hidden />
+              Remove listing
+            </button>
+            <HubConfirmDialog
+              open={confirmAdminDel}
+              onOpenChange={setConfirmAdminDel}
+              title="Remove this listing?"
+              description="This permanently removes the seller’s item from Paw Market."
+              confirmLabel="Remove"
+              danger
+              onConfirm={async () => {
+                await api(`/api/admin/paw/listings/${listing.id}`, { method: "DELETE" });
+                nav("/market");
+              }}
+            />
+          </>
+        )}
+      </div>
 
       <div className="ph-surface" style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 

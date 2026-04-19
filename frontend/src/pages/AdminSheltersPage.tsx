@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { ShelterDto } from "../types";
 
@@ -31,6 +32,9 @@ export function AdminSheltersPage() {
 
   return (
     <div className="ph-surface" style={{ padding: "1.25rem" }}>
+      <p style={{ marginBottom: "0.75rem" }}>
+        <Link to="/">← Back to app</Link>
+      </p>
       <h2 style={{ marginTop: 0 }}>Pending shelters</h2>
       {err && <p style={{ color: "#b42318" }}>{err}</p>}
       <ul style={{ listStyle: "none", padding: 0 }}>

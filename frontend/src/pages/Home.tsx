@@ -79,6 +79,10 @@ export function Home() {
           <strong>PawMarket</strong>
           <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Listings and supplies.</div>
         </Link>
+        <Link className="ph-surface" to="/hub" style={{ padding: "1rem", display: "block" }}>
+          <strong>Learn</strong>
+          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>FAQ, editorial, and community.</div>
+        </Link>
         <Link className="ph-surface" to="/adopt" style={{ padding: "1rem", display: "block" }}>
           <strong>PawAdopt</strong>
           <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Browse adoption listings.</div>

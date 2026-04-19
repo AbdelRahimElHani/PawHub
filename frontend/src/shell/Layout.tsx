@@ -73,6 +73,9 @@ export function Layout({ children }: { children?: ReactNode }) {
             Matches
           </NavLink>
           <PawMarketNavLink />
+          <NavLink to="/hub" style={linkStyle}>
+            Learn
+          </NavLink>
           <NavLink to="/adopt" style={linkStyle}>
             PawAdopt
           </NavLink>
@@ -80,7 +83,7 @@ export function Layout({ children }: { children?: ReactNode }) {
             Account
           </NavLink>
           {user?.role === "ADMIN" && (
-            <NavLink to="/admin/shelters" style={linkStyle}>
+            <NavLink to="/admin" style={linkStyle}>
               Admin
             </NavLink>
           )}

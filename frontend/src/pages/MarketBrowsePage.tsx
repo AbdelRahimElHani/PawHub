@@ -1,7 +1,9 @@
-import { Gift, MapPin, Search, Sliders } from "lucide-react";
+import { Gift, MapPin, Search, Sliders, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
+import { HubConfirmDialog } from "../hub/components/HubConfirmDialog";
 import { haversineKm, formatDistance } from "../market/haversine";
 import { useGeolocation } from "../market/useGeolocation";
 import type { PawCategory, PawListingDto } from "../types";
@@ -22,11 +24,16 @@ function ListingCard({
   listing,
   userLat,
   userLng,
+  isAdmin,
+  onAdminDeleted,
 }: {
   listing: PawListingDto;
   userLat: number | null;
   userLng: number | null;
+  isAdmin?: boolean;
+  onAdminDeleted?: () => void;
 }) {
+  const [confirmDel, setConfirmDel] = useState(false);
   const isFree = listing.isFree;
   const cover = listing.imageUrls?.[0] ?? listing.photoUrl;
 
@@ -36,7 +43,47 @@ function ListingCard({
       : null;
 
   return (
-    <Link to={`/market/${listing.id}`} className={`pm-card${isFree ? " pm-card--free" : ""}`}>
+    <div style={{ position: "relative" }}>
+      {isAdmin && (
+        <>
+          <button
+            type="button"
+            className="ph-btn ph-btn-ghost"
+            title="Remove listing (moderator)"
+            aria-label="Remove listing"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setConfirmDel(true);
+            }}
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              zIndex: 3,
+              padding: "0.35rem",
+              minWidth: "auto",
+              background: "rgba(255,255,255,0.92)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+            }}
+          >
+            <Trash2 size={16} color="#b42318" />
+          </button>
+          <HubConfirmDialog
+            open={confirmDel}
+            onOpenChange={setConfirmDel}
+            title="Remove this listing?"
+            description="The seller’s item will be permanently removed from Paw Market (including order history tied to it)."
+            confirmLabel="Remove listing"
+            danger
+            onConfirm={async () => {
+              await api(`/api/admin/paw/listings/${listing.id}`, { method: "DELETE" });
+              onAdminDeleted?.();
+            }}
+          />
+        </>
+      )}
+      <Link to={`/market/${listing.id}`} className={`pm-card${isFree ? " pm-card--free" : ""}`} style={{ display: "block" }}>
       {cover ? (
         <img src={cover} alt={listing.title} className="pm-card__img" />
       ) : (
@@ -101,11 +148,14 @@ function ListingCard({
         )}
       </div>
     </Link>
+    </div>
   );
 }
 
 /** Browse and buy: filters + listing grid (Paw Market Shop tab). */
 export function MarketBrowsePage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [all, setAll] = useState<PawListingDto[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -116,12 +166,16 @@ export function MarketBrowsePage() {
 
   const { position } = useGeolocation();
 
-  useEffect(() => {
+  const loadListings = () => {
     setLoading(true);
     api<PawListingDto[]>("/api/paw/listings")
       .then(setAll)
       .catch(() => setAll([]))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadListings();
   }, []);
 
   const filtered = all.filter((l) => {
@@ -243,6 +297,8 @@ export function MarketBrowsePage() {
                 listing={l}
                 userLat={position?.lat ?? null}
                 userLng={position?.lng ?? null}
+                isAdmin={isAdmin}
+                onAdminDeleted={loadListings}
               />
             ))}
           </div>

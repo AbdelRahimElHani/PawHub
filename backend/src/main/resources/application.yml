@@ -26,6 +26,11 @@ server:
   port: 8080
 
 pawhub:
+  admin:
+    email: admin@pawhub.local
+    password: admin123
+    # Re-apply password + ADMIN role on startup (fixes login if this email was registered before as a normal user).
+    sync-credentials-on-startup: true
   # Vite default; set to your deployed SPA origin in production (used in chat listing links).
   frontend-base-url: "http://localhost:5173"
   jwt:

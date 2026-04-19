@@ -29,6 +29,26 @@ public class PawhubProperties {
 
     private final Gemini gemini = new Gemini();
 
+    private final Admin admin = new Admin();
+
+    @Getter
+    @Setter
+    public static class Admin {
+        /**
+         * Default dev admin; change in production and disable {@link #syncCredentialsOnStartup}.
+         */
+        private String email = "admin@pawhub.local";
+
+        private String password = "admin123";
+
+        /**
+         * When true, on each startup the user with {@link #email} gets this password (re-hashed) and role ADMIN.
+         * Stops "invalid credentials" if that email was registered earlier with a different password.
+         * Set false in production once the admin password is set.
+         */
+        private boolean syncCredentialsOnStartup = true;
+    }
+
     @Getter
     @Setter
     public static class Jwt {

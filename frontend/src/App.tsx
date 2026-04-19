@@ -21,6 +21,12 @@ import { ShelterPage } from "./pages/ShelterPage";
 import { AdminSheltersPage } from "./pages/AdminSheltersPage";
 import { AccountPage } from "./pages/AccountPage";
 import { MessagesPage } from "./pages/MessagesPage";
+import { HubLayout } from "./hub/HubLayout";
+import { HubIndexPage } from "./hub/pages/HubIndexPage";
+import { FaqPage } from "./hub/pages/FaqPage";
+import { EditorialPage } from "./hub/pages/EditorialPage";
+import { CommunityFeedPage } from "./hub/pages/CommunityFeedPage";
+import { ThreadPage } from "./hub/pages/ThreadPage";
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
@@ -82,15 +88,17 @@ export default function App() {
         <Route path="/inbox" element={<Navigate to="/messages" replace />} />
         <Route path="/messages/:threadId?" element={<MessagesPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/hub" element={<HubLayout />}>
+          <Route index element={<HubIndexPage />} />
+          <Route path="faq" element={<FaqPage />} />
+          <Route path="editorial" element={<EditorialPage />} />
+          <Route path="community/:roomSlug/p/:postId" element={<ThreadPage />} />
+          <Route path="community/:roomSlug" element={<CommunityFeedPage />} />
+          <Route path="community" element={<Navigate to="/hub/community/general" replace />} />
+        </Route>
         <Route path="/chat/:threadId" element={<LegacyChatRedirect />} />
-        <Route
-          path="/admin/shelters"
-          element={
-            <RequireAdmin>
-              <AdminSheltersPage />
-            </RequireAdmin>
-          }
-        />
+        <Route path="/admin" element={<RequireAdmin><Navigate to="/admin/shelters" replace /></RequireAdmin>} />
+        <Route path="/admin/shelters" element={<RequireAdmin><AdminSheltersPage /></RequireAdmin>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

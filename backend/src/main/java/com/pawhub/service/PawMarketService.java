@@ -8,8 +8,10 @@ import com.pawhub.web.dto.*;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -155,6 +157,56 @@ public class PawMarketService {
             return "image/gif";
         }
         return "image/jpeg";
+    }
+
+    @Transactional(readOnly = true)
+    public List<PawListingDto> adminListAll() {
+        return listingRepository.findAll().stream()
+                .sorted(Comparator.comparing(MarketListing::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .reversed())
+                .map(this::toDto)
+                .toList();
+    }
+
+    /** Admin: update any listing (no ownership check; skips AI cat-check on save). */
+    @Transactional
+    public PawListingDto adminUpdateListing(Long id, PawListingUpsertRequest req) {
+        MarketListing l = listingRepository
+                .findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Listing not found"));
+        l.setTitle(req.title());
+        l.setDescription(req.description());
+        l.setFree(req.isFree());
+        l.setPriceCents(req.isFree() ? 0L : req.priceCents());
+        l.setCategory(parseCategory(req.category()));
+        l.setCity(req.city());
+        l.setRegion(req.region());
+        l.setCityText(req.cityText());
+        l.setLatitude(req.latitude());
+        l.setLongitude(req.longitude());
+
+        if (req.stockQuantity() != null) {
+            long sold = orderRepository.sumQuantityByListingId(id);
+            if (req.stockQuantity() < sold) {
+                throw new IllegalArgumentException(
+                        "Stock cannot be less than units already sold (" + sold + ").");
+            }
+            l.setStockQuantity(req.stockQuantity());
+        }
+
+        return toDto(l);
+    }
+
+    /**
+     * Admin: remove any listing. DB cascades delete paw_orders and dependent reviews; chat threads keep
+     * stale {@code market_listing_id} (nullable long — safe).
+     */
+    @Transactional
+    public void adminForceDeleteListing(Long id) {
+        MarketListing l = listingRepository
+                .findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Listing not found"));
+        listingRepository.delete(l);
     }
 
     /** Removes a listing owned by the caller when it has no orders yet. */
