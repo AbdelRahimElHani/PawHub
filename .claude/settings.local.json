@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"/c/wamp64/bin/mysql/mysql8.3.0/bin/mysqld.exe\" --defaults-file=\"/c/wamp64/bin/mysql/mysql8.3.0/my.ini\")",
+      "Bash(\"/c/wamp64/bin/mysql/mysql8.3.0/bin/mysql.exe\" -u root -psmab -e \"SELECT 1;\")",
+      "Bash(/c/wamp64/bin/mysql/mysql8.3.0/bin/mysql.exe *)",
+      "Bash('/c/Program Files/NetBeans-22/netbeans/java/maven/bin/mvn.cmd' -f /c/Users/user/PawHub/backend/pom.xml spring-boot:run)",
+      "Bash(echo \"Backend starting, PID $!\")",
+      "Bash(curl *)",
+      "Bash(echo \"Restarting backend, PID $!\")",
+      "Bash(powershell -Command 'Get-Process | Where-Object { $_.MainWindowTitle -like '\\\\''*java*'\\\\'' -or $_.Name -like '\\\\''*java*'\\\\'' } | Select-Object Id, Name | Format-Table')",
+      "Bash(powershell -Command \"netstat -ano | Select-String '8080' | Select-Object -First 5\")",
+      "Bash(powershell -Command \"Stop-Process -Id 50148 -Force; Stop-Process -Id 20084 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"netstat -ano | Select-String '8080'\")",
+      "Bash(echo \"PID $!\")",
+      "Bash(powershell -Command \"Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(python3 *)"
+    ]
+  }
+}
