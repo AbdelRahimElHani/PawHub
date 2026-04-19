@@ -115,7 +115,7 @@ export function PawMatchPage() {
           </div>
           <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", flexWrap: "wrap" }}>
             <Link className="ph-btn ph-btn-primary" to="/matches">View matches</Link>
-            <Link className="ph-btn ph-btn-ghost" to={`/chat/${matchThreadId}`}>Open chat</Link>
+            <Link className="ph-btn ph-btn-ghost" to={`/messages/${matchThreadId}`}>Open chat</Link>
           </div>
         </div>
       )}
