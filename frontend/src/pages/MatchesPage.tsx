@@ -24,7 +24,7 @@ export function MatchesPage() {
               {m.catAName} & {m.catBName}
             </strong>
             <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>With {m.otherOwnerName}</div>
-            <Link className="ph-btn ph-btn-primary" style={{ marginTop: "0.5rem" }} to={`/chat/${m.threadId}`}>
+            <Link className="ph-btn ph-btn-primary" style={{ marginTop: "0.5rem" }} to={`/messages/${m.threadId}`}>
               Open chat
             </Link>
           </li>

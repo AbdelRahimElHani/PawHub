@@ -32,7 +32,12 @@ export type ThreadSummaryDto = {
   type: string;
   otherUserId: number;
   otherDisplayName: string;
+  otherAvatarUrl: string | null;
   marketListingId: number | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  /** From API; absent on older servers — treat as false. */
+  unread?: boolean;
 };
 
 export type MessageDto = {
@@ -40,6 +45,7 @@ export type MessageDto = {
   senderId: number;
   body: string;
   createdAt: string;
+  attachmentUrl: string | null;
 };
 
 export type MarketListingDto = {
@@ -54,6 +60,54 @@ export type MarketListingDto = {
   status: string;
   photoUrl: string | null;
   sellerDisplayName: string;
+};
+
+export type PawCategory = "Food" | "Furniture" | "Toys" | "Health" | "Apparel" | "Other";
+export const PAW_CATEGORIES: PawCategory[] = ["Food", "Furniture", "Toys", "Health", "Apparel", "Other"];
+
+export type PawListingDto = {
+  id: number;
+  sellerUserId: number;
+  sellerDisplayName: string;
+  sellerAvatarUrl: string | null;
+  sellerVerifiedMeow: boolean;
+  sellerCompletedSales: number;
+  title: string;
+  description: string | null;
+  priceCents: number;
+  isFree: boolean;
+  category: PawCategory | null;
+  city: string | null;
+  region: string | null;
+  cityText: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  pawStatus: "Available" | "Pending" | "Sold" | "Expired";
+  imageUrls: string[];
+  photoUrl: string | null;
+  averageRating: number;
+  reviewCount: number;
+  createdAt: string | null;
+  stockQuantity: number;
+  soldQuantity: number;
+  expiresAt: string | null;
+};
+
+export type PawReviewDto = {
+  id: number;
+  orderId: number;
+  reviewerUserId: number;
+  reviewerDisplayName: string;
+  reviewerAvatarUrl: string | null;
+  targetUserId: number;
+  rating: number;
+  comment: string | null;
+  createdAt: string | null;
+};
+
+export type PlaceOrderResponse = {
+  orderId: number;
+  threadId: number;
 };
 
 export type AdoptionListingDto = {

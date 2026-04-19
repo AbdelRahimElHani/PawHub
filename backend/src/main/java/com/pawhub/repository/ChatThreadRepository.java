@@ -1,6 +1,7 @@
 package com.pawhub.repository;
 
 import com.pawhub.domain.ChatThread;
+import com.pawhub.domain.ThreadType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,4 +28,14 @@ public interface ChatThreadRepository extends JpaRepository<ChatThread, Long> {
             """)
     Optional<ChatThread> findListingThread(
             @Param("listingId") Long listingId, @Param("u1") Long userId1, @Param("u2") Long userId2);
+
+    @Query(
+            """
+            SELECT t FROM ChatThread t
+            WHERE t.type = :tp
+            AND ((t.participantOne.id = :a AND t.participantTwo.id = :b)
+              OR (t.participantOne.id = :b AND t.participantTwo.id = :a))
+            """)
+    Optional<ChatThread> findDirectThread(
+            @Param("a") Long userId1, @Param("b") Long userId2, @Param("tp") ThreadType type);
 }

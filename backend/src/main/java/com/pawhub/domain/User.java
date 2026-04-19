@@ -48,6 +48,15 @@ public class User {
     @Column(name = "profile_bio", columnDefinition = "TEXT")
     private String profileBio;
 
+    @Column(name = "is_verified_meow", nullable = false)
+    @JdbcTypeCode(SqlTypes.TINYINT)
+    @Builder.Default
+    private boolean isVerifiedMeow = false;
+
+    @Column(name = "completed_sales", nullable = false)
+    @Builder.Default
+    private int completedSales = 0;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 32)

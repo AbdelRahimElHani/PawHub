@@ -1,5 +1,6 @@
 package com.pawhub.web;
 
+import com.pawhub.service.AiCatCheckService;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Map<String, String>> unauthorized() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid credentials"));
+    }
+
+    @ExceptionHandler(AiCatCheckService.CatCheckFailedException.class)
+    public ResponseEntity<Map<String, String>> catCheckFailed(AiCatCheckService.CatCheckFailedException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(Map.of("error", "CAT_CHECK_FAILED", "reason", ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

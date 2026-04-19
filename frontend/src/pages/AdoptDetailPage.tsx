@@ -21,7 +21,7 @@ export function AdoptDetailPage() {
     setErr(null);
     try {
       const r = await api<{ threadId: number }>(`/api/adopt/listings/${id}/inquire`, { method: "POST" });
-      nav(`/chat/${r.threadId}`);
+      nav(`/messages/${r.threadId}`);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Failed");
     }

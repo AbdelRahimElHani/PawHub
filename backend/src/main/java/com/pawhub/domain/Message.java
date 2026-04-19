@@ -28,6 +28,9 @@ public class Message {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String body;
 
+    @Column(name = "attachment_url", length = 1024)
+    private String attachmentUrl;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

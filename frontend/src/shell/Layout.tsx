@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { MessagingDock } from "../messenger/MessagingDock";
+import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
 
 const linkStyle = ({ isActive }: { isActive: boolean }) => ({
   padding: "0.35rem 0.75rem",
@@ -11,10 +13,41 @@ const linkStyle = ({ isActive }: { isActive: boolean }) => ({
   color: isActive ? "#3a2f12" : "var(--color-primary-dark)",
 });
 
+function PawMarketNavLink() {
+  const { listingUnreadCount } = useThreadNotifications();
+  return (
+    <NavLink
+      to="/market"
+      style={(args) => ({
+        ...linkStyle(args),
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.35rem",
+      })}
+    >
+      <span>PawMarket</span>
+      {listingUnreadCount > 0 ? (
+        <span className="ph-nav-badge" title="Unread messages about your Paw Market listings">
+          {listingUnreadCount > 9 ? "9+" : listingUnreadCount}
+        </span>
+      ) : null}
+    </NavLink>
+  );
+}
+
 export function Layout({ children }: { children?: ReactNode }) {
   const { user, logout } = useAuth();
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "1rem 1.25rem 2rem" }}>
+    <div
+      style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        paddingTop: "1rem",
+        paddingLeft: "1.25rem",
+        paddingRight: "1.25rem",
+        paddingBottom: user ? "4.5rem" : "2rem",
+      }}
+    >
       <header
         className="ph-surface"
         style={{
@@ -39,14 +72,9 @@ export function Layout({ children }: { children?: ReactNode }) {
           <NavLink to="/matches" style={linkStyle}>
             Matches
           </NavLink>
-          <NavLink to="/market" style={linkStyle}>
-            PawMarket
-          </NavLink>
+          <PawMarketNavLink />
           <NavLink to="/adopt" style={linkStyle}>
             PawAdopt
-          </NavLink>
-          <NavLink to="/inbox" style={linkStyle}>
-            Inbox
           </NavLink>
           <NavLink to="/account" style={linkStyle}>
             Account
@@ -72,6 +100,7 @@ export function Layout({ children }: { children?: ReactNode }) {
         </div>
       </header>
       {children !== undefined ? children : <Outlet />}
+      {user ? <MessagingDock /> : null}
     </div>
   );
 }

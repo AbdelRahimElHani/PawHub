@@ -30,12 +30,14 @@ OpenAPI: `http://localhost:8080/v3/api-docs` — Swagger UI: `/swagger`.
 
 | Method | Path |
 |--------|------|
-| GET | `/api/chat/threads` |
+| GET | `/api/chat/threads` (summaries include last preview, avatars) |
+| POST | `/api/chat/dm/{userId}` — open or create a **DIRECT** 1:1 thread |
 | GET | `/api/chat/threads/{id}/messages?page=&size=` |
-| POST | `/api/chat/threads/{id}/messages` (JSON body) |
-| STOMP | `/app/chat.send` → `/topic/threads.{id}` |
+| POST | `/api/chat/threads/{id}/messages` — `application/json` `{ "body" }` (text only) |
+| POST | `/api/chat/threads/{id}/messages` — `multipart/form-data`: optional `body`, optional `file` (image; at least one required) |
+| STOMP | `/app/chat.send` (JSON text only) → broadcast to `/topic/threads.{id}` |
 
-## Market
+## Market (legacy)
 
 | Method | Path |
 |--------|------|
@@ -44,6 +46,20 @@ OpenAPI: `http://localhost:8080/v3/api-docs` — Swagger UI: `/swagger`.
 | GET/PUT | `/api/market/listings`, `/api/market/listings/{id}` |
 | POST | `/api/market/listings/{id}/photo` |
 | POST | `/api/market/listings/{id}/thread` |
+
+## Paw Market (v2 — cat-verified C2C marketplace)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/paw/listings?category=&isFree=` | Browse available listings |
+| GET | `/api/paw/listings/mine` | Seller's own listings |
+| GET | `/api/paw/listings/{id}` | Single listing |
+| POST | `/api/paw/listings` | Create (AI Cat-Check runs here) |
+| PUT | `/api/paw/listings/{id}` | Update |
+| POST | `/api/paw/listings/{id}/photo` | Upload photo (multipart `file`) |
+| POST | `/api/paw/listings/{id}/buy` | Place order → opens chat thread |
+| POST | `/api/paw/reviews` | Submit buyer review |
+| GET | `/api/paw/users/{userId}/reviews` | Get seller reviews |
 
 ## Adopt + admin
 

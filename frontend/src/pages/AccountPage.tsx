@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -66,6 +67,10 @@ export function AccountPage() {
             · <strong>Administrator</strong>
           </>
         )}
+      </p>
+      <p style={{ fontSize: "0.88rem", color: "var(--color-muted)", marginBottom: "1rem" }}>
+        Your user ID: <strong style={{ color: "var(--color-primary-dark)" }}>{user.userId}</strong> — others can start a DM with you from{" "}
+        <Link to="/messages">Messages</Link> using this number.
       </p>
 
       <div style={{ marginBottom: "1.25rem" }}>

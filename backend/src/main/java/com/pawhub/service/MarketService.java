@@ -1,14 +1,18 @@
 package com.pawhub.service;
 
+import com.pawhub.config.PawhubProperties;
 import com.pawhub.domain.*;
 import com.pawhub.repository.ChatThreadRepository;
 import com.pawhub.repository.MarketListingRepository;
+import com.pawhub.repository.MessageRepository;
 import com.pawhub.repository.UserRepository;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.MarketListingDto;
 import com.pawhub.web.dto.MarketListingUpsertRequest;
+import com.pawhub.web.dto.MessageDto;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,6 +26,9 @@ public class MarketService {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final com.pawhub.repository.CatRepository catRepository;
+    private final MessageRepository messageRepository;
+    private final PawhubProperties pawhubProperties;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public List<MarketListingDto> browse(String city, String region) {
         return listingRepository.searchActive(emptyToNull(city), emptyToNull(region)).stream()
@@ -99,7 +106,7 @@ public class MarketService {
         User seller = listing.getUser();
         User p1 = buyer.getId() < seller.getId() ? buyer : seller;
         User p2 = buyer.getId() < seller.getId() ? seller : buyer;
-        return chatThreadRepository
+        ChatThread thread = chatThreadRepository
                 .findListingThread(listingId, buyer.getId(), seller.getId())
                 .orElseGet(
                         () -> {
@@ -110,8 +117,29 @@ public class MarketService {
                                     .marketListingId(listingId)
                                     .build();
                             return chatThreadRepository.save(t);
-                        })
-                .getId();
+                        });
+
+        if (messageRepository.countByThreadId(thread.getId()) == 0) {
+            String listingUrl = pawhubProperties.listingPageUrl(listing.getId());
+            String intro = String.format(
+                    "\uD83D\uDC3E %s is reaching out about your listing \"%s\".\n\nView listing: %s",
+                    buyer.getDisplayName(), listing.getTitle(), listingUrl);
+            Message msg = Message.builder()
+                    .thread(thread)
+                    .sender(buyer)
+                    .body(intro)
+                    .build();
+            messageRepository.save(msg);
+            MessageDto dto = new MessageDto(
+                    msg.getId(),
+                    buyer.getId(),
+                    msg.getBody(),
+                    msg.getCreatedAt(),
+                    msg.getAttachmentUrl());
+            messagingTemplate.convertAndSend("/topic/threads." + thread.getId(), dto);
+        }
+
+        return thread.getId();
     }
 
     private MarketListingDto toDto(MarketListing l) {
