@@ -10,4 +10,8 @@ public record AuthResponse(
         String avatarUrl,
         String profileCity,
         String profileRegion,
-        String profileBio) {}
+        String profileBio,
+        /** PENDING / APPROVED / REJECTED when accountType is VET; otherwise null */
+        String vetVerificationStatus,
+        /** Populated when vet verification was rejected */
+        String vetRejectionReason) {}

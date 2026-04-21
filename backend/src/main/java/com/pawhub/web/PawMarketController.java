@@ -43,8 +43,12 @@ public class PawMarketController {
     @GetMapping("/listings")
     public List<PawListingDto> browse(
             @RequestParam(required = false) String category,
-            @RequestParam(required = false) Boolean isFree) {
-        return pawMarketService.browse(category, isFree);
+            @RequestParam(required = false) Boolean isFree,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) String region,
+            @AuthenticationPrincipal SecurityUser user) {
+        Long excludeSellerId = user != null ? user.getId() : null;
+        return pawMarketService.browse(category, isFree, city, region, excludeSellerId);
     }
 
     @GetMapping("/listings/mine")
@@ -77,6 +81,13 @@ public class PawMarketController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteListing(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
         pawMarketService.deleteListing(id, user);
+    }
+
+    /** Seller: mark listing sold off-platform; keeps the row for your history (no delete). */
+    @PostMapping("/listings/{id}/sold-off-market")
+    public PawListingDto markSoldOffMarket(
+            @PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
+        return pawMarketService.markSoldOffMarket(id, user);
     }
 
     @PostMapping(value = "/listings/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -4,7 +4,9 @@ import com.pawhub.service.AdoptionService;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.AdoptionListingDto;
 import com.pawhub.web.dto.AdoptionListingUpsertRequest;
+import com.pawhub.web.dto.ShelterDocumentKind;
 import com.pawhub.web.dto.ShelterDto;
+import com.pawhub.web.dto.ShelterProfileUpdateRequest;
 import com.pawhub.web.dto.ShelterUpsertRequest;
 import com.pawhub.web.dto.ThreadIdResponse;
 import jakarta.validation.Valid;
@@ -36,6 +38,21 @@ public class AdoptionController {
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
+    @PutMapping("/shelters/mine/profile")
+    public ShelterDto updateShelterProfile(
+            @Valid @RequestBody ShelterProfileUpdateRequest req, @AuthenticationPrincipal SecurityUser user) {
+        return adoptionService.updateShelterProfile(req, user);
+    }
+
+    @PostMapping(value = "/shelters/mine/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ShelterDto uploadShelterDocument(
+            @RequestParam ShelterDocumentKind kind,
+            @RequestPart("file") MultipartFile file,
+            @AuthenticationPrincipal SecurityUser user)
+            throws Exception {
+        return adoptionService.uploadShelterDocument(kind, file, user);
+    }
+
     @GetMapping("/listings")
     public List<AdoptionListingDto> browse() {
         return adoptionService.browse();
@@ -59,7 +76,7 @@ public class AdoptionController {
 
     @PostMapping(value = "/listings/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public AdoptionListingDto uploadPhoto(
-            @PathVariable Long id, @RequestPart("file") MultipartFile file, @AuthenticationPrincipal SecurityUser user)
+            @PathVariable Long id, @RequestParam("file") MultipartFile file, @AuthenticationPrincipal SecurityUser user)
             throws Exception {
         return adoptionService.uploadListingPhoto(id, file, user);
     }

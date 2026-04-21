@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pawhub.config.GeminiModelIds;
 import com.pawhub.config.PawhubProperties;
 import com.pawhub.web.dto.WhiskerChatRequest;
 import com.pawhub.web.dto.WhiskerMessage;
@@ -275,7 +276,7 @@ public class WhiskerChatService {
     }
 
     private static String primaryGeminiModel(PawhubProperties.Gemini g) {
-        String primary = g.getModel() != null && !g.getModel().isBlank() ? g.getModel().trim() : "gemini-2.5-flash";
+        String primary = g.getModel() != null && !g.getModel().isBlank() ? g.getModel().trim() : GeminiModelIds.DEFAULT;
         return primary;
     }
 

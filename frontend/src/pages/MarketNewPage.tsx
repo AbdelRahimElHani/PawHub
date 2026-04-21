@@ -1,9 +1,11 @@
 import { ArrowLeft, CheckCircle, Gift, Upload, XCircle } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getToken } from "../api/client";
 import { LocationPickerMap } from "../market/LocationPickerMap";
 import type { LatLng } from "../market/LocationPickerMap";
+import type { ReverseGeocodedPlace } from "../market/reverseGeocodeNominatim";
+import { useCountriesCitiesCatalog } from "../market/useCountriesCitiesCatalog";
 import type { PawListingDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
 
@@ -15,6 +17,8 @@ type CatCheckResult =
   | { state: "skipped" }
   | { state: "unavailable"; message: string };
 
+type ListingLocationMode = "dropdown" | "map";
+
 export function MarketNewPage() {
   const nav = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -25,19 +29,23 @@ export function MarketNewPage() {
   const [price, setPrice] = useState("");
   const [isFree, setIsFree] = useState(false);
   const [category, setCategory] = useState("");
-  const [city, setCity] = useState("");
-  const [region, setRegion] = useState("");
-  const [cityText, setCityText] = useState("");
+  const [locationMode, setLocationMode] = useState<ListingLocationMode>("dropdown");
+  const [ddCountry, setDdCountry] = useState("");
+  const [ddCity, setDdCity] = useState("");
   const [pin, setPin] = useState<LatLng | null>(null);
+  const [mapPlace, setMapPlace] = useState<ReverseGeocodedPlace | null>(null);
   const [stockQuantity, setStockQuantity] = useState("1");
 
   const [catCheck, setCatCheck] = useState<CatCheckResult>({ state: "idle" });
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  function handleLocationChange(pos: LatLng, text: string) {
+  const { countries, getCities, loading: catLoading, hasData: catHasData, error: catErr } = useCountriesCitiesCatalog();
+  const ddCityOptions = useMemo(() => (ddCountry ? getCities(ddCountry) : []), [ddCountry, getCities]);
+
+  function handleLocationChange(pos: LatLng, place: ReverseGeocodedPlace | null) {
     setPin(pos);
-    if (text) setCityText(text);
+    setMapPlace(place);
   }
 
   // ── Real-time Cat-Check (image + title + description must align) ───────
@@ -111,17 +119,65 @@ export function MarketNewPage() {
 
     try {
       const stock = Math.min(99999, Math.max(1, Math.floor(Number(stockQuantity) || 1)));
+
+      let reqCity: string;
+      let reqRegion: string | null;
+      let reqCountry: string;
+      let reqCityText: string | null;
+      let reqLat: number | null;
+      let reqLng: number | null;
+
+      if (locationMode === "dropdown") {
+        if (!catHasData || catErr) {
+          setErr("Location list is still loading or unavailable. Wait a moment or refresh.");
+          setSubmitting(false);
+          return;
+        }
+        const cities = getCities(ddCountry);
+        if (!ddCountry.trim() || !ddCity.trim() || !cities.includes(ddCity)) {
+          setErr("Choose your country and city from the dropdowns.");
+          setSubmitting(false);
+          return;
+        }
+        reqCity = ddCity.trim();
+        reqRegion = null;
+        reqCountry = ddCountry.trim();
+        reqCityText = `${ddCity.trim()}, ${ddCountry.trim()}`;
+        reqLat = null;
+        reqLng = null;
+      } else {
+        if (!pin) {
+          setErr("Click the map to set where you are offering this item.");
+          setSubmitting(false);
+          return;
+        }
+        if (!mapPlace?.country?.trim() || !mapPlace.city?.trim()) {
+          setErr(
+            "Could not read city and country from that spot. Move the pin slightly or use the country and city dropdowns.",
+          );
+          setSubmitting(false);
+          return;
+        }
+        reqCity = mapPlace.city.trim();
+        reqRegion = mapPlace.region?.trim() ? mapPlace.region.trim() : null;
+        reqCountry = mapPlace.country.trim();
+        reqCityText = mapPlace.cityText?.trim() ? mapPlace.cityText.trim() : null;
+        reqLat = pin.lat;
+        reqLng = pin.lng;
+      }
+
       const body = {
         title,
         description: description || null,
         priceCents: isFree ? 0 : Math.round(Number(price) * 100),
         isFree,
         category: category || null,
-        city: city || null,
-        region: region || null,
-        cityText: cityText || null,
-        latitude: pin?.lat ?? null,
-        longitude: pin?.lng ?? null,
+        city: reqCity,
+        region: reqRegion,
+        country: reqCountry,
+        cityText: reqCityText,
+        latitude: reqLat,
+        longitude: reqLng,
         stockQuantity: stock,
       };
 
@@ -424,29 +480,110 @@ export function MarketNewPage() {
             </label>
           </div>
 
-          {/* ── Location map ───────────────────────────────────────────── */}
+          {/* ── Location: catalog or map ─────────────────────────────── */}
           <div>
             <span className="ph-label" style={{ display: "block", marginBottom: "0.5rem" }}>
-              📍 Set Approximate Location
+              📍 Item location
             </span>
-            <LocationPickerMap initial={pin ?? undefined} onLocationChange={handleLocationChange} />
-            {cityText && (
-              <p style={{ margin: "0.4rem 0 0", fontSize: "0.82rem", color: "var(--color-primary-dark)", fontWeight: 600 }}>
-                📌 {cityText}
-              </p>
-            )}
-          </div>
+            <p style={{ margin: "0 0 0.6rem", fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.4 }}>
+              Pick your country and city from the list, or drop a pin on the map — we save city, region (when available),
+              and country from the map automatically.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "0.75rem" }}>
+              <label className="pm-toggle" style={{ cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="listingLocMode"
+                  checked={locationMode === "dropdown"}
+                  onChange={() => setLocationMode("dropdown")}
+                />
+                Country and city list
+              </label>
+              <label className="pm-toggle" style={{ cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="listingLocMode"
+                  checked={locationMode === "map"}
+                  onChange={() => setLocationMode("map")}
+                />
+                Map pin
+              </label>
+            </div>
 
-          {/* ── City / Region ───────────────────────────────────────────── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-            <label>
-              <span className="ph-label">City</span>
-              <input className="ph-input" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" />
-            </label>
-            <label>
-              <span className="ph-label">Region / State</span>
-              <input className="ph-input" value={region} onChange={(e) => setRegion(e.target.value)} placeholder="Region" />
-            </label>
+            {locationMode === "dropdown" && (
+              <div style={{ display: "grid", gap: "0.65rem" }}>
+                {catLoading && !catHasData && (
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-muted)" }}>Loading countries and cities…</p>
+                )}
+                {catErr && (
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "#b42318" }}>{catErr} — switch to map pin instead.</p>
+                )}
+                {catHasData && !catErr && (
+                  <>
+                    <label>
+                      <span className="ph-label">Country</span>
+                      <select
+                        className={`ph-select${!ddCountry ? " ph-select--placeholder" : ""}`}
+                        style={{ width: "100%", fontSize: "0.92rem" }}
+                        value={ddCountry}
+                        onChange={(e) => {
+                          setDdCountry(e.target.value);
+                          setDdCity("");
+                        }}
+                        aria-label="Country"
+                      >
+                        <option value="">Country</option>
+                        {countries.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span className="ph-label">City</span>
+                      <select
+                        className={`ph-select${!ddCity ? " ph-select--placeholder" : ""}`}
+                        style={{ width: "100%", fontSize: "0.92rem" }}
+                        value={ddCity}
+                        onChange={(e) => setDdCity(e.target.value)}
+                        disabled={!ddCountry}
+                        aria-label="City"
+                      >
+                        <option value="">City</option>
+                        {ddCityOptions.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
+              </div>
+            )}
+
+            {locationMode === "map" && (
+              <div>
+                <LocationPickerMap initial={pin ?? undefined} onLocationChange={handleLocationChange} />
+                {mapPlace?.cityText ? (
+                  <p
+                    style={{
+                      margin: "0.4rem 0 0",
+                      fontSize: "0.82rem",
+                      color: "var(--color-primary-dark)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    📌 Saved as: {mapPlace.cityText}
+                  </p>
+                ) : pin ? (
+                  <p style={{ margin: "0.4rem 0 0", fontSize: "0.82rem", color: "#b42318" }}>
+                    Could not read address — try moving the pin slightly.
+                  </p>
+                ) : null}
+              </div>
+            )}
           </div>
 
           {/* ── Error ──────────────────────────────────────────────────── */}

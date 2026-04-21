@@ -23,6 +23,10 @@ export type MessengerWorkspaceProps = {
   onNewDmThread?: (threadId: number) => void;
   /** Dock: link to open full /messages in new tab or same app */
   showFullPageLink?: boolean;
+  /** Dock: close the floating chat pane (contact list stays open). */
+  onCloseDockChat?: () => void;
+  /** Dock: Messaging tab control — rendered below the contact list only, not under chat. */
+  dockTab?: ReactNode;
 };
 
 function appendUnique(prev: MessageDto[], dto: MessageDto): MessageDto[] {
@@ -79,6 +83,8 @@ export function MessengerWorkspace({
   variant,
   onNewDmThread,
   showFullPageLink,
+  onCloseDockChat,
+  dockTab,
 }: MessengerWorkspaceProps) {
   const { token, user } = useAuth();
   const { refresh: refreshGlobalThreads } = useThreadNotifications();
@@ -106,7 +112,8 @@ export function MessengerWorkspace({
     [messages],
   );
 
-  const layoutClass = "ph-msg-layout" + (variant === "dock" ? " ph-msg-layout--dock" : "");
+  const layoutClass = "ph-msg-layout";
+  const validTid = Number.isFinite(tid) && tid > 0;
 
   const loadThreads = useCallback(() => {
     void api<ThreadSummaryDto[]>("/api/chat/threads")
@@ -268,9 +275,10 @@ export function MessengerWorkspace({
     return null;
   }
 
-  return (
-    <div className={layoutClass}>
-      <aside className="ph-msg-sidebar">
+  const expandMessagesHref = validTid ? `/messages/${tid}` : "/messages";
+
+  const sidebar = (
+    <aside className={"ph-msg-sidebar" + (variant === "dock" ? " ph-msg-sidebar--dock-tray" : "")}>
         <div className="ph-msg-sidebar-top-wrap">
           <div className="ph-msg-sidebar-head">
             <div className="ph-msg-sidebar-head-top">
@@ -279,7 +287,7 @@ export function MessengerWorkspace({
               </h2>
               <div className="ph-msg-sidebar-tools">
                 {variant === "dock" && showFullPageLink && (
-                  <Link to="/messages" className="ph-msg-full-link">
+                  <Link to={expandMessagesHref} className="ph-msg-full-link">
                     Expand
                   </Link>
                 )}
@@ -342,7 +350,11 @@ export function MessengerWorkspace({
             <li key={t.id}>
               <button
                 type="button"
-                className={"ph-msg-thread-row" + (t.id === tid ? " ph-msg-thread-row--active" : "")}
+                className={
+                  "ph-msg-thread-row" +
+                  (t.id === tid ? " ph-msg-thread-row--active" : "") +
+                  (variant === "dock" ? " ph-msg-thread-row--dock" : "")
+                }
                 onClick={() => onSelectThread(t.id)}
               >
                 <div className={"ph-msg-avatar" + (t.unread === true ? " ph-msg-avatar--unread" : "")}>
@@ -372,19 +384,13 @@ export function MessengerWorkspace({
           ))}
         </ul>
       </aside>
+  );
 
-      <section className="ph-msg-main">
-        {!Number.isFinite(tid) || tid <= 0 ? (
-          <div className="ph-msg-empty">
-            <div className="ph-msg-empty-icon">
-              <MessagesSquare size={28} strokeWidth={1.5} />
-            </div>
-            <h3>Select a conversation</h3>
-            <p>Choose a thread on the left, or tap the compose button to start a new chat.</p>
-          </div>
-        ) : (
+  const chatPanel =
+    validTid ? (
           <>
             <header className="ph-msg-main-head">
+              <div className="ph-msg-main-head-left">
               {(() => {
                 const active = threads.find((x) => x.id === tid);
                 return active ? (
@@ -409,6 +415,18 @@ export function MessengerWorkspace({
                   </h3>
                 );
               })()}
+              </div>
+              {variant === "dock" && onCloseDockChat ? (
+                <button
+                  type="button"
+                  className="ph-msg-dock-chat-close"
+                  onClick={onCloseDockChat}
+                  aria-label="Close conversation"
+                  title="Close"
+                >
+                  <X size={18} strokeWidth={2.25} />
+                </button>
+              ) : null}
             </header>
 
             <div className="ph-msg-scroll">
@@ -495,6 +513,40 @@ export function MessengerWorkspace({
               </div>
             </form>
           </>
+    ) : null;
+
+  if (variant === "dock") {
+    return (
+      <>
+        {validTid ? (
+          <div className="ph-msg-dock-float ph-msg-dock-float--chat" role="dialog" aria-modal="false" aria-label="Conversation">
+            <section className="ph-msg-main ph-msg-main--dock-chat">{chatPanel}</section>
+          </div>
+        ) : null}
+        <div className="ph-msg-dock-col-list">
+          <div className="ph-msg-dock-float ph-msg-dock-float--list" role="dialog" aria-modal="false" aria-label="Messaging contacts">
+            {sidebar}
+          </div>
+          {dockTab}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className={layoutClass}>
+      {sidebar}
+      <section className="ph-msg-main">
+        {!validTid ? (
+          <div className="ph-msg-empty">
+            <div className="ph-msg-empty-icon">
+              <MessagesSquare size={28} strokeWidth={1.5} />
+            </div>
+            <h3>Select a conversation</h3>
+            <p>Choose a thread on the left, or tap the compose button to start a new chat.</p>
+          </div>
+        ) : (
+          chatPanel
         )}
       </section>
     </div>

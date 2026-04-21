@@ -9,7 +9,7 @@ function hotScoreGeneric(p: SortablePostFields): number {
   return (p.score + Math.log2(p.commentCount + 1) * 8) / Math.pow(hours + 2, gravity);
 }
 
-/** API-backed threads + mock data — same Hot / New / Unanswered behavior. */
+/** Hot / New / Unanswered sorting for API-backed forum posts. */
 export function sortPostsByMode<T extends SortablePostFields>(posts: T[], sort: ForumSort): T[] {
   const copy = [...posts];
   if (sort === "new") {

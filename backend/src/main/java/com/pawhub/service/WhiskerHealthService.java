@@ -2,6 +2,7 @@ package com.pawhub.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pawhub.config.GeminiModelIds;
 import com.pawhub.config.PawhubProperties;
 import com.pawhub.web.dto.WhiskerStatusDto;
 import java.io.IOException;
@@ -127,7 +128,7 @@ public class WhiskerHealthService {
     }
 
     private static String primaryGeminiModel(PawhubProperties.Gemini g) {
-        String primary = g.getModel() != null && !g.getModel().isBlank() ? g.getModel().trim() : "gemini-2.5-flash";
+        String primary = g.getModel() != null && !g.getModel().isBlank() ? g.getModel().trim() : GeminiModelIds.DEFAULT;
         return primary;
     }
 

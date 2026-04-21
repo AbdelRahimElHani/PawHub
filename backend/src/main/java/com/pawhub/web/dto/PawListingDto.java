@@ -16,6 +16,7 @@ public record PawListingDto(
         String category,
         String city,
         String region,
+        String country,
         String cityText,
         Double latitude,
         Double longitude,

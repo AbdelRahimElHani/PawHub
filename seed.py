@@ -131,7 +131,7 @@ for email, pw, name, extra in shelter_defs:
         shelter_tokens[email] = t
 
 # Approve shelters via admin
-shelters_list = get("/admin/shelters", admin_token)
+shelters_list = get("/admin/shelters/pending", admin_token)
 if isinstance(shelters_list, list):
     for s in shelters_list:
         if s.get("status") == "PENDING":

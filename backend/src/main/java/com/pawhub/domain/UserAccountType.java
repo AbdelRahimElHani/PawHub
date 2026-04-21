@@ -9,5 +9,7 @@ public enum UserAccountType {
     /** Primary focus: cat profiles, PawMatch, PawMarket */
     CAT_OWNER,
     /** Organization listing pets for adoption — creates pending {@link Shelter} until admin approves */
-    SHELTER
+    SHELTER,
+    /** Licensed veterinarian — creates pending {@link VetLicenseApplication} until admin approves */
+    VET
 }

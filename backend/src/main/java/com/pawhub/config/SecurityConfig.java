@@ -45,6 +45,14 @@ public class SecurityConfig {
                                 .permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/hub/**")
                                 .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/adoptable-cats")
+                                .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/pawvet/**")
+                                .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/adopt/listings/mine")
+                                .authenticated()
+                                .requestMatchers(HttpMethod.GET, "/api/adopt/listings", "/api/adopt/listings/*")
+                                .permitAll()
                                 .requestMatchers(
                                         "/error",
                                         "/api/auth/register",

@@ -1,7 +1,8 @@
-import { Edit3, ExternalLink, Gift, Trash2 } from "lucide-react";
+import { BadgeCheck, Edit3, ExternalLink, Gift, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { HubConfirmDialog } from "../hub/components/HubConfirmDialog";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
 import type { PawListingDto } from "../types";
 
@@ -20,6 +21,8 @@ export function MarketMyListingsPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [markSoldId, setMarkSoldId] = useState<number | null>(null);
+  const [markSoldLoading, setMarkSoldLoading] = useState(false);
   const { listingUnreadCount } = useThreadNotifications();
 
   const load = useCallback(() => {
@@ -34,6 +37,30 @@ export function MarketMyListingsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function markSoldOffMarket(id: number) {
+    setMarkSoldLoading(true);
+    setErr(null);
+    try {
+      const updated = await api<PawListingDto>(`/api/paw/listings/${id}/sold-off-market`, { method: "POST" });
+      setRows((r) => {
+        const next = r.map((x) => (x.id === id ? updated : x));
+        return [...next].sort((a, b) => {
+          const rank = (x: PawListingDto) => (x.pawStatus === "Available" ? 0 : 1);
+          const d = rank(a) - rank(b);
+          if (d !== 0) return d;
+          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tb - ta;
+        });
+      });
+      setMarkSoldId(null);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Could not update listing.");
+    } finally {
+      setMarkSoldLoading(false);
+    }
+  }
 
   async function removeListing(id: number) {
     if (!window.confirm("Delete this listing permanently? This only works if there are no orders yet.")) return;
@@ -51,6 +78,21 @@ export function MarketMyListingsPage() {
 
   return (
     <div>
+      <HubConfirmDialog
+        open={markSoldId != null}
+        onOpenChange={(o) => {
+          if (!o) setMarkSoldId(null);
+        }}
+        title="Mark this listing as sold?"
+        description="It disappears from Paw Market search and stays here with status Sold — your record of what you listed and that it sold (nothing is deleted)."
+        confirmLabel={markSoldLoading ? "Saving…" : "Mark as sold"}
+        danger={false}
+        onConfirm={async () => {
+          if (markSoldId == null) return;
+          await markSoldOffMarket(markSoldId);
+        }}
+      />
+
       {listingUnreadCount > 0 && (
         <div className="ph-surface pm-inbox-banner" style={{ marginBottom: "1rem" }}>
           <p style={{ margin: 0, fontWeight: 600 }}>You have new messages about your listings.</p>
@@ -84,7 +126,10 @@ export function MarketMyListingsPage() {
             const thumb = l.imageUrls?.[0] ?? l.photoUrl;
             const canEdit = l.pawStatus === "Available";
             return (
-              <li key={l.id} className="ph-surface pm-my-list__row">
+              <li
+                key={l.id}
+                className={`ph-surface pm-my-list__row${l.pawStatus === "Sold" ? " pm-my-list__row--sold" : ""}`}
+              >
                 <div className="pm-my-list__thumb">
                   {thumb ? <img src={thumb} alt="" /> : <span>🐾</span>}
                 </div>
@@ -103,14 +148,24 @@ export function MarketMyListingsPage() {
                     {l.category && <span className="pm-my-list__meta"> · {l.category}</span>}
                   </div>
                   <div className="pm-my-list__meta" style={{ marginTop: "0.25rem" }}>
-                    Stock {l.stockQuantity ?? 0}
-                    {(l.soldQuantity ?? 0) > 0 ? ` · ${l.soldQuantity} sold` : ""}
-                    {l.expiresAt ? (
+                    {l.pawStatus === "Sold" ? (
+                      <span style={{ color: "var(--color-muted)" }}>
+                        {(l.soldQuantity ?? 0) > 0
+                          ? `Off market · ${l.soldQuantity} sold via Paw Market`
+                          : "Off market — marked sold (kept for your history)"}
+                      </span>
+                    ) : (
                       <>
-                        {" "}
-                        · Ends {new Date(l.expiresAt).toLocaleDateString(undefined, { dateStyle: "short" })}
+                        Stock {l.stockQuantity ?? 0}
+                        {(l.soldQuantity ?? 0) > 0 ? ` · ${l.soldQuantity} sold via Paw Market` : ""}
+                        {l.expiresAt ? (
+                          <>
+                            {" "}
+                            · Ends {new Date(l.expiresAt).toLocaleDateString(undefined, { dateStyle: "short" })}
+                          </>
+                        ) : null}
                       </>
-                    ) : null}
+                    )}
                   </div>
                 </div>
                 <div className="pm-my-list__actions">
@@ -121,6 +176,17 @@ export function MarketMyListingsPage() {
                     <Link className="ph-btn ph-btn-ghost" to={`/market/${l.id}/edit`} title="Edit">
                       <Edit3 size={16} />
                     </Link>
+                  ) : null}
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className="ph-btn ph-btn-ghost"
+                      title="Mark as sold — remove from market, keep in your list"
+                      disabled={markSoldLoading}
+                      onClick={() => setMarkSoldId(l.id)}
+                    >
+                      <BadgeCheck size={16} />
+                    </button>
                   ) : null}
                   {canEdit ? (
                     <button

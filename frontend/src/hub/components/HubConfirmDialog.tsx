@@ -46,7 +46,11 @@ export function HubConfirmDialog({
                 type="button"
                 className={danger ? "ph-btn ph-btn-primary" : "ph-btn ph-btn-primary"}
                 style={danger ? { background: "#b42318", borderColor: "#b42318" } : undefined}
-                onClick={() => void Promise.resolve(onConfirm()).then(() => onOpenChange(false))}
+                onClick={() =>
+                  void Promise.resolve(onConfirm())
+                    .then(() => onOpenChange(false))
+                    .catch(() => {})
+                }
               >
                 {confirmLabel}
               </button>

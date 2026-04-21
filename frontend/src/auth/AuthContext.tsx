@@ -2,6 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { api, getToken, setToken } from "../api/client";
 import type { AccountType, RegisterPayload } from "./authTypes";
 
+export type VetVerificationStatusApi = "PENDING" | "APPROVED" | "REJECTED";
+
 export type AuthUser = {
   userId: number;
   email: string;
@@ -12,6 +14,9 @@ export type AuthUser = {
   profileCity: string | null;
   profileRegion: string | null;
   profileBio: string | null;
+  /** Set for veterinarian accounts from the server */
+  vetVerificationStatus?: VetVerificationStatusApi | null;
+  vetRejectionReason?: string | null;
 };
 
 type AuthContextValue = {
@@ -19,7 +24,7 @@ type AuthContextValue = {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (payload: RegisterPayload, avatarFile?: File | null) => Promise<void>;
+  register: (payload: RegisterPayload, avatarFile?: File | null, vetDocuments?: File[] | null) => Promise<void>;
   updateProfile: (patch: {
     displayName?: string;
     profileCity?: string | null;
@@ -28,6 +33,7 @@ type AuthContextValue = {
   }) => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
   logout: () => void;
+  /** Reload `/api/auth/me` (e.g. after vet approval). */
   refreshMe: () => Promise<void>;
 };
 
@@ -44,9 +50,13 @@ type AuthResponse = {
   profileCity: string | null;
   profileRegion: string | null;
   profileBio: string | null;
+  vetVerificationStatus?: string | null;
+  vetRejectionReason?: string | null;
 };
 
 function mapUser(r: AuthResponse): AuthUser {
+  const vs = r.vetVerificationStatus;
+  const vetOk = vs === "PENDING" || vs === "APPROVED" || vs === "REJECTED";
   return {
     userId: r.userId,
     email: r.email,
@@ -57,6 +67,9 @@ function mapUser(r: AuthResponse): AuthUser {
     profileCity: r.profileCity,
     profileRegion: r.profileRegion,
     profileBio: r.profileBio,
+    vetVerificationStatus: r.accountType === "VET" ? (vetOk ? vs : "PENDING") : null,
+    vetRejectionReason:
+      r.accountType === "VET" && vetOk && vs === "REJECTED" ? (r.vetRejectionReason ?? null) : null,
   };
 }
 
@@ -106,11 +119,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
-    async (payload: RegisterPayload, avatarFile?: File | null) => {
-      if (avatarFile) {
+    async (payload: RegisterPayload, avatarFile?: File | null, vetDocuments?: File[] | null) => {
+      const hasAvatar = Boolean(avatarFile && avatarFile.size > 0);
+      const vetDocs = vetDocuments?.filter((f) => f.size > 0) ?? [];
+      const useMultipart = payload.accountType === "VET" || hasAvatar;
+
+      if (useMultipart) {
         const fd = new FormData();
         fd.append("profile", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-        fd.append("avatar", avatarFile);
+        if (hasAvatar && avatarFile) fd.append("avatar", avatarFile);
+        if (payload.accountType === "VET") {
+          vetDocs.forEach((f) => fd.append("vetDocuments", f));
+        }
         const res = await fetch("/api/auth/register", { method: "POST", body: fd });
         const text = await res.text();
         if (!res.ok) {

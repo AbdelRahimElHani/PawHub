@@ -47,15 +47,10 @@ pawhub:
     enabled: true
     # Prefer backend/config/application-secrets.yml (gitignored) or env PAWHUB_GEMINI_API_KEY — never commit keys.
     api-key: ${PAWHUB_GEMINI_API_KEY:}
-    # Use model IDs that match non-zero limits in AI Studio (many accounts show 0/0 for gemini-2.0-flash).
-    # Primary: Gemini 2.5 Flash — fallback: 3.1 Flash Lite (higher RPD on free tier).
-    model: gemini-2.5-flash
-    fallback-model: gemini-3.1-flash-lite
-    # If both models 404, list IDs: GET https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
+    # Model IDs default from com.pawhub.config.GeminiModelIds (gemini-3-flash + fallback). Override here or in application-secrets.yml if needed.
+    # List models: GET https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
     # While debugging: true = listings still work if the API errors. Set false when Cat-Check is stable.
     fail-open-on-api-error: true
-    # PawBot chat (streaming). Use a model ID that ListModels shows for your key (1.5 IDs are often retired on v1beta).
-    whisker-model: gemini-2.5-flash
 
 springdoc:
   swagger-ui:

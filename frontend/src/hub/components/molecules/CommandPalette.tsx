@@ -3,52 +3,84 @@ import Fuse from "fuse.js";
 import { BookOpen, ExternalLink, MessageSquare, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { EDITORIAL_TOPICS, EXTERNAL_LINKS, FAQ_ITEMS, FAQ_CATEGORY_META } from "../../mockData";
+import { api } from "../../../api/client";
+import type { HubEditorialJson, HubFaqJson } from "../../api/hubApiTypes";
+import { EDITORIAL_TOPICS, FAQ_CATEGORY_META } from "../../hubConstants";
 
 type Hit =
   | { kind: "faq"; id: string; title: string; subtitle: string }
   | { kind: "link"; id: string; title: string; subtitle: string; url: string };
 
-function buildHits(): Hit[] {
-  const faq: Hit[] = FAQ_ITEMS.map((f) => ({
+function buildHits(faq: HubFaqJson[], editorial: HubEditorialJson[]): Hit[] {
+  const faqHits: Hit[] = faq.map((f) => ({
     kind: "faq",
     id: f.id,
     title: f.question,
-    subtitle: `${FAQ_CATEGORY_META.find((c) => c.id === f.categoryId)?.label ?? "FAQ"} · knowledge base`,
+    subtitle: `${FAQ_CATEGORY_META.find((c) => c.id === f.categoryId)?.label ?? f.categoryId} · knowledge base`,
   }));
-  const links: Hit[] = EXTERNAL_LINKS.map((e) => ({
+  const linkHits: Hit[] = editorial.map((e) => ({
     kind: "link",
     id: e.id,
     title: e.title,
-    subtitle: `${e.sourceLabel} · ${EDITORIAL_TOPICS.find((t) => t.id === e.topicId)?.label ?? e.topicId}`,
+    subtitle: `${e.sourceLabel ?? "Editorial"} · ${EDITORIAL_TOPICS.find((t) => t.id === e.topicId)?.label ?? e.topicId}`,
     url: e.url,
   }));
-  return [...faq, ...links];
+  return [...faqHits, ...linkHits];
 }
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [faqRows, setFaqRows] = useState<HubFaqJson[]>([]);
+  const [editorialRows, setEditorialRows] = useState<HubEditorialJson[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const fuse = useMemo(() => {
-    const hits = buildHits();
-    return new Fuse(hits, {
-      keys: [
-        { name: "title", weight: 0.55 },
-        { name: "subtitle", weight: 0.35 },
-      ],
-      threshold: 0.28,
-      ignoreLocation: true,
-      minMatchCharLength: 1,
-    });
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void Promise.all([api<HubFaqJson[]>("/api/hub/faq"), api<HubEditorialJson[]>("/api/hub/editorial")])
+      .then(([faq, editorial]) => {
+        if (!cancelled) {
+          setFaqRows(faq);
+          setEditorialRows(editorial);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFaqRows([]);
+          setEditorialRows([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  const hits = useMemo(() => buildHits(faqRows, editorialRows), [faqRows, editorialRows]);
+
+  const fuse = useMemo(
+    () =>
+      new Fuse(hits, {
+        keys: [
+          { name: "title", weight: 0.55 },
+          { name: "subtitle", weight: 0.35 },
+        ],
+        threshold: 0.28,
+        ignoreLocation: true,
+        minMatchCharLength: 1,
+      }),
+    [hits],
+  );
+
   const results = useMemo(() => {
-    const hits = buildHits();
+    if (loading) return [];
     if (!query.trim()) return hits.slice(0, 16);
     return fuse.search(query.trim()).map((r) => r.item);
-  }, [fuse, query]);
+  }, [fuse, query, hits, loading]);
 
   const onSelect = useCallback(
     (h: Hit) => {
@@ -95,7 +127,9 @@ export function CommandPalette() {
             />
           </div>
           <div className="hub-dialog-list" role="listbox">
-            {results.length === 0 ? (
+            {loading ? (
+              <p style={{ padding: "1rem", color: "var(--color-muted)", margin: 0 }}>Loading from server…</p>
+            ) : results.length === 0 ? (
               <p style={{ padding: "1rem", color: "var(--color-muted)", margin: 0 }}>No matches — try different words.</p>
             ) : (
               results.map((h) => (

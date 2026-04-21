@@ -1,6 +1,6 @@
 /**
  * Content & community models for the PawHub Learn hub.
- * Swap `mockData.ts` for API/Supabase responses later — keep field names stable.
+ * FAQ and editorial rows map to `/api/hub/*` JSON — keep field names stable with the backend.
  */
 
 export type FaqCategoryId =
@@ -25,7 +25,7 @@ export type ExternalLinkEntry = {
   id: string;
   title: string;
   url: string;
-  /** Topic id for filtering (see EDITORIAL_TOPICS in mockData). */
+  /** Topic id for filtering (see EDITORIAL_TOPICS in hubConstants). */
   topicId: string;
   sourceLabel: string;
   dek: string;

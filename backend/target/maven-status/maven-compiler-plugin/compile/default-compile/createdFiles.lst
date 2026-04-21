@@ -1,3 +1,6 @@
+com\pawhub\service\AdoptionService$1.class
 com\pawhub\domain\CatGender.class
+com\pawhub\web\dto\VetApplicationMetricsDto.class
+com\pawhub\web\dto\RejectVetApplicationRequest.class
 com\pawhub\web\dto\WhiskerTitleResponse.class
 com\pawhub\web\dto\UpdateProfileRequest.class

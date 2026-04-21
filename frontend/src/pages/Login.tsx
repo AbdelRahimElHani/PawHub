@@ -1,11 +1,12 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { AuthShell } from "../auth/AuthShell";
 
 export function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -15,7 +16,8 @@ export function Login() {
     setErr(null);
     try {
       await login(email, password);
-      nav("/");
+      const next = searchParams.get("next");
+      nav(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : "Login failed");
     }

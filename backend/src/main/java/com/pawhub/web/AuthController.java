@@ -6,6 +6,7 @@ import com.pawhub.web.dto.AuthResponse;
 import com.pawhub.web.dto.LoginRequest;
 import com.pawhub.web.dto.RegisterRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,8 +28,9 @@ public class AuthController {
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public AuthResponse registerMultipart(
             @RequestPart("profile") @Valid RegisterRequest profile,
-            @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
-        return authService.register(profile, avatar);
+            @RequestPart(value = "avatar", required = false) MultipartFile avatar,
+            @RequestPart(value = "vetDocuments", required = false) List<MultipartFile> vetDocuments) {
+        return authService.register(profile, avatar, vetDocuments);
     }
 
     @PostMapping("/login")

@@ -20,4 +20,10 @@ public record RegisterRequest(
         @Size(max = 255) String shelterRegion,
         @Size(max = 64) String shelterPhone,
         @Size(max = 255) String shelterEmailContact,
-        @Size(max = 4000) String shelterBio) {}
+        @Size(max = 4000) String shelterBio,
+        /* VET account — required in service when accountType is VET */
+        @Size(max = 128) String vetLicenseNumber,
+        @Size(max = 255) String vetUniversity,
+        Integer vetYearsExperience,
+        @Size(max = 64) String vetPhone,
+        @Size(max = 4000) String vetProfessionalBio) {}

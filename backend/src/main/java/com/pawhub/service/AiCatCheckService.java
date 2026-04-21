@@ -3,6 +3,7 @@ package com.pawhub.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pawhub.config.GeminiModelIds;
 import com.pawhub.config.PawhubProperties;
 import com.pawhub.web.dto.CatCheckResponse;
 import java.nio.charset.StandardCharsets;
@@ -124,9 +125,8 @@ public class AiCatCheckService {
     }
 
     private CatCheckResponse callGeminiForImage(List<Map<String, Object>> parts) {
-        String primary = nonBlankModel(props.getGemini().getModel(), "gemini-2.5-flash");
-        String fallback = props.getGemini().getFallbackModel();
-        fallback = fallback == null ? "" : fallback.trim();
+        String primary = nonBlankModel(props.getGemini().getModel(), GeminiModelIds.DEFAULT);
+        String fallback = nonBlankModel(props.getGemini().getFallbackModel(), GeminiModelIds.FALLBACK_ON_429);
 
         try {
             String raw = invokeGeminiGenerateContent(parts, primary);

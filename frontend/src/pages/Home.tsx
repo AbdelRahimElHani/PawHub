@@ -29,6 +29,7 @@ const TYPE_INTRO: Record<string, string> = {
   ADOPTER: "Explore matches, browse adoptions, and save your profile.",
   CAT_OWNER: "List your cats on PawMatch and PawMarket from My cats.",
   SHELTER: "Your shelter application is tied to your account — manage it under PawAdopt.",
+  VET: "PawVet triage — upload credentials at signup, then watch your email for an interview invite before you can claim cases.",
 };
 
 export function Home() {
@@ -91,6 +92,16 @@ export function Home() {
           <strong>My cats</strong>
           <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Profiles and photos for your cats.</div>
         </Link>
+        <Link className="ph-surface" to="/pawvet" style={{ padding: "1rem", display: "block" }}>
+          <strong>PawVet</strong>
+          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Triage, chat, and vet tools.</div>
+        </Link>
+        {user.accountType === "VET" && (
+          <Link className="ph-surface" to="/vet" style={{ padding: "1rem", display: "block" }}>
+            <strong>Vet dashboard</strong>
+            <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Claim cases after admin approval.</div>
+          </Link>
+        )}
         {user.accountType === "SHELTER" && (
           <Link className="ph-surface" to="/adopt/shelter" style={{ padding: "1rem", display: "block" }}>
             <strong>Shelter profile</strong>

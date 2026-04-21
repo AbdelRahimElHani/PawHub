@@ -14,6 +14,7 @@ public record PawListingUpsertRequest(
         String category,
         String city,
         String region,
+        @Size(max = 128) String country,
         String cityText,
         Double latitude,
         Double longitude,

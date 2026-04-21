@@ -1,8 +1,8 @@
-/* PawBot chat — sage / cream, glass, dark mode */
+/* PawBot chat — uses global PawHub greens (same as .ph-btn-primary, :root) */
 
 .whisker-root {
-  --whisker-sage: #3d8b7a;
-  --whisker-sage-deep: #2f6d5f;
+  --whisker-sage: var(--color-primary, #3d8b7a);
+  --whisker-sage-deep: var(--color-primary-dark, #2f6d5f);
   --whisker-cream: #f6f3ef;
   --whisker-cream-soft: #fffaf3;
   --whisker-accent: #f4b942;
@@ -35,15 +35,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, var(--whisker-sage), var(--whisker-sage-deep));
+  /* Same gradient as theme primary buttons */
+  background: linear-gradient(135deg, var(--color-primary, #3d8b7a), var(--color-primary-dark, #2f6d5f));
   color: #fff;
-  box-shadow: var(--whisker-shadow), 0 0 0 4px rgba(61, 139, 122, 0.2);
+  box-shadow: var(--whisker-shadow), 0 8px 20px rgba(61, 139, 122, 0.28), 0 0 0 3px rgba(61, 139, 122, 0.18);
   transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .whisker-fab:hover {
   transform: scale(1.04);
-  box-shadow: var(--whisker-shadow), 0 0 0 6px rgba(61, 139, 122, 0.28);
+  box-shadow: var(--whisker-shadow), 0 10px 24px rgba(61, 139, 122, 0.38), 0 0 0 5px rgba(61, 139, 122, 0.22);
 }
 
 .whisker-fab:focus-visible {
@@ -51,9 +52,10 @@
   outline-offset: 3px;
 }
 
+/* Keep project green; red ring shows offline (no gray FAB) */
 .whisker-fab--offline {
-  background: linear-gradient(145deg, #64748b, #475569);
-  box-shadow: var(--whisker-shadow), 0 0 0 4px rgba(239, 68, 68, 0.35);
+  background: linear-gradient(135deg, var(--color-primary, #3d8b7a), var(--color-primary-dark, #2f6d5f));
+  box-shadow: var(--whisker-shadow), 0 8px 20px rgba(61, 139, 122, 0.22), 0 0 0 3px rgba(239, 68, 68, 0.45);
 }
 
 @keyframes whisker-spin {
@@ -163,14 +165,14 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.35);
+  background: var(--color-primary, #3d8b7a);
+  box-shadow: 0 0 0 3px rgba(61, 139, 122, 0.35);
   animation: whisker-pulse-dot 2.4s ease-in-out infinite;
 }
 
 .whisker-dot--loading {
-  background: #94a3b8;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.35);
+  background: var(--color-primary, #3d8b7a);
+  box-shadow: 0 0 0 3px rgba(61, 139, 122, 0.4);
   animation: whisker-pulse-dot 1.2s ease-in-out infinite;
 }
 
@@ -618,7 +620,7 @@
 }
 
 .whisker-eye {
-  fill: #1a3d36;
+  fill: var(--color-primary-dark, #2f6d5f);
 }
 
 .whisker-eye--wink {
@@ -645,7 +647,7 @@
 
 .whisker-smile {
   fill: none;
-  stroke: #1a3d36;
+  stroke: var(--color-primary-dark, #2f6d5f);
   stroke-width: 1.4;
   stroke-linecap: round;
 }

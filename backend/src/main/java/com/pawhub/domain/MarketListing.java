@@ -41,6 +41,10 @@ public class MarketListing {
     private String city;
     private String region;
 
+    /** ISO-style country name from catalog or reverse geocode (e.g. United States). */
+    @Column(length = 128)
+    private String country;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 32)
