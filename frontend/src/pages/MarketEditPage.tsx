@@ -5,12 +5,9 @@ import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { LocationPickerMap } from "../market/LocationPickerMap";
 import type { LatLng } from "../market/LocationPickerMap";
-<<<<<<< HEAD
 import type { ReverseGeocodedPlace } from "../market/reverseGeocodeNominatim";
 import { useCountriesCitiesCatalog } from "../market/useCountriesCitiesCatalog";
-=======
 import { useGeolocation } from "../market/useGeolocation";
->>>>>>> origin/Branch3rd
 import type { PawListingDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
 
@@ -500,7 +497,6 @@ export function MarketEditPage() {
             <span className="ph-label" style={{ display: "block", marginBottom: "0.5rem" }}>
               Item location
             </span>
-<<<<<<< HEAD
             <p style={{ margin: "0 0 0.6rem", fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.4 }}>
               Use the country and city list, or a map pin — city, region (when available), and country are saved from the
               map automatically.
@@ -525,19 +521,6 @@ export function MarketEditPage() {
                 Map pin
               </label>
             </div>
-=======
-            <LocationPickerMap
-              hintCenter={geoHint}
-              initial={pin ?? undefined}
-              onLocationChange={handleLocationChange}
-            />
-            {cityText && (
-              <p style={{ margin: "0.4rem 0 0", fontSize: "0.82rem", color: "var(--color-primary-dark)", fontWeight: 600 }}>
-                {cityText}
-              </p>
-            )}
-          </div>
->>>>>>> origin/Branch3rd
 
             {locationMode === "dropdown" && (
               <div style={{ display: "grid", gap: "0.65rem" }}>
@@ -594,7 +577,11 @@ export function MarketEditPage() {
 
             {locationMode === "map" && (
               <div>
-                <LocationPickerMap initial={pin ?? undefined} onLocationChange={handleLocationChange} />
+                <LocationPickerMap
+                  hintCenter={geoHint}
+                  initial={pin ?? undefined}
+                  onLocationChange={handleLocationChange}
+                />
                 {mapPlace?.cityText ? (
                   <p
                     style={{

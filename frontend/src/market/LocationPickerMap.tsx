@@ -1,14 +1,9 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-<<<<<<< HEAD
-import { useState } from "react";
-import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
-import type { ReverseGeocodedPlace } from "./reverseGeocodeNominatim";
-import { reverseGeocodeNominatim } from "./reverseGeocodeNominatim";
-=======
 import { useEffect, useState } from "react";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
->>>>>>> origin/Branch3rd
+import type { ReverseGeocodedPlace } from "./reverseGeocodeNominatim";
+import { reverseGeocodeNominatim } from "./reverseGeocodeNominatim";
 
 // Fix default marker icons broken by webpack/vite bundling
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -20,24 +15,15 @@ L.Icon.Default.mergeOptions({
 
 export type LatLng = { lat: number; lng: number };
 
-<<<<<<< HEAD
-/** Default view when no pin yet: Ras Beirut (Raouche), Beirut, Lebanon */
+/** Default view when no pin: Ras Beirut (Raouche) area */
 const DEFAULT_CENTER: [number, number] = [33.9014, 35.4818];
 
-interface LocationPickerMapProps {
+export interface LocationPickerMapProps {
   initial?: LatLng;
+  /** Browser GPS — map centers here for new listings when there is no saved pin yet. */
+  hintCenter?: LatLng | null;
   /** Fires after each map click; `place` is null if geocoding failed. */
   onLocationChange: (pos: LatLng, place: ReverseGeocodedPlace | null) => void;
-=======
-/** Beirut — used only when there is no saved pin and browser location is unavailable */
-const DEFAULT_CENTER: [number, number] = [33.8938, 35.5018];
-
-interface LocationPickerMapProps {
-  initial?: LatLng;
-  /** Browser GPS (or similar). Map flies here for new listings so the view matches the seller. */
-  hintCenter?: LatLng | null;
-  onLocationChange: (pos: LatLng, cityText: string) => void;
->>>>>>> origin/Branch3rd
 }
 
 function ClickHandler({ onPick }: { onPick: (pos: LatLng) => void }) {
@@ -47,56 +33,6 @@ function ClickHandler({ onPick }: { onPick: (pos: LatLng) => void }) {
     },
   });
   return null;
-}
-
-<<<<<<< HEAD
-export function LocationPickerMap({ initial, onLocationChange }: LocationPickerMapProps) {
-  const [pin, setPin] = useState<LatLng | null>(initial ?? null);
-  const center: [number, number] = initial ? [initial.lat, initial.lng] : DEFAULT_CENTER;
-=======
-/** Nominatim requires an identifying User-Agent; without it, results can be wrong or blocked. */
-const NOMINATIM_HEADERS: HeadersInit = {
-  "User-Agent": "PawHub/1.0 (https://github.com/pawhub; listing location)",
-  "Accept-Language": "en",
-};
-
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-    const res = await fetch(url, { headers: NOMINATIM_HEADERS });
-    if (!res.ok) return "";
-    const data = (await res.json()) as {
-      address?: {
-        city?: string;
-        town?: string;
-        village?: string;
-        municipality?: string;
-        suburb?: string;
-        neighbourhood?: string;
-        city_district?: string;
-        state?: string;
-        region?: string;
-        county?: string;
-        country?: string;
-      };
-    };
-    const a = data.address ?? {};
-    const locality =
-      a.city ||
-      a.town ||
-      a.village ||
-      a.municipality ||
-      a.suburb ||
-      a.city_district ||
-      a.neighbourhood ||
-      "";
-    const regionPart = a.state || a.region || a.county || "";
-    const country = a.country || "";
-    const parts = [locality, regionPart, country].filter((p) => p.length > 0);
-    return parts.join(", ");
-  } catch {
-    return "";
-  }
 }
 
 function FlyToWhenCenterChanges({ center, zoom }: { center: [number, number]; zoom: number }) {
@@ -129,7 +65,6 @@ export function LocationPickerMap({ initial, hintCenter, onLocationChange }: Loc
     if (!hintCenter) return;
     setViewCenter([hintCenter.lat, hintCenter.lng]);
   }, [initial, pin, hintCenter]);
->>>>>>> origin/Branch3rd
 
   async function handlePick(pos: LatLng) {
     setPin(pos);

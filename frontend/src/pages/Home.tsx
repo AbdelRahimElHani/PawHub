@@ -99,45 +99,6 @@ export function Home() {
         </div>
       </div>
 
-<<<<<<< HEAD
-      <div className="ph-grid ph-grid-2" style={{ marginTop: "1.25rem" }}>
-        <Link className="ph-surface" to="/pawmatch" style={{ padding: "1rem", display: "block" }}>
-          <strong>PawMatch</strong>
-          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Swipe and match with cats.</div>
-        </Link>
-        <Link className="ph-surface" to="/market" style={{ padding: "1rem", display: "block" }}>
-          <strong>PawMarket</strong>
-          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Listings and supplies.</div>
-        </Link>
-        <Link className="ph-surface" to="/hub" style={{ padding: "1rem", display: "block" }}>
-          <strong>Learn</strong>
-          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>FAQ, editorial, and community.</div>
-        </Link>
-        <Link className="ph-surface" to="/adopt" style={{ padding: "1rem", display: "block" }}>
-          <strong>PawAdopt</strong>
-          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Browse adoption listings.</div>
-        </Link>
-        <Link className="ph-surface" to="/cats" style={{ padding: "1rem", display: "block" }}>
-          <strong>My cats</strong>
-          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Profiles and photos for your cats.</div>
-        </Link>
-        <Link className="ph-surface" to={isAdminAccount(user) ? "/pawvet/admin" : "/pawvet"} style={{ padding: "1rem", display: "block" }}>
-          <strong>PawVet</strong>
-          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>
-            {isAdminAccount(user) ? "Verification queue and PawVet administration." : "Triage, chat, and vet tools."}
-          </div>
-        </Link>
-        {user.accountType === "VET" && !isAdminAccount(user) && (
-          <Link className="ph-surface" to="/vet" style={{ padding: "1rem", display: "block" }}>
-            <strong>Vet dashboard</strong>
-            <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Claim cases after admin approval.</div>
-          </Link>
-        )}
-        {user.accountType === "SHELTER" && (
-          <Link className="ph-surface" to="/adopt/shelter" style={{ padding: "1rem", display: "block" }}>
-            <strong>Shelter profile</strong>
-            <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Status and organization details.</div>
-=======
       <div className="ph-dash-grid">
         {DASH_TILES.filter((t) => !t.shelterOnly || user.accountType === "SHELTER").map((t) => (
           <Link key={t.to} className="ph-surface ph-dash-tile" to={t.to}>
@@ -148,9 +109,30 @@ export function Home() {
               <strong>{t.title}</strong>
               <div className="ph-dash-tile-desc">{t.desc}</div>
             </div>
->>>>>>> origin/Branch3rd
           </Link>
         ))}
+        <Link className="ph-surface ph-dash-tile" to={isAdminAccount(user) ? "/pawvet/admin" : "/pawvet"}>
+          <span className="ph-dash-tile-emoji" aria-hidden>
+            🩺
+          </span>
+          <div>
+            <strong>PawVet</strong>
+            <div className="ph-dash-tile-desc">
+              {isAdminAccount(user) ? "Verification queue and PawVet administration." : "Triage, chat, and vet tools."}
+            </div>
+          </div>
+        </Link>
+        {user.accountType === "VET" && !isAdminAccount(user) && (
+          <Link className="ph-surface ph-dash-tile" to="/vet">
+            <span className="ph-dash-tile-emoji" aria-hidden>
+              📋
+            </span>
+            <div>
+              <strong>Vet dashboard</strong>
+              <div className="ph-dash-tile-desc">Claim cases after admin approval.</div>
+            </div>
+          </Link>
+        )}
       </div>
     </div>
   );
