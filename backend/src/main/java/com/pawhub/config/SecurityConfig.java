@@ -35,7 +35,13 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOriginPatterns(
-                List.of("http://localhost:*", "http://127.0.0.1:*", "http://[::1]:*", "https://localhost:*"));
+                List.of(
+                        "http://localhost:*",
+                        "http://127.0.0.1:*",
+                        "http://[::1]:*",
+                        "https://localhost:*",
+                        "https://*.up.railway.app",
+                        "https://*.railway.app"));
         cors.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("*"));
         cors.setAllowCredentials(false);

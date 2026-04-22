@@ -36,8 +36,9 @@ spring:
     mixed: true
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 12MB
+      # Room for large images / short videos; raise further if needed
+      max-file-size: 50MB
+      max-request-size: 55MB
 
 server:
   port: 8080
@@ -57,12 +58,14 @@ pawhub:
     email: demo@pawhub.local
     password: PawHub2026!
     display-name: Demo User
-  frontend-base-url: "http://localhost:5173"
+  frontend-base-url: ${PAWHUB_FRONTEND_BASE_URL:http://localhost:5173}
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-long-random-secret-key-for-production-use-only}
     expiration-ms: 86400000
-  upload-dir: ${user.dir}/uploads
-  public-base-url: http://localhost:8080
+  # Local: default under cwd. Railway: attach a Volume at /app/uploads and set PAWHUB_UPLOAD_DIR=/app/uploads
+  upload-dir: ${PAWHUB_UPLOAD_DIR:${user.dir}/uploads}
+  # Base URL of this API (no trailing slash). Used in stored file URLs: {public-base-url}/api/files/{name}
+  public-base-url: ${PAWHUB_PUBLIC_BASE_URL:http://localhost:8080}
   gemini:
     enabled: ${PAWHUB_GEMINI_ENABLED:${GEMINI_ENABLED:true}}
     api-key: ${PAWHUB_GEMINI_API_KEY:${GEMINI_API_KEY:}}
