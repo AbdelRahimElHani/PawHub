@@ -5,6 +5,7 @@ import { api, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { LocationPickerMap } from "../market/LocationPickerMap";
 import type { LatLng } from "../market/LocationPickerMap";
+import { useGeolocation } from "../market/useGeolocation";
 import type { PawListingDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
 
@@ -20,6 +21,7 @@ export function MarketEditPage() {
   const { id } = useParams();
   const nav = useNavigate();
   const { user } = useAuth();
+  const { position: geoHint } = useGeolocation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [existingCover, setExistingCover] = useState<string | null>(null);
@@ -425,7 +427,11 @@ export function MarketEditPage() {
             <span className="ph-label" style={{ display: "block", marginBottom: "0.5rem" }}>
               Approximate location
             </span>
-            <LocationPickerMap initial={pin ?? undefined} onLocationChange={handleLocationChange} />
+            <LocationPickerMap
+              hintCenter={geoHint}
+              initial={pin ?? undefined}
+              onLocationChange={handleLocationChange}
+            />
             {cityText && (
               <p style={{ margin: "0.4rem 0 0", fontSize: "0.82rem", color: "var(--color-primary-dark)", fontWeight: 600 }}>
                 {cityText}

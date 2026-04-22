@@ -31,14 +31,32 @@ import { ThreadPage } from "./hub/pages/ThreadPage";
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
-  if (loading) return <p>Loading…</p>;
+  if (loading) {
+    return (
+      <div className="ph-loading-full" role="status" aria-live="polite">
+        <div className="ph-loading-paws" aria-hidden>
+          🐾
+        </div>
+        <p style={{ margin: 0 }}>Loading PawHub…</p>
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
 function RequireAdmin({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
-  if (loading) return <p>Loading…</p>;
+  if (loading) {
+    return (
+      <div className="ph-loading-full" role="status" aria-live="polite">
+        <div className="ph-loading-paws" aria-hidden>
+          🐾
+        </div>
+        <p style={{ margin: 0 }}>Loading…</p>
+      </div>
+    );
+  }
   if (!user || user.role !== "ADMIN") return <Navigate to="/" replace />;
   return children;
 }
@@ -50,7 +68,16 @@ function LegacyChatRedirect() {
 
 function AppRoot() {
   const { user, loading } = useAuth();
-  if (loading) return <p>Loading…</p>;
+  if (loading) {
+    return (
+      <div className="ph-loading-full" role="status" aria-live="polite">
+        <div className="ph-loading-paws" aria-hidden>
+          🐾
+        </div>
+        <p style={{ margin: 0 }}>Loading PawHub…</p>
+      </div>
+    );
+  }
   if (!user) return <GuestLanding />;
   return (
     <Layout>

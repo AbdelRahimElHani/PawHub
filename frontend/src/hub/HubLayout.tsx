@@ -22,7 +22,16 @@ export function HubLayout() {
       <div className="hub-root">
         <div className="hub-shell">
           <aside className="hub-sidebar" aria-label="Learn navigation">
-            <div className="hub-sidebar-brand">PawHub Learn</div>
+            <div className="hub-sidebar-brand">
+              <img
+                src="/pawhub-logo.png"
+                alt="PawHub Learn"
+                className="hub-sidebar-brand-logo"
+                width={260}
+                height={62}
+                decoding="async"
+              />
+            </div>
             <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.4 }}>
               Guides, stories, and community — curated for thoughtful cat people.
             </p>

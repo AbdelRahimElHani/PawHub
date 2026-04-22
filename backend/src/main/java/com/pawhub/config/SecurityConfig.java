@@ -59,6 +59,8 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/pawhub-logo.png")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/hub/**")
                         .permitAll()
                         .requestMatchers("/api/auth/**")

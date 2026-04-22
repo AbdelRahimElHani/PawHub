@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
+import { BrandLogo } from "../components/BrandLogo";
 import { useAuth } from "../auth/AuthContext";
 import { MessagingDock } from "../messenger/MessagingDock";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
@@ -38,18 +39,9 @@ function PawMarketNavLink() {
 export function Layout({ children }: { children?: ReactNode }) {
   const { user, logout } = useAuth();
   return (
-    <div
-      style={{
-        maxWidth: 1100,
-        margin: "0 auto",
-        paddingTop: "1rem",
-        paddingLeft: "1.25rem",
-        paddingRight: "1.25rem",
-        paddingBottom: user ? "4.5rem" : "2rem",
-      }}
-    >
+    <div className={`ph-layout-wrap${user ? " ph-layout-wrap--dock" : ""}`}>
       <header
-        className="ph-surface"
+        className="ph-surface ph-app-header"
         style={{
           display: "flex",
           alignItems: "center",
@@ -59,8 +51,13 @@ export function Layout({ children }: { children?: ReactNode }) {
           marginBottom: "1.25rem",
         }}
       >
-        <Link to="/" className="brand" style={{ fontSize: "1.35rem", fontWeight: 800, color: "var(--color-primary-dark)" }}>
-          PawHub
+        <Link
+          to="/"
+          className="brand ph-shell-brand"
+          aria-label="PawHub home"
+          style={{ display: "inline-flex", alignItems: "center", lineHeight: 0 }}
+        >
+          <BrandLogo variant="nav" />
         </Link>
         <nav style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
           <NavLink to="/cats" style={linkStyle}>
@@ -79,24 +76,30 @@ export function Layout({ children }: { children?: ReactNode }) {
           <NavLink to="/adopt" style={linkStyle}>
             PawAdopt
           </NavLink>
-          <NavLink to="/account" style={linkStyle}>
-            Account
-          </NavLink>
           {user?.role === "ADMIN" && (
             <NavLink to="/admin" style={linkStyle}>
               Admin
             </NavLink>
           )}
         </nav>
-        <div className="ph-user-chip" style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>
-          {user?.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" className="ph-user-avatar-sm" />
-          ) : (
-            <div className="ph-user-avatar-sm" style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem" }}>
-              you
-            </div>
-          )}
-          <span>{user?.displayName}</span>
+        <div className="ph-user-chip">
+          <NavLink
+            to="/account"
+            className={({ isActive }) => "ph-user-chip-account" + (isActive ? " ph-user-chip-account--active" : "")}
+            title="My account"
+          >
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="ph-user-avatar-sm" />
+            ) : (
+              <div
+                className="ph-user-avatar-sm"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem" }}
+              >
+                you
+              </div>
+            )}
+            <span className="ph-user-chip-name">{user?.displayName ?? "Account"}</span>
+          </NavLink>
           <button type="button" className="ph-btn ph-btn-ghost" onClick={logout}>
             Log out
           </button>

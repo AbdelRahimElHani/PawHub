@@ -1,7 +1,7 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { useState } from "react";
-import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import { useEffect, useState } from "react";
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 // Fix default marker icons broken by webpack/vite bundling
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -13,8 +13,13 @@ L.Icon.Default.mergeOptions({
 
 export type LatLng = { lat: number; lng: number };
 
+/** Beirut — used only when there is no saved pin and browser location is unavailable */
+const DEFAULT_CENTER: [number, number] = [33.8938, 35.5018];
+
 interface LocationPickerMapProps {
   initial?: LatLng;
+  /** Browser GPS (or similar). Map flies here for new listings so the view matches the seller. */
+  hintCenter?: LatLng | null;
   onLocationChange: (pos: LatLng, cityText: string) => void;
 }
 
@@ -27,34 +32,81 @@ function ClickHandler({ onPick }: { onPick: (pos: LatLng) => void }) {
   return null;
 }
 
+/** Nominatim requires an identifying User-Agent; without it, results can be wrong or blocked. */
+const NOMINATIM_HEADERS: HeadersInit = {
+  "User-Agent": "PawHub/1.0 (https://github.com/pawhub; listing location)",
+  "Accept-Language": "en",
+};
+
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`;
-    const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+    const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+    if (!res.ok) return "";
     const data = (await res.json()) as {
       address?: {
         city?: string;
         town?: string;
         village?: string;
+        municipality?: string;
         suburb?: string;
         neighbourhood?: string;
+        city_district?: string;
+        state?: string;
+        region?: string;
         county?: string;
+        country?: string;
       };
     };
     const a = data.address ?? {};
-    const city = a.city ?? a.town ?? a.village ?? a.county ?? "";
-    const area = a.suburb ?? a.neighbourhood ?? "";
-    return [city, area].filter(Boolean).join(", ");
+    const locality =
+      a.city ||
+      a.town ||
+      a.village ||
+      a.municipality ||
+      a.suburb ||
+      a.city_district ||
+      a.neighbourhood ||
+      "";
+    const regionPart = a.state || a.region || a.county || "";
+    const country = a.country || "";
+    const parts = [locality, regionPart, country].filter((p) => p.length > 0);
+    return parts.join(", ");
   } catch {
     return "";
   }
 }
 
-export function LocationPickerMap({ initial, onLocationChange }: LocationPickerMapProps) {
+function FlyToWhenCenterChanges({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+}
+
+export function LocationPickerMap({ initial, hintCenter, onLocationChange }: LocationPickerMapProps) {
   const [pin, setPin] = useState<LatLng | null>(initial ?? null);
-  const center: [number, number] = initial
-    ? [initial.lat, initial.lng]
-    : [48.8566, 2.3522]; // default to Paris
+
+  const [viewCenter, setViewCenter] = useState<[number, number]>(() => {
+    if (initial) return [initial.lat, initial.lng];
+    if (hintCenter) return [hintCenter.lat, hintCenter.lng];
+    return DEFAULT_CENTER;
+  });
+
+  useEffect(() => {
+    if (initial) {
+      setPin(initial);
+      setViewCenter([initial.lat, initial.lng]);
+    }
+  }, [initial?.lat, initial?.lng]);
+
+  useEffect(() => {
+    if (initial) return;
+    if (pin) return;
+    if (!hintCenter) return;
+    setViewCenter([hintCenter.lat, hintCenter.lng]);
+  }, [initial, pin, hintCenter]);
 
   async function handlePick(pos: LatLng) {
     setPin(pos);
@@ -65,11 +117,12 @@ export function LocationPickerMap({ initial, onLocationChange }: LocationPickerM
   return (
     <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border)" }}>
       <MapContainer
-        center={center}
+        center={viewCenter}
         zoom={12}
         style={{ height: 280, width: "100%" }}
         scrollWheelZoom={false}
       >
+        <FlyToWhenCenterChanges center={viewCenter} zoom={12} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -88,7 +141,7 @@ export function LocationPickerMap({ initial, onLocationChange }: LocationPickerM
       >
         {pin
           ? `Pin at ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)} — click to move`
-          : "Click on the map to drop a pin"}
+          : "Click on the map to drop a pin (map centers on your location when available)"}
       </p>
     </div>
   );

@@ -13,7 +13,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <AuthProvider>
           <ThreadNotificationProvider>
-            <App />
+            <div className="ph-app-root">
+              <App />
+            </div>
           </ThreadNotificationProvider>
         </AuthProvider>
       </BrowserRouter>

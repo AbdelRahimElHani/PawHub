@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { getToken } from "../api/client";
 import { LocationPickerMap } from "../market/LocationPickerMap";
 import type { LatLng } from "../market/LocationPickerMap";
+import { useGeolocation } from "../market/useGeolocation";
 import type { PawListingDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
 
@@ -17,6 +18,7 @@ type CatCheckResult =
 
 export function MarketNewPage() {
   const nav = useNavigate();
+  const { position: geoHint } = useGeolocation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -429,7 +431,11 @@ export function MarketNewPage() {
             <span className="ph-label" style={{ display: "block", marginBottom: "0.5rem" }}>
               📍 Set Approximate Location
             </span>
-            <LocationPickerMap initial={pin ?? undefined} onLocationChange={handleLocationChange} />
+            <LocationPickerMap
+              hintCenter={geoHint}
+              initial={pin ?? undefined}
+              onLocationChange={handleLocationChange}
+            />
             {cityText && (
               <p style={{ margin: "0.4rem 0 0", fontSize: "0.82rem", color: "var(--color-primary-dark)", fontWeight: 600 }}>
                 📌 {cityText}
