@@ -6,6 +6,14 @@ import { useAuth } from "../auth/AuthContext";
 import { useVetStore } from "../store/useVetStore";
 import "../pawvet/pawvet.css";
 
+function formatAgeMonths(m: number | null | undefined): string {
+  if (m == null) return "—";
+  if (m < 12) return `${m} mo`;
+  const y = Math.floor(m / 12);
+  const mo = m % 12;
+  return mo ? `${y} yr ${mo} mo` : `${y} yr`;
+}
+
 export function ConsultationRoom() {
   const { caseId } = useParams();
   const nav = useNavigate();
@@ -147,6 +155,88 @@ export function ConsultationRoom() {
           </button>
         ) : null}
       </header>
+
+      {c.catSnapshot ? (
+        <div className="pawvet-glass-card" style={{ padding: "0.85rem 1rem", marginBottom: "0.75rem", display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-start" }}>
+          {c.catSnapshot.primaryPhotoUrl ? (
+            <img
+              src={c.catSnapshot.primaryPhotoUrl}
+              alt=""
+              style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover", border: "1px solid var(--color-border)" }}
+            />
+          ) : null}
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-muted)", marginBottom: 4 }}>
+              Cat on file ({c.catSnapshot.source === "sanctuary" ? "from My Cats" : "details you entered"})
+            </div>
+            <strong style={{ color: "var(--color-primary-dark)" }}>{c.catSnapshot.name}</strong>
+            <div style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginTop: 6, lineHeight: 1.45 }}>
+              <span>Breed: {c.catSnapshot.breed ?? "—"}</span>
+              {" · "}
+              <span>Age: {formatAgeMonths(c.catSnapshot.ageMonths)}</span>
+              {" · "}
+              <span>Sex: {c.catSnapshot.gender === "MALE" ? "Male" : c.catSnapshot.gender === "FEMALE" ? "Female" : "—"}</span>
+              {c.catSnapshot.birthday ? (
+                <>
+                  {" · "}
+                  <span>Birthday: {c.catSnapshot.birthday}</span>
+                </>
+              ) : null}
+            </div>
+            {c.catSnapshot.bio ? <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem", color: "var(--color-primary-dark)" }}>{c.catSnapshot.bio}</p> : null}
+          </div>
+        </div>
+      ) : null}
+
+      {c.attachments?.length ? (
+        <div className="pawvet-glass-card" style={{ padding: "0.85rem 1rem", marginBottom: "0.75rem" }}>
+          <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-muted)", marginBottom: "0.5rem" }}>Case photos & videos</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            {c.attachments.map((a) =>
+              a.kind === "image" ? (
+                a.dataUrl ? (
+                  <a key={a.id} href={a.dataUrl} download={a.fileName} style={{ display: "block" }}>
+                    <img
+                      src={a.dataUrl}
+                      alt={a.fileName}
+                      style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 10, border: "1px solid var(--color-border)" }}
+                    />
+                  </a>
+                ) : (
+                  <div
+                    key={a.id}
+                    className="ph-surface"
+                    style={{
+                      width: 96,
+                      height: 96,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0.35rem",
+                      borderRadius: 10,
+                      fontSize: "0.72rem",
+                      color: "var(--color-muted)",
+                      textAlign: "center",
+                    }}
+                    title={a.fileName}
+                  >
+                    Image (preview unavailable after page reload)
+                  </div>
+                )
+              ) : a.dataUrl ? (
+                <div key={a.id} style={{ width: 160, maxWidth: "100%" }}>
+                  <video src={a.dataUrl} controls style={{ width: "100%", borderRadius: 10, border: "1px solid var(--color-border)" }} playsInline />
+                  <div style={{ fontSize: "0.72rem", color: "var(--color-muted)", marginTop: 4 }}>{a.fileName}</div>
+                </div>
+              ) : (
+                <div key={a.id} className="ph-surface" style={{ padding: "0.5rem", borderRadius: 10, maxWidth: 160, fontSize: "0.78rem", color: "var(--color-muted)" }}>
+                  Video: {a.fileName} (preview unavailable after page reload)
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <div className="pawvet-glass-card" style={{ padding: "1rem", minHeight: 320, maxHeight: "min(58vh, 520px)", overflowY: "auto", marginBottom: "1rem" }}>
         <AnimatePresence initial={false}>

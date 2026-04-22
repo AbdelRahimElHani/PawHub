@@ -3,6 +3,7 @@ import { Heart } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAdoptStore } from "../adopt/useAdoptStore";
 import { useAuth } from "../auth/AuthContext";
+import { isAdminAccount } from "../auth/vetAccess";
 import { ChatWidget } from "../components/chat/ChatWidget";
 import { HeaderUserMenu } from "./HeaderUserMenu";
 import { MessagingDock } from "../messenger/MessagingDock";
@@ -108,7 +109,7 @@ export function Layout({ children }: { children?: ReactNode }) {
           <NavLink to="/hub" style={linkStyle}>
             Learn
           </NavLink>
-          <NavLink to="/pawvet" style={linkStyle}>
+          <NavLink to={isAdminAccount(user) ? "/pawvet/admin" : "/pawvet"} style={linkStyle}>
             PawVet
           </NavLink>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "0.15rem" }}>
@@ -117,7 +118,7 @@ export function Layout({ children }: { children?: ReactNode }) {
             </NavLink>
             <AdoptLoveCounter />
           </span>
-          {user?.role === "ADMIN" && (
+          {isAdminAccount(user) && (
             <NavLink to="/admin" style={linkStyle}>
               Admin
             </NavLink>

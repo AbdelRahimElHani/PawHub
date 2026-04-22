@@ -21,6 +21,7 @@ import { AdoptShell } from "./adopt/AdoptShell";
 import { AdoptDetail } from "./adopt/AdoptDetail";
 import { ShelterPage } from "./pages/ShelterPage";
 import { AdminSheltersPage } from "./pages/AdminSheltersPage";
+import { AdminVetReviewsPage } from "./pages/AdminVetReviewsPage";
 import { AdminShelterReviewPage } from "./pages/AdminShelterReviewPage";
 import { AccountPage } from "./pages/AccountPage";
 import { MessagesPage } from "./pages/MessagesPage";
@@ -30,6 +31,7 @@ import { FaqPage } from "./hub/pages/FaqPage";
 import { EditorialPage } from "./hub/pages/EditorialPage";
 import { CommunityFeedPage } from "./hub/pages/CommunityFeedPage";
 import { ThreadPage } from "./hub/pages/ThreadPage";
+import { PawVetAdminPage } from "./pages/PawVetAdminPage";
 import { PawVetHome } from "./pages/PawVetHome";
 import { FileCase } from "./user/FileCase";
 import { ConsultationRoom } from "./user/ConsultationRoom";
@@ -110,6 +112,7 @@ export default function App() {
           <Route path="community" element={<Navigate to="/hub/community/general" replace />} />
         </Route>
         <Route path="/pawvet" element={<PawVetHome />} />
+        <Route path="/pawvet/admin" element={<RequireAdmin><PawVetAdminPage /></RequireAdmin>} />
         <Route path="/pawvet/file-case" element={<FileCase />} />
         <Route path="/pawvet/case/:caseId/rate" element={<RatingScreen />} />
         <Route path="/pawvet/case/:caseId" element={<ConsultationRoom />} />
@@ -118,6 +121,7 @@ export default function App() {
         <Route path="/chat/:threadId" element={<LegacyChatRedirect />} />
         <Route path="/admin" element={<RequireAdmin><Navigate to="/admin/shelters" replace /></RequireAdmin>} />
         <Route path="/admin/vet-verification" element={<RequireAdmin><VetVerificationQueue /></RequireAdmin>} />
+        <Route path="/admin/vet-reviews" element={<RequireAdmin><AdminVetReviewsPage /></RequireAdmin>} />
         <Route path="/admin/shelters/:shelterId" element={<RequireAdmin><AdminShelterReviewPage /></RequireAdmin>} />
         <Route path="/admin/shelters" element={<RequireAdmin><AdminSheltersPage /></RequireAdmin>} />
       </Route>

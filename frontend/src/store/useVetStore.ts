@@ -27,13 +27,36 @@ export type CaseChatMessage = {
   at: string;
 };
 
+/** Cat profile copied into the case at filing time (sanctuary cat or manual entry). */
+export type CatCaseSnapshot = {
+  source: "sanctuary" | "manual";
+  name: string;
+  breed: string | null;
+  ageMonths: number | null;
+  gender: "MALE" | "FEMALE" | null;
+  bio: string | null;
+  primaryPhotoUrl: string | null;
+  birthday: string | null;
+};
+
+export type CaseAttachment = {
+  id: string;
+  kind: "image" | "video";
+  fileName: string;
+  mimeType: string;
+  /** Base64 data URL — present in memory; omitted when persisted to localStorage to avoid quota errors. */
+  dataUrl?: string;
+};
+
 export type MedicalCase = {
   id: string;
   ownerUserId: number;
   catId: number | null;
   catName: string;
+  catSnapshot?: CatCaseSnapshot;
   symptoms: string;
   mediaDescription: string;
+  attachments?: CaseAttachment[];
   urgency: CaseUrgency;
   status: CaseStatus;
   vetUserId?: number;
@@ -78,8 +101,10 @@ type VetState = {
     ownerUserId: number;
     catId: number | null;
     catName: string;
+    catSnapshot?: CatCaseSnapshot;
     symptoms: string;
     mediaDescription: string;
+    attachments?: CaseAttachment[];
     urgency: CaseUrgency;
   }) => MedicalCase;
 
@@ -144,8 +169,10 @@ export const useVetStore = create<VetState>()(
           ownerUserId: input.ownerUserId,
           catId: input.catId,
           catName: input.catName,
+          catSnapshot: input.catSnapshot,
           symptoms: input.symptoms,
           mediaDescription: input.mediaDescription,
+          attachments: input.attachments?.length ? input.attachments : undefined,
           urgency: input.urgency,
           status: "OPEN",
           createdAt: new Date().toISOString(),
@@ -257,6 +284,18 @@ export const useVetStore = create<VetState>()(
         return { average: sum / list.length, count: list.length };
       },
     }),
-    { name: "pawvet_store_v2" },
+    {
+      name: "pawvet_store_v3",
+      /** Do not persist huge base64 blobs — keeps submit working; previews survive until you refresh the tab. */
+      partialize: (state) => ({
+        vetApplications: state.vetApplications,
+        cases: state.cases.map((c) => ({
+          ...c,
+          attachments: c.attachments?.map(({ dataUrl: _dataUrl, ...meta }) => meta),
+        })),
+        reviews: state.reviews,
+        reports: state.reports,
+      }),
+    },
   ),
 );

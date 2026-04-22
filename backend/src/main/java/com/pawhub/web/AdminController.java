@@ -2,8 +2,10 @@ package com.pawhub.web;
 
 import com.pawhub.service.AdminShelterService;
 import com.pawhub.service.AdminVetLicenseService;
+import com.pawhub.service.PawvetConsultationReviewService;
 import com.pawhub.web.dto.RejectVetApplicationRequest;
 import com.pawhub.web.dto.ShelterDto;
+import com.pawhub.web.dto.VetAccountReviewsAdminDto;
 import com.pawhub.web.dto.VetApplicationMetricsDto;
 import com.pawhub.web.dto.VetLicenseApplicationAdminDto;
 import jakarta.validation.Valid;
@@ -20,6 +22,7 @@ public class AdminController {
 
     private final AdminShelterService adminShelterService;
     private final AdminVetLicenseService adminVetLicenseService;
+    private final PawvetConsultationReviewService pawvetConsultationReviewService;
 
     @GetMapping("/shelters/pending")
     public List<ShelterDto> pendingSubmissions() {
@@ -60,5 +63,10 @@ public class AdminController {
     public VetLicenseApplicationAdminDto vetApplicationReject(
             @PathVariable Long id, @Valid @RequestBody RejectVetApplicationRequest req) {
         return adminVetLicenseService.reject(id, req);
+    }
+
+    @GetMapping("/pawvet/vet-accounts-with-reviews")
+    public List<VetAccountReviewsAdminDto> vetAccountsWithReviews() {
+        return pawvetConsultationReviewService.listAllVetAccountsWithReviewsForAdmin();
     }
 }

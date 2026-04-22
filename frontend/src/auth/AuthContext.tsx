@@ -54,9 +54,17 @@ type AuthResponse = {
   vetRejectionReason?: string | null;
 };
 
+function normalizeVetVerificationStatus(raw: string | null | undefined): "PENDING" | "APPROVED" | "REJECTED" | null {
+  const s = String(raw ?? "")
+    .trim()
+    .toUpperCase();
+  if (s === "PENDING" || s === "APPROVED" || s === "REJECTED") return s;
+  return null;
+}
+
 function mapUser(r: AuthResponse): AuthUser {
-  const vs = r.vetVerificationStatus;
-  const vetOk = vs === "PENDING" || vs === "APPROVED" || vs === "REJECTED";
+  const vs = normalizeVetVerificationStatus(r.vetVerificationStatus);
+  const vetOk = vs !== null;
   return {
     userId: r.userId,
     email: r.email,

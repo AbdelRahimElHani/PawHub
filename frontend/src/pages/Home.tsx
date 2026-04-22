@@ -1,5 +1,6 @@
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { isAdminAccount } from "../auth/vetAccess";
 
 export function GuestLanding() {
   return (
@@ -92,11 +93,13 @@ export function Home() {
           <strong>My cats</strong>
           <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Profiles and photos for your cats.</div>
         </Link>
-        <Link className="ph-surface" to="/pawvet" style={{ padding: "1rem", display: "block" }}>
+        <Link className="ph-surface" to={isAdminAccount(user) ? "/pawvet/admin" : "/pawvet"} style={{ padding: "1rem", display: "block" }}>
           <strong>PawVet</strong>
-          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Triage, chat, and vet tools.</div>
+          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>
+            {isAdminAccount(user) ? "Verification queue and PawVet administration." : "Triage, chat, and vet tools."}
+          </div>
         </Link>
-        {user.accountType === "VET" && (
+        {user.accountType === "VET" && !isAdminAccount(user) && (
           <Link className="ph-surface" to="/vet" style={{ padding: "1rem", display: "block" }}>
             <strong>Vet dashboard</strong>
             <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Claim cases after admin approval.</div>

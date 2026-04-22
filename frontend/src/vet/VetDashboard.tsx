@@ -1,9 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ClipboardList, Star, UserCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { canWorkAsVerifiedVet } from "../auth/vetAccess";
+import { canWorkAsVerifiedVet, isVeterinarianAccount } from "../auth/vetAccess";
+import type { PawVetConsultationReviewDto } from "../types/pawvetConsultationReview";
 import { useVetStore } from "../store/useVetStore";
 import { CaseClosePanel } from "./CaseResolution";
 import "../pawvet/pawvet.css";
@@ -18,10 +20,10 @@ export function VetDashboard() {
   const { user, refreshMe } = useAuth();
   const cases = useVetStore((s) => s.cases);
   const claimCase = useVetStore((s) => s.claimCase);
-  const getVetRating = useVetStore((s) => s.getVetRating);
-  const reviews = useVetStore((s) => s.reviews);
 
   const [resolveId, setResolveId] = useState<string | null>(null);
+  const [apiReviews, setApiReviews] = useState<PawVetConsultationReviewDto[] | null>(null);
+  const [reviewsErr, setReviewsErr] = useState<string | null>(null);
 
   const verified = canWorkAsVerifiedVet(user);
   const openCases = useMemo(() => cases.filter((c) => c.status === "OPEN"), [cases]);
@@ -29,8 +31,39 @@ export function VetDashboard() {
     () => cases.filter((c) => user && c.vetUserId === user.userId && c.status === "IN_PROGRESS"),
     [cases, user],
   );
-  const rating = user ? getVetRating(user.userId) : { average: 0, count: 0 };
-  const myReviews = useMemo(() => (user ? reviews.filter((r) => r.vetUserId === user.userId) : []), [reviews, user]);
+  const rating = useMemo(() => {
+    const list = apiReviews ?? [];
+    if (!list.length) return { average: 0, count: 0 };
+    const sum = list.reduce((a, r) => a + r.stars, 0);
+    return { average: sum / list.length, count: list.length };
+  }, [apiReviews]);
+
+  useEffect(() => {
+    if (user?.accountType === "VET") void refreshMe();
+  }, [user?.accountType, refreshMe]);
+
+  useEffect(() => {
+    if (user?.accountType !== "VET") {
+      setApiReviews(null);
+      setReviewsErr(null);
+      return;
+    }
+    let cancelled = false;
+    setReviewsErr(null);
+    api<PawVetConsultationReviewDto[]>("/api/pawvet/consultation-reviews/mine")
+      .then((rows) => {
+        if (!cancelled) setApiReviews(rows);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setApiReviews([]);
+          setReviewsErr(e instanceof Error ? e.message : "Could not load reviews.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.accountType, user?.userId]);
 
   function claim(caseId: string) {
     if (!user || !verified) return;
@@ -73,7 +106,11 @@ export function VetDashboard() {
     <div className="pawvet-shell">
       <div className="pawvet-hero" style={{ marginBottom: "1rem" }}>
         <h1 style={{ fontSize: "1.45rem", color: "var(--color-primary-dark)" }}>Vet dashboard</h1>
-        <p>Open triage, claim cases you can help with, and keep your professional profile current.</p>
+        <p style={{ margin: 0, color: "var(--color-muted)", lineHeight: 1.55 }}>
+          {verified
+            ? "Open triage, claim cases you can help with, and keep your professional profile current."
+            : "Credentialing must be approved before you can view or claim triage cases. Use Refresh status after you receive a decision."}
+        </p>
       </div>
 
       {pending ? (
@@ -117,86 +154,104 @@ export function VetDashboard() {
         </motion.div>
       ) : null}
 
-      <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ fontFamily: "var(--font-display)", color: "var(--color-primary-dark)", display: "flex", alignItems: "center", gap: 8, marginBottom: "0.75rem" }}>
-          <ClipboardList size={20} aria-hidden />
-          Open triage
-        </h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-          <AnimatePresence>
-            {openCases.length === 0 ? (
+      {verified ? (
+        <>
+          <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} style={{ marginBottom: "1.5rem" }}>
+            <h2 style={{ fontFamily: "var(--font-display)", color: "var(--color-primary-dark)", display: "flex", alignItems: "center", gap: 8, marginBottom: "0.75rem" }}>
+              <ClipboardList size={20} aria-hidden />
+              Open triage
+            </h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+              <AnimatePresence>
+                {openCases.length === 0 ? (
+                  <p className="pawvet-glass-card" style={{ padding: "1rem", color: "var(--color-muted)", margin: 0 }}>
+                    No unassigned cases right now.
+                  </p>
+                ) : (
+                  openCases.map((c) => (
+                    <motion.div
+                      key={c.id}
+                      layout
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="pawvet-glass-card"
+                      style={{ padding: "1rem", display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}
+                    >
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ fontWeight: 700, color: "var(--color-primary-dark)" }}>{c.catName}</div>
+                        {c.catSnapshot ? (
+                          <div style={{ fontSize: "0.78rem", color: "var(--color-muted)", marginTop: 2 }}>
+                            {c.catSnapshot.breed ?? "Breed unknown"}
+                            {c.catSnapshot.ageMonths != null ? ` · ~${c.catSnapshot.ageMonths} mo` : ""}
+                            {c.attachments?.length ? ` · ${c.attachments.length} media` : ""}
+                          </div>
+                        ) : null}
+                        <div style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginTop: 4 }}>
+                          {c.symptoms.slice(0, 120)}
+                          {c.symptoms.length > 120 ? "…" : ""}
+                        </div>
+                      </div>
+                      <span className={`pawvet-urgent pawvet-urgent--${c.urgency}`}>{urgencyLabel(c.urgency)}</span>
+                      <button type="button" className="ph-btn ph-btn-primary" onClick={() => claim(c.id)}>
+                        Claim case
+                      </button>
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.section>
+
+          <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }} style={{ marginBottom: "1.5rem" }}>
+            <h2 style={{ fontFamily: "var(--font-display)", color: "var(--color-primary-dark)", marginBottom: "0.75rem" }}>My active cases</h2>
+            {myCases.length === 0 ? (
               <p className="pawvet-glass-card" style={{ padding: "1rem", color: "var(--color-muted)", margin: 0 }}>
-                No unassigned cases right now.
+                Claim a case from the board to see it here.
               </p>
             ) : (
-              openCases.map((c) => (
-                <motion.div
-                  key={c.id}
-                  layout
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="pawvet-glass-card"
-                  style={{ padding: "1rem", display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}
-                >
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ fontWeight: 700, color: "var(--color-primary-dark)" }}>{c.catName}</div>
-                    <div style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginTop: 4 }}>
-                      {c.symptoms.slice(0, 120)}
-                      {c.symptoms.length > 120 ? "…" : ""}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                {myCases.map((c) => (
+                  <div key={c.id} className="pawvet-glass-card" style={{ padding: "1rem" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center", marginBottom: resolveId === c.id ? "0.75rem" : 0 }}>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <strong style={{ color: "var(--color-primary-dark)" }}>{c.catName}</strong>
+                        <div style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>Case ID: {c.id}</div>
+                      </div>
+                      <Link className="ph-btn ph-btn-accent" to={`/pawvet/case/${c.id}`}>
+                        Open chat
+                      </Link>
+                      {resolveId === c.id ? (
+                        <button type="button" className="ph-btn ph-btn-ghost" onClick={() => setResolveId(null)}>
+                          Cancel close
+                        </button>
+                      ) : (
+                        <button type="button" className="ph-btn ph-btn-primary" onClick={() => setResolveId(c.id)}>
+                          Close case
+                        </button>
+                      )}
                     </div>
+                    {resolveId === c.id ? <CaseClosePanel caseId={c.id} onClosed={() => setResolveId(null)} /> : null}
                   </div>
-                  <span className={`pawvet-urgent pawvet-urgent--${c.urgency}`}>{urgencyLabel(c.urgency)}</span>
-                  <button
-                    type="button"
-                    className="ph-btn ph-btn-primary"
-                    disabled={!verified}
-                    onClick={() => claim(c.id)}
-                    title={!verified ? "Wait for admin approval of your veterinarian account" : undefined}
-                  >
-                    Claim case
-                  </button>
-                </motion.div>
-              ))
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.section>
-
-      <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }} style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ fontFamily: "var(--font-display)", color: "var(--color-primary-dark)", marginBottom: "0.75rem" }}>My active cases</h2>
-        {myCases.length === 0 ? (
-          <p className="pawvet-glass-card" style={{ padding: "1rem", color: "var(--color-muted)", margin: 0 }}>
-            Claim a case from the board to see it here.
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-            {myCases.map((c) => (
-              <div key={c.id} className="pawvet-glass-card" style={{ padding: "1rem" }}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center", marginBottom: resolveId === c.id ? "0.75rem" : 0 }}>
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <strong style={{ color: "var(--color-primary-dark)" }}>{c.catName}</strong>
-                    <div style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>Case ID: {c.id}</div>
-                  </div>
-                  <Link className="ph-btn ph-btn-accent" to={`/pawvet/case/${c.id}`}>
-                    Open chat
-                  </Link>
-                  {resolveId === c.id ? (
-                    <button type="button" className="ph-btn ph-btn-ghost" onClick={() => setResolveId(null)}>
-                      Cancel close
-                    </button>
-                  ) : (
-                    <button type="button" className="ph-btn ph-btn-primary" onClick={() => setResolveId(c.id)}>
-                      Close case
-                    </button>
-                  )}
-                </div>
-                {resolveId === c.id ? <CaseClosePanel caseId={c.id} onClosed={() => setResolveId(null)} /> : null}
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </motion.section>
+            )}
+          </motion.section>
+        </>
+      ) : isVeterinarianAccount(user) && !rejected && !pending ? (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="pawvet-glass-card"
+          style={{ padding: "1rem", marginBottom: "1.5rem", border: "1px dashed var(--color-border)" }}
+        >
+          <strong style={{ color: "var(--color-primary-dark)" }}>Triage not available yet</strong>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.9rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+            Open cases and your active claims appear only after your veterinarian account shows <strong>Approved</strong>. Use
+            &quot;Refresh status&quot; on PawVet home or here after you receive a decision.
+          </p>
+        </motion.div>
+      ) : null}
 
       <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="pawvet-glass-card" style={{ padding: "1.15rem" }}>
         <h2 style={{ fontFamily: "var(--font-display)", color: "var(--color-primary-dark)", margin: "0 0 0.75rem", display: "flex", alignItems: "center", gap: 8 }}>
@@ -210,16 +265,26 @@ export function VetDashboard() {
             ({rating.count} review{rating.count === 1 ? "" : "s"})
           </span>
         </p>
+        {reviewsErr ? (
+          <p style={{ color: "#b42318", fontSize: "0.88rem", margin: "0 0 0.75rem" }} role="alert">
+            {reviewsErr}
+          </p>
+        ) : null}
         <p style={{ fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-muted)", margin: "1rem 0 0.5rem" }}>Review history</p>
-        {myReviews.length === 0 ? (
+        {apiReviews === null ? (
+          <p style={{ color: "var(--color-muted)", fontSize: "0.9rem", margin: 0 }}>Loading reviews…</p>
+        ) : apiReviews.length === 0 ? (
           <p style={{ color: "var(--color-muted)", fontSize: "0.9rem", margin: 0 }}>No reviews yet — they appear after guardians submit ratings.</p>
         ) : (
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            {myReviews.map((r) => (
+            {apiReviews.map((r) => (
               <li key={r.id} className="ph-surface" style={{ padding: "0.65rem 0.85rem", fontSize: "0.9rem" }}>
                 <div style={{ fontWeight: 700, color: "var(--color-primary-dark)" }}>{r.stars}★</div>
-                <div style={{ color: "var(--color-muted)" }}>{r.feedback || "No written feedback."}</div>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-muted)", marginTop: 4 }}>{new Date(r.at).toLocaleDateString()}</div>
+                <div style={{ fontSize: "0.82rem", color: "var(--color-muted)", marginTop: 2 }}>From {r.ownerDisplayName}</div>
+                <div style={{ color: "var(--color-primary-dark)", marginTop: 4 }}>{r.comment || "No written comment."}</div>
+                <div style={{ fontSize: "0.75rem", color: "var(--color-muted)", marginTop: 4 }}>
+                  {new Date(r.createdAt).toLocaleString()}
+                </div>
               </li>
             ))}
           </ul>
