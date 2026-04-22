@@ -1,7 +1,6 @@
 package com.pawhub.service;
 
 import com.pawhub.domain.*;
-import com.pawhub.domain.CatGender;
 import com.pawhub.repository.*;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.SwipeRequest;
@@ -78,11 +77,10 @@ public class SwipeService {
         if (!myCat.getUser().getId().equals(principal.getId())) {
             throw new IllegalArgumentException("Not your cat");
         }
-        boolean myIsMale = myCat.getGender() == CatGender.MALE;
         return catRepository
                 .findCandidates(myCatId, principal.getId())
                 .stream()
-                .filter(c -> !myIsMale || c.getGender() != CatGender.MALE)
+                .filter(c -> pawMatchPreferencesAllow(myCat, c))
                 .findFirst()
                 .map(c -> new com.pawhub.web.dto.CatCardDto(
                         c.getId(),
@@ -91,6 +89,7 @@ public class SwipeService {
                         c.getAgeMonths(),
                         c.getGender() != null ? c.getGender().name() : null,
                         c.getBio(),
+                        c.getBehavior() != null ? c.getBehavior().name() : null,
                         c.getPhotos().isEmpty()
                                 ? null
                                 : c.getPhotos().stream()
@@ -99,5 +98,81 @@ public class SwipeService {
                                         .orElse(null),
                         c.getUser().getDisplayName()))
                 .orElse(null);
+    }
+
+    /**
+     * Tinder-style reciprocal filters: both cats must fit each other's gender, age, behavior, and breed
+     * preferences.
+     */
+    private boolean pawMatchPreferencesAllow(Cat viewer, Cat target) {
+        return preferenceAllows(viewer, target) && preferenceAllows(target, viewer);
+    }
+
+    private boolean preferenceAllows(Cat viewer, Cat target) {
+        MatchGenderPreference pref = viewer.getPrefLookingForGender();
+        if (pref == null) {
+            pref = MatchGenderPreference.ANY;
+        }
+        if (pref != MatchGenderPreference.ANY) {
+            if (target.getGender() == null) {
+                return true;
+            }
+            if (pref == MatchGenderPreference.MALE && target.getGender() != CatGender.MALE) {
+                return false;
+            }
+            if (pref == MatchGenderPreference.FEMALE && target.getGender() != CatGender.FEMALE) {
+                return false;
+            }
+        }
+        int min = viewer.getPrefMinAgeMonths() != null ? viewer.getPrefMinAgeMonths() : 0;
+        Integer max = viewer.getPrefMaxAgeMonths();
+        Integer age = target.getAgeMonths();
+        if (age == null) {
+            return true;
+        }
+        if (age < min) {
+            return false;
+        }
+        if (max != null && age > max) {
+            return false;
+        }
+        if (!behaviorPreferenceAllows(viewer, target)) {
+            return false;
+        }
+        return breedPreferenceAllows(viewer, target);
+    }
+
+    private boolean behaviorPreferenceAllows(Cat viewer, Cat target) {
+        MatchBehaviorPreference pref = viewer.getPrefBehavior();
+        if (pref == null) {
+            pref = MatchBehaviorPreference.ANY;
+        }
+        if (pref == MatchBehaviorPreference.ANY) {
+            return true;
+        }
+        if (target.getBehavior() == null) {
+            return false;
+        }
+        return pref.name().equals(target.getBehavior().name());
+    }
+
+    private boolean breedPreferenceAllows(Cat viewer, Cat target) {
+        String want = normalizeBreed(viewer.getPrefBreed());
+        if (want == null) {
+            return true;
+        }
+        String got = normalizeBreed(target.getBreed());
+        if (got == null) {
+            return false;
+        }
+        return got.equalsIgnoreCase(want);
+    }
+
+    private static String normalizeBreed(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 }

@@ -24,6 +24,17 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(name = "email_verified", nullable = false)
+    @JdbcTypeCode(SqlTypes.TINYINT)
+    @Builder.Default
+    private boolean emailVerified = false;
+
+    @Column(name = "email_verification_token", length = 64)
+    private String emailVerificationToken;
+
+    @Column(name = "email_verification_expires_at")
+    private java.time.Instant emailVerificationExpiresAt;
+
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 

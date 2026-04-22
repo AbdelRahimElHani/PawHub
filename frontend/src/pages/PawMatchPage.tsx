@@ -5,6 +5,15 @@ import type { CatCardDto, CatDto, SwipeResponse } from "../types";
 
 const GENDER_LABEL: Record<string, string> = { MALE: "♂ Male", FEMALE: "♀ Female" };
 
+const BEHAVIOR_SHORT: Record<string, string> = {
+  PLAYFUL: "Playful",
+  CALM: "Calm",
+  CUDDLY: "Cuddly",
+  INDEPENDENT: "Independent",
+  CURIOUS: "Curious",
+  CHILL: "Chill",
+};
+
 function CatAvatar({ name, photoUrl }: { name: string; photoUrl: string | null }) {
   if (photoUrl) {
     return (
@@ -48,7 +57,11 @@ export function PawMatchPage() {
     try {
       const c = await api<CatCardDto>(`/api/pawmatch/candidates?myCatId=${myCatId}`);
       setCard(c);
-      if (!c) setMsg("No more cats to show right now — check back later!");
+      if (!c) {
+        setMsg(
+          "No cats to show right now — widen gender, age, vibe, or breed filters on My Cats, or check back later. (Both cats must fit each other's preferences.)",
+        );
+      }
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : "Failed to load candidate");
     }
@@ -129,6 +142,9 @@ export function PawMatchPage() {
             <h3 style={{ marginBottom: "0.2rem", marginTop: "0.75rem" }}>{card.name}</h3>
             <div style={{ color: "var(--color-muted)", fontSize: "0.9rem", marginBottom: "0.35rem" }}>
               {card.gender && <span style={{ marginRight: "0.5rem" }}>{GENDER_LABEL[card.gender]}</span>}
+              {card.behavior && (
+                <span style={{ marginRight: "0.5rem" }}>{BEHAVIOR_SHORT[card.behavior] ?? card.behavior}</span>
+              )}
               {card.breed ?? "Unknown breed"}
               {card.ageMonths != null && ` · ${card.ageMonths} mo`}
             </div>

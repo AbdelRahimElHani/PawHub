@@ -1,9 +1,14 @@
-# Copy to application-local.yml and fill in (that file is gitignored).
+# Copy to backend/src/main/resources/application-local.yml (gitignored).
+# Consumer @outlook.com often returns 535.7.139 (SMTP disabled)—use Gmail + App Password for local dev instead.
+# See application-local.yml.example in the same resources folder for a full template.
 spring:
   mail:
-    username: your-mail@outlook.com
-    password: your-password-or-app-password
+    host: smtp.gmail.com
+    port: 587
+    username: your.email@gmail.com
+    password: your-16-char-google-app-password
 
 pawhub:
   mail:
-    from: "PawHub <your-mail@outlook.com>"
+    from: your.email@gmail.com
+    from-name: PawHub

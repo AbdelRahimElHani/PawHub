@@ -10,4 +10,5 @@ public record AuthResponse(
         String avatarUrl,
         String profileCity,
         String profileRegion,
-        String profileBio) {}
+        String profileBio,
+        boolean emailVerified) {}

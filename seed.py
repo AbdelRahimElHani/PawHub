@@ -100,12 +100,123 @@ for email, cats in cat_batches.items():
     token = owner_tokens.get(email)
     if not token:
         continue
+    existing = get("/cats", token)
+    have = {c["name"] for c in existing} if isinstance(existing, list) else set()
     for cat in cats:
+        if cat["name"] in have:
+            continue
         r = post("/cats", cat, token)
         if "id" in r:
             print(f"  + {r['name']} ({r.get('breed','?')}, {r.get('gender','?')}) id={r['id']}")
         else:
             print(f"  ! cat error: {r}")
+
+# PawMatch — mutual LIKEs create matches + threads; a few one-way PASS swipes for deck testing
+print("\n=== PawMatch (swipes & matches) ===")
+
+
+def cat_name_to_id(token):
+    rows = get("/cats", token)
+    if not isinstance(rows, list):
+        return {}
+    m = {}
+    for c in rows:
+        name = c.get("name")
+        if name and name not in m:
+            m[name] = c["id"]
+    return m
+
+
+def swipe(token, my_cat_id, target_cat_id, direction):
+    return post(
+        "/pawmatch/swipes",
+        {"myCatId": my_cat_id, "targetCatId": target_cat_id, "direction": direction},
+        token,
+    )
+
+
+cat_maps = {email: cat_name_to_id(t) for email, t in owner_tokens.items()}
+
+mutual_pairs = [
+    ("maya@pawhub.local", "Biscuit", "liam@pawhub.local", "Pumpkin"),
+    ("maya@pawhub.local", "Dahlia", "zoe@pawhub.local", "Maple"),
+    ("zoe@pawhub.local", "Nugget", "ava@pawhub.local", "Gnocchi"),
+    ("daniel@pawhub.local", "Rumi", "noah@pawhub.local", "Clover"),
+]
+
+for ea, na, eb, nb in mutual_pairs:
+    ta, tb = owner_tokens.get(ea), owner_tokens.get(eb)
+    if not ta or not tb:
+        print(f"  ! skip pair ({na}/{nb}): missing token")
+        continue
+    id_a = cat_maps.get(ea, {}).get(na)
+    id_b = cat_maps.get(eb, {}).get(nb)
+    if not id_a or not id_b:
+        print(f"  ! skip pair ({na}/{nb}): cat id not found")
+        continue
+    r1 = swipe(ta, id_a, id_b, "LIKE")
+    if r1.get("message") and r1.get("message") != "Already swiped":
+        print(f"  ! {na} -> {nb}: {r1}")
+    r2 = swipe(tb, id_b, id_a, "LIKE")
+    if r2.get("matched"):
+        print(f"  * Match: {na} <-> {nb} (thread {r2.get('threadId')})")
+    elif r2.get("message") == "Already swiped" or "Already swiped" in str(r2):
+        print(f"  ~ Already matched or swiped: {na} <-> {nb}")
+    else:
+        print(f"  ! {nb} -> {na}: {r2}")
+
+pass_one_shot = [
+    ("maya@pawhub.local", "Cosmo", "noah@pawhub.local", "Fjord"),
+    ("liam@pawhub.local", "Orion", "zoe@pawhub.local", "Sable"),
+]
+
+for ea, na, eb, nb in pass_one_shot:
+    ta = owner_tokens.get(ea)
+    if not ta:
+        continue
+    id_a = cat_maps.get(ea, {}).get(na)
+    id_b = cat_maps.get(eb, {}).get(nb)
+    if not id_a or not id_b:
+        continue
+    rp = swipe(ta, id_a, id_b, "PASS")
+    if rp.get("message") == "Already swiped":
+        print(f"  ~ PASS {na} -> {nb}: already swiped")
+    elif rp.get("message") or rp.get("error"):
+        print(f"  ! PASS {na} -> {nb}: {rp}")
+    else:
+        print(f"  PASS {na} -> {nb}")
+
+# Starter messages on match threads (resolve thread via GET /matches)
+print("\n=== PawMatch (starter chat) ===")
+
+
+def find_match_thread(token, n1, n2):
+    mlist = get("/matches", token)
+    if not isinstance(mlist, list):
+        return None
+    for m in mlist:
+        a, b = m.get("catAName"), m.get("catBName")
+        if a and b and {a, b} == {n1, n2}:
+            return m.get("threadId")
+    return None
+
+
+starter_chats = [
+    ("maya@pawhub.local", "liam@pawhub.local", "Biscuit", "Pumpkin", "Hey! Biscuit would love a playdate sometime 🐾", "Pumpkin says yes! She loves new friends."),
+    ("maya@pawhub.local", "zoe@pawhub.local", "Dahlia", "Maple", "Hi! Dahlia is obsessed with other cats.", "Maple is shy at first but warms up fast!"),
+]
+
+for ea, eb, na, nb, msg_a, msg_b in starter_chats:
+    ta, tb = owner_tokens.get(ea), owner_tokens.get(eb)
+    if not ta or not tb:
+        continue
+    tid = find_match_thread(ta, na, nb) or find_match_thread(tb, na, nb)
+    if tid:
+        post(f"/chat/threads/{tid}/messages", {"body": msg_a}, ta)
+        post(f"/chat/threads/{tid}/messages", {"body": msg_b}, tb)
+        print(f"  + Messages in thread {tid} ({na} <-> {nb})")
+    else:
+        print(f"  ~ No match thread for {na} <-> {nb}")
 
 # Shelter accounts
 print("\n=== Shelters ===")

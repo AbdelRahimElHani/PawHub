@@ -1,24 +1,27 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState, type RefObject } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { AuthShell } from "../auth/AuthShell";
 import type { AccountType, RegisterPayload } from "../auth/authTypes";
 
-const TYPES: { id: AccountType; title: string; desc: string }[] = [
+const TYPES: { id: AccountType; title: string; desc: string; icon: string }[] = [
   {
     id: "ADOPTER",
+    icon: "🐾",
     title: "Adopter / explorer",
-    desc: "Browse adoption listings, save favorites, and message shelters. Add a cat profile anytime.",
+    desc: "Browse adoption listings, save favorites, and message shelters. You can add a cat profile anytime.",
   },
   {
     id: "CAT_OWNER",
+    icon: "🐱",
     title: "Cat owner",
-    desc: "Manage your cats’ profiles, PawMatch, and PawMarket listings — built for multi-cat homes.",
+    desc: "Profiles for your cats, PawMatch, and PawMarket — built for multi-cat homes.",
   },
   {
     id: "SHELTER",
+    icon: "🏠",
     title: "Shelter or rescue",
-    desc: "Represent an organization. We’ll create your shelter profile (pending admin approval).",
+    desc: "Represent an organization. We create your shelter profile pending admin approval.",
   },
 ];
 
@@ -42,7 +45,77 @@ export function Register() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const canSubmit = accountType !== "";
+  const accountSectionRef = useRef<HTMLDivElement>(null);
+  const displayNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const shelterOrgRef = useRef<HTMLInputElement>(null);
+
+  function focusAndScroll(el: HTMLElement | null) {
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => {
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        el.focus({ preventScroll: true });
+        return;
+      }
+      el.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea")?.focus({ preventScroll: true });
+    }, 150);
+  }
+
+  function focusFromServerError(message: string) {
+    if (/[Ss]helter organization name/.test(message)) {
+      focusAndScroll(shelterOrgRef.current);
+      return;
+    }
+    const m = message.match(/^(\w+):/);
+    if (!m) return;
+    const field = m[1];
+    const map: Record<string, RefObject<HTMLElement | null>> = {
+      accountType: accountSectionRef,
+      displayName: displayNameRef,
+      email: emailRef,
+      password: passwordRef,
+      shelterOrgName: shelterOrgRef,
+    };
+    const ref = map[field];
+    if (ref?.current) focusAndScroll(ref.current);
+  }
+
+  function validateBeforeSubmit(): boolean {
+    if (!accountType) {
+      setErr("Choose how you’ll use PawHub.");
+      focusAndScroll(accountSectionRef.current);
+      return false;
+    }
+    if (!displayName.trim()) {
+      setErr("Display name is required.");
+      focusAndScroll(displayNameRef.current);
+      return false;
+    }
+    const em = email.trim();
+    if (!em) {
+      setErr("Email is required.");
+      focusAndScroll(emailRef.current);
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+      setErr("Enter a valid email address.");
+      focusAndScroll(emailRef.current);
+      return false;
+    }
+    if (password.length < 6) {
+      setErr("Password must be at least 6 characters.");
+      focusAndScroll(passwordRef.current);
+      return false;
+    }
+    if (accountType === "SHELTER" && !shelterOrgName.trim()) {
+      setErr("Shelter / rescue name is required.");
+      focusAndScroll(shelterOrgRef.current);
+      return false;
+    }
+    return true;
+  }
 
   const payload = useMemo((): RegisterPayload | null => {
     if (!accountType) return null;
@@ -92,21 +165,22 @@ export function Register() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
-    if (!payload) {
-      setErr("Choose how you’ll use PawHub.");
-      return;
-    }
-    if (payload.accountType === "SHELTER" && !payload.shelterOrgName?.trim()) {
-      setErr("Shelter / rescue name is required.");
+    if (!validateBeforeSubmit() || !payload) {
       return;
     }
     try {
-      await register(payload, avatarFile);
+      const result = await register(payload, avatarFile);
+      if (result.kind === "needsVerification") {
+        nav(`/login?pendingVerification=1&email=${encodeURIComponent(result.email)}`);
+        return;
+      }
       if (payload.accountType === "SHELTER") nav("/adopt/shelter");
       else if (payload.accountType === "CAT_OWNER") nav("/cats");
       else nav("/adopt");
     } catch (ex: unknown) {
-      setErr(ex instanceof Error ? ex.message : "Register failed");
+      const msg = ex instanceof Error ? ex.message : "Register failed";
+      setErr(msg);
+      focusFromServerError(msg);
     }
   }
 
@@ -118,7 +192,7 @@ export function Register() {
       <div
         style={{
           marginBottom: "1rem",
-          padding: "0.65rem 0.75rem",
+          padding: "0.75rem 1rem",
           background: "#f8f4ef",
           borderRadius: "12px",
           fontSize: "0.85rem",
@@ -129,9 +203,12 @@ export function Register() {
         for demos only.
       </div>
 
-      <form onSubmit={onSubmit} className="ph-grid" style={{ gap: "1rem" }}>
-        <div>
-          <span className="ph-label">I am joining as…</span>
+      <form noValidate onSubmit={onSubmit} className="ph-grid" style={{ gap: "1.25rem" }}>
+        <div ref={accountSectionRef}>
+        <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+          <legend className="ph-label" style={{ marginBottom: "0.75rem" }}>
+            I am joining as…
+          </legend>
           <div className="ph-account-types">
             {TYPES.map((t) => (
               <button
@@ -139,31 +216,52 @@ export function Register() {
                 type="button"
                 className={"ph-account-type" + (accountType === t.id ? " selected" : "")}
                 onClick={() => setAccountType(t.id)}
+                aria-pressed={accountType === t.id}
               >
-                <div className="ph-account-type-title">{t.title}</div>
-                <p className="ph-account-type-desc">{t.desc}</p>
+                <span className="ph-account-type-icon" aria-hidden>
+                  {t.icon}
+                </span>
+                <span className="ph-account-type-body">
+                  <span className="ph-account-type-title">{t.title}</span>
+                  <span className="ph-account-type-desc">{t.desc}</span>
+                </span>
               </button>
             ))}
           </div>
+        </fieldset>
         </div>
 
         <div>
           <span className="ph-label">Display name</span>
-          <input className="ph-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+          <input
+            ref={displayNameRef}
+            className="ph-input"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            autoComplete="name"
+          />
         </div>
         <div>
           <span className="ph-label">Email</span>
-          <input className="ph-input" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+          <input
+            ref={emailRef}
+            className="ph-input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            autoComplete="email"
+          />
         </div>
         <div>
           <span className="ph-label">Password (min 6)</span>
           <input
+            ref={passwordRef}
             className="ph-input"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             type="password"
+            autoComplete="new-password"
             minLength={6}
-            required
           />
         </div>
 
@@ -206,19 +304,19 @@ export function Register() {
         {accountType === "SHELTER" && (
           <div
             className="ph-surface"
-            style={{ padding: "1rem", background: "#faf8f5", border: "1px dashed var(--color-border)" }}
+            style={{ padding: "1.25rem", background: "#faf8f5", border: "1px dashed var(--color-border)" }}
           >
-            <strong style={{ display: "block", marginBottom: "0.75rem", fontFamily: "var(--font-display)" }}>
+            <strong style={{ display: "block", marginBottom: "0.85rem", fontFamily: "var(--font-display)", fontSize: "1.05rem" }}>
               Organization details
             </strong>
-            <div className="ph-grid" style={{ gap: "0.75rem" }}>
+            <div className="ph-grid" style={{ gap: "0.85rem" }}>
               <div>
                 <span className="ph-label">Shelter / rescue name *</span>
                 <input
+                  ref={shelterOrgRef}
                   className="ph-input"
                   value={shelterOrgName}
                   onChange={(e) => setShelterOrgName(e.target.value)}
-                  required={accountType === "SHELTER"}
                 />
               </div>
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -259,7 +357,7 @@ export function Register() {
           </div>
         )}
 
-        <button className="ph-btn ph-btn-primary" type="submit" style={{ width: "100%", padding: "0.65rem" }} disabled={!canSubmit}>
+        <button className="ph-btn ph-btn-primary" type="submit" style={{ width: "100%", padding: "0.75rem" }}>
           Create account
         </button>
       </form>

@@ -1,10 +1,30 @@
 spring:
   application:
     name: pawhub-api
+  # Optional local overrides (SMTP, API keys). File is gitignored — copy from application-local.yml.example
+  config:
+    import:
+      - optional:classpath:application-local.yml
+  # Email: set MAIL_* env vars, OR use application-local.yml (not committed).
+  # If host is unset, verification links are logged instead of sent.
+  #
+  # Outlook / @outlook.com: if logs show 535 5.7.139 "SmtpClientAuthentication is disabled", Microsoft has turned
+  # off basic SMTP for that mailbox—an app password will NOT fix it. Use Gmail + App Password for local dev, or
+  # SendGrid/Mailgun, or have a Microsoft 365 admin enable "Authenticated SMTP" for the mailbox
+  # (see https://aka.ms/smtp_auth_disabled).
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.ssl.trust: ${MAIL_SMTP_SSL_TRUST:smtp.gmail.com}
   datasource:
     url: jdbc:mysql://localhost:3306/pawhub?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
-    password: smab
+    password: root
   jpa:
     hibernate:
       ddl-auto: validate
@@ -14,9 +34,9 @@ spring:
         format_sql: true
   flyway:
     enabled: true
-    ignore-migration-patterns: "*:missing"   # ignore orphaned V3 from previous session
-    repair-on-migrate: true                  # auto-repair on startup (clears failed V4 state)
-    mixed: true                              # allow stored procedures in migration scripts
+    ignore-migration-patterns: "*:missing"
+    repair-on-migrate: true
+    mixed: true
   servlet:
     multipart:
       max-file-size: 10MB
@@ -26,27 +46,33 @@ server:
   port: 8080
 
 pawhub:
+  mail:
+    # Shown as “From:” — set MAIL_FROM or it falls back to MAIL_USERNAME
+    from: ${MAIL_FROM:${MAIL_USERNAME:noreply@localhost}}
+    from-name: ${MAIL_FROM_NAME:PawHub}
+  auth:
+    auto-verify-email-on-registration: ${PAWHUB_AUTO_VERIFY_EMAIL:true}
   admin:
     email: admin@pawhub.local
     password: admin123
-    # Re-apply password + ADMIN role on startup (fixes login if this email was registered before as a normal user).
     sync-credentials-on-startup: true
-  # Vite default; set to your deployed SPA origin in production (used in chat listing links).
+  # Regular user created on first startup if the email is not already registered. Set enabled: false in production.
+  demo-user:
+    enabled: true
+    email: demo@pawhub.local
+    password: PawHub2026!
+    display-name: Demo User
   frontend-base-url: "http://localhost:5173"
   jwt:
-    secret: "change-this-to-a-long-random-secret-key-for-production-use-only"
+    secret: ${JWT_SECRET:change-this-to-a-long-random-secret-key-for-production-use-only}
     expiration-ms: 86400000
   upload-dir: ${user.dir}/uploads
   public-base-url: http://localhost:8080
   gemini:
-    enabled: true
-    api-key: "AIzaSyBHLb7jWLxTC1S9OJm-xkwla7GR-7lLbVw"
-    # Use model IDs that match non-zero limits in AI Studio (many accounts show 0/0 for gemini-2.0-flash).
-    # Primary: Gemini 2.5 Flash — fallback: 3.1 Flash Lite (higher RPD on free tier).
+    enabled: ${GEMINI_ENABLED:true}
+    api-key: ${GEMINI_API_KEY:}
     model: gemini-2.5-flash
     fallback-model: gemini-3.1-flash-lite
-    # If both models 404, list IDs: GET https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
-    # While debugging: true = listings still work if the API errors. Set false when Cat-Check is stable.
     fail-open-on-api-error: true
 
 springdoc:

@@ -2,8 +2,8 @@
 
 | Table | Purpose |
 |-------|---------|
-| `users` | Accounts; `role` = `USER` or `ADMIN` |
-| `cats` | Cat profiles; `user_id` owner |
+| `users` | Accounts; `role` = `USER` or `ADMIN`; `email_verified`, optional `email_verification_token` + expiry (V13) |
+| `cats` | Cat profiles; `user_id` owner; PawMatch: gender/age prefs (V11), `behavior` + `pref_behavior` + `pref_breed` (V12) |
 | `cat_photos` | Image URLs for a cat |
 | `shelters` | Shelter org; `status` = `PENDING` / `APPROVED` / `REJECTED` |
 | `swipes` | `(cat_id, target_cat_id)` unique; `direction` LIKE/PASS |

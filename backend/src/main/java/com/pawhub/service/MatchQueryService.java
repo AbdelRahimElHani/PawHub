@@ -29,6 +29,7 @@ public class MatchQueryService {
         return new MatchSummaryDto(
                 m.getId(),
                 m.getThread().getId(),
+                myCat.getId(),
                 myCat.getName(),
                 otherCat.getName(),
                 otherCat.getUser().getDisplayName());

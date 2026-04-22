@@ -1,0 +1,56 @@
+# Copy to application-local.yml (same folder). That file is gitignored.
+# Easier: use env vars only — see backend/run-with-mail.ps1.
+#
+# The PawHub verification email is already a full HTML design (teal/cream/gold, PawHub branding).
+# You do NOT need a separate "template service" — any working SMTP below sends that same message.
+#
+# =============================================================================
+# OUTLOOK CONSUMER (@outlook.com / @hotmail.com) — READ THIS IF YOU SEE 535.7.139
+# =============================================================================
+# Logs like: "535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Mailbox"
+# mean Microsoft disabled username+password SMTP for that account. It is NOT a wrong app password.
+# PawHub uses classic SMTP only (no OAuth2). Practical options:
+#   • Local dev: use Gmail below (smtp.gmail.com + 16-char App Password).
+#   • Production: SendGrid, Mailgun, Amazon SES, Postmark, etc.
+#   • Microsoft 365 work/school: an admin can enable "Authenticated SMTP" for the user (Exchange admin center).
+# See: https://aka.ms/smtp_auth_disabled
+#
+# --- Gmail (good for local dev) ---
+# App Password: Google Account → Security → 2-Step Verification → App passwords (16 letters, no spaces).
+# pawhub.mail.from should match spring.mail.username.
+#
+# --- SendGrid (good for production / themed mail that always delivers) ---
+# 1) Create API key at sendgrid.com → use SMTP relay:
+#    host: smtp.sendgrid.net   port: 587   username: apikey   password: <your API key>
+#    mail.smtp.ssl.trust: smtp.sendgrid.net
+# 2) Verify a Single Sender or domain in SendGrid; set pawhub.mail.from to that verified address.
+#
+# --- Resend (transactional, simple) ---
+# host: smtp.resend.com   port: 587   username: resend   password: <API key>
+# mail.smtp.ssl.trust: smtp.resend.com
+# From must be a domain you verified in Resend.
+#
+# --- Outlook / Microsoft 365 (only if SMTP AUTH is enabled for the mailbox) ---
+# Host: smtp.office365.com  Port: 587  STARTTLS  mail.smtp.ssl.trust: smtp.office365.com
+# Consumer Outlook often still fails with 5.7.139 — prefer Gmail or a transactional provider.
+#
+# If you see "Authentication failed" without 5.7.139, the SMTP login (MAIL_USERNAME / MAIL_PASSWORD) is wrong.
+
+spring:
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: 587
+    username: ${MAIL_USERNAME:your.email@gmail.com}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.ssl.trust: ${MAIL_SMTP_SSL_TRUST:smtp.gmail.com}
+
+pawhub:
+  mail:
+    from: ${MAIL_FROM:${MAIL_USERNAME:your.email@gmail.com}}
+    from-name: PawHub
+  auth:
+    auto-verify-email-on-registration: false
+  frontend-base-url: ${FRONTEND_URL:http://localhost:5173}

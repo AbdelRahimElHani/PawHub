@@ -9,4 +9,10 @@ public record CatDto(
         Integer ageMonths,
         String gender,
         String bio,
-        List<String> photoUrls) {}
+        List<String> photoUrls,
+        String prefLookingForGender,
+        Integer prefMinAgeMonths,
+        Integer prefMaxAgeMonths,
+        String behavior,
+        String prefBehavior,
+        String prefBreed) {}

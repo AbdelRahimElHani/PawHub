@@ -29,7 +29,32 @@ public class PawhubProperties {
 
     private final Gemini gemini = new Gemini();
 
+    private final Mail mail = new Mail();
+
     private final Admin admin = new Admin();
+
+    private final DemoUser demoUser = new DemoUser();
+
+    private final Auth auth = new Auth();
+
+    @Getter
+    @Setter
+    public static class Auth {
+        /**
+         * When true, new registrations are verified immediately (no email step). Use false in production with SMTP.
+         * Override in application.yml for local dev (see pawhub.auth.auto-verify-email-on-registration).
+         */
+        private boolean autoVerifyEmailOnRegistration = false;
+    }
+
+    @Getter
+    @Setter
+    public static class Mail {
+        /** From address when SMTP is configured (spring.mail.host). */
+        private String from = "noreply@localhost";
+
+        private String fromName = "PawHub";
+    }
 
     @Getter
     @Setter
@@ -47,6 +72,21 @@ public class PawhubProperties {
          * Set false in production once the admin password is set.
          */
         private boolean syncCredentialsOnStartup = true;
+    }
+
+    @Getter
+    @Setter
+    public static class DemoUser {
+        /**
+         * When true, ensure a regular (non-admin) user exists for local dev. Set false in production.
+         */
+        private boolean enabled = true;
+
+        private String email = "demo@pawhub.local";
+
+        private String password = "PawHub2026!";
+
+        private String displayName = "Demo User";
     }
 
     @Getter
