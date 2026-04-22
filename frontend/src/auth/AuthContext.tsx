@@ -12,14 +12,19 @@ export type AuthUser = {
   profileCity: string | null;
   profileRegion: string | null;
   profileBio: string | null;
+  emailVerified: boolean;
 };
+
+type RegisterResult =
+  | { kind: "needsVerification"; message: string; email: string }
+  | { kind: "ready" };
 
 type AuthContextValue = {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (payload: RegisterPayload, avatarFile?: File | null) => Promise<void>;
+  register: (payload: RegisterPayload, avatarFile?: File | null) => Promise<RegisterResult>;
   updateProfile: (patch: {
     displayName?: string;
     profileCity?: string | null;
@@ -44,6 +49,7 @@ type AuthResponse = {
   profileCity: string | null;
   profileRegion: string | null;
   profileBio: string | null;
+  emailVerified?: boolean;
 };
 
 function mapUser(r: AuthResponse): AuthUser {
@@ -57,6 +63,7 @@ function mapUser(r: AuthResponse): AuthUser {
     profileCity: r.profileCity,
     profileRegion: r.profileRegion,
     profileBio: r.profileBio,
+    emailVerified: r.emailVerified ?? true,
   };
 }
 
@@ -105,36 +112,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applyAuth],
   );
 
-  const register = useCallback(
-    async (payload: RegisterPayload, avatarFile?: File | null) => {
-      if (avatarFile) {
-        const fd = new FormData();
-        fd.append("profile", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-        fd.append("avatar", avatarFile);
-        const res = await fetch("/api/auth/register", { method: "POST", body: fd });
-        const text = await res.text();
-        if (!res.ok) {
-          let msg = res.statusText;
-          try {
-            const j = JSON.parse(text);
-            if (j.error) msg = j.error;
-          } catch {
-            /* ignore */
-          }
-          throw new Error(msg);
-        }
-        const r = JSON.parse(text) as AuthResponse;
-        applyAuth(r);
-      } else {
-        const r = await api<AuthResponse>("/api/auth/register", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        applyAuth(r);
+  const register = useCallback(async (payload: RegisterPayload, avatarFile?: File | null): Promise<RegisterResult> => {
+    if (avatarFile) {
+      const fd = new FormData();
+      fd.append("profile", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+      fd.append("avatar", avatarFile);
+      const res = await fetch("/api/auth/register", { method: "POST", body: fd });
+      const text = await res.text();
+      const data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+      if (!res.ok) {
+        const msg = typeof data.error === "string" ? data.error : res.statusText;
+        throw new Error(msg);
       }
-    },
-    [applyAuth],
-  );
+      if (data.verificationRequired === true) {
+        return {
+          kind: "needsVerification",
+          message: typeof data.message === "string" ? data.message : "Check your email.",
+          email: typeof data.email === "string" ? data.email : payload.email,
+        };
+      }
+      return { kind: "ready" };
+    }
+    const data = (await api<Record<string, unknown>>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })) as { verificationRequired?: boolean; message?: string; email?: string };
+    if (data.verificationRequired === true) {
+      return {
+        kind: "needsVerification",
+        message: typeof data.message === "string" ? data.message : "Check your email.",
+        email: typeof data.email === "string" ? data.email : payload.email,
+      };
+    }
+    return { kind: "ready" };
+  }, []);
 
   const updateProfile = useCallback(
     async (patch: { displayName?: string; profileCity?: string | null; profileRegion?: string | null; profileBio?: string | null }) => {

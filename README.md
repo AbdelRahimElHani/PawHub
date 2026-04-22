@@ -21,6 +21,21 @@ cd backend
 mvn spring-boot:run
 ```
 
+### Email verification (Gmail)
+
+`application-local.yml` (gitignored) turns on SMTP and **requires** clicking the verification link before login.
+
+1. Copy `application-local.yml.example` if you don’t have `application-local.yml` yet (the repo may already generate one locally).
+2. Set your **Gmail app password** in the environment, then start:
+
+```powershell
+cd backend
+$env:MAIL_PASSWORD = "YOUR_16_CHAR_APP_PASSWORD"
+.\run-with-mail.ps1
+```
+
+Or set `MAIL_PASSWORD` (and optionally `MAIL_USERNAME`) in your IDE run configuration.
+
 - API: `http://localhost:8080`
 - Swagger UI: `http://localhost:8080/swagger`
 - Uploads are stored under `./uploads` (from the JVM working directory).

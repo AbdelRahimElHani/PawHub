@@ -1,3 +1,21 @@
+/** PawMatch: which genders of other cats this profile wants to see. */
+export type MatchGenderPreference = "ANY" | "MALE" | "FEMALE";
+
+/** This cat’s typical vibe (for matching). */
+export type CatBehavior = "PLAYFUL" | "CALM" | "CUDDLY" | "INDEPENDENT" | "CURIOUS" | "CHILL";
+
+/** Behavior wanted in other cats for PawMatch. */
+export type MatchBehaviorPreference = "ANY" | CatBehavior;
+
+export const CAT_BEHAVIORS: CatBehavior[] = [
+  "PLAYFUL",
+  "CALM",
+  "CUDDLY",
+  "INDEPENDENT",
+  "CURIOUS",
+  "CHILL",
+];
+
 export type CatDto = {
   id: number;
   name: string;
@@ -6,6 +24,14 @@ export type CatDto = {
   gender: "MALE" | "FEMALE" | null;
   bio: string | null;
   photoUrls: string[];
+  /** PawMatch discovery filter (paired with age range; reciprocal with other cats). */
+  prefLookingForGender: MatchGenderPreference;
+  prefMinAgeMonths: number | null;
+  prefMaxAgeMonths: number | null;
+  behavior: CatBehavior | null;
+  prefBehavior: MatchBehaviorPreference;
+  /** If set, only cats of this breed (case-insensitive) appear; reciprocal. */
+  prefBreed: string | null;
 };
 
 export type CatCardDto = {
@@ -15,6 +41,7 @@ export type CatCardDto = {
   ageMonths: number | null;
   gender: "MALE" | "FEMALE" | null;
   bio: string | null;
+  behavior: string | null;
   coverPhotoUrl: string | null;
   ownerDisplayName: string;
 } | null;
@@ -24,6 +51,8 @@ export type SwipeResponse = { matched: boolean; threadId: number | null };
 export type MatchSummaryDto = {
   matchId: number;
   threadId: number;
+  /** Which of your cats this match is for (same perspective as catAName). */
+  myCatId: number;
   catAName: string;
   catBName: string;
   otherOwnerName: string;

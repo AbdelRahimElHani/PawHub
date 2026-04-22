@@ -35,6 +35,7 @@ public class AdminSeedRunner implements ApplicationRunner {
                             if (cfg.isSyncCredentialsOnStartup()) {
                                 existing.setPasswordHash(passwordEncoder.encode(password));
                                 existing.setRole(UserRole.ADMIN);
+                                existing.setEmailVerified(true);
                                 userRepository.save(existing);
                             }
                         },
@@ -45,6 +46,7 @@ public class AdminSeedRunner implements ApplicationRunner {
                                     .displayName("PawHub Admin")
                                     .accountType(UserAccountType.ADOPTER)
                                     .role(UserRole.ADMIN)
+                                    .emailVerified(true)
                                     .build();
                             userRepository.save(admin);
                         });

@@ -41,6 +41,35 @@ public class Cat {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
+    /** PawMatch: which genders of other cats to show (reciprocal filter also applies). */
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "pref_looking_for_gender", nullable = false, length = 16)
+    @Builder.Default
+    private MatchGenderPreference prefLookingForGender = MatchGenderPreference.ANY;
+
+    @Column(name = "pref_min_age_months")
+    private Integer prefMinAgeMonths;
+
+    @Column(name = "pref_max_age_months")
+    private Integer prefMaxAgeMonths;
+
+    /** This cat’s typical behavior / energy (for matching). */
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "behavior", length = 32)
+    private CatBehavior behavior;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "pref_behavior", nullable = false, length = 32)
+    @Builder.Default
+    private MatchBehaviorPreference prefBehavior = MatchBehaviorPreference.ANY;
+
+    /** If set, only show other cats whose breed equals this (case-insensitive). */
+    @Column(name = "pref_breed", length = 255)
+    private String prefBreed;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

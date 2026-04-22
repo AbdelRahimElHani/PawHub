@@ -7,5 +7,6 @@ public record CatCardDto(
         Integer ageMonths,
         String gender,
         String bio,
+        String behavior,
         String coverPhotoUrl,
         String ownerDisplayName) {}

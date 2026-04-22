@@ -10,7 +10,19 @@ OpenAPI: `http://localhost:8080/v3/api-docs` — Swagger UI: `/swagger`.
 | POST | `/api/auth/login` | Public |
 | GET | `/api/auth/me` | Bearer |
 
+## Auth
+
+| Method | Path | Notes |
+|--------|------|--------|
+| POST | `/api/auth/register` | Returns `{ message, email, verificationRequired }` — no JWT until verified (unless dev auto-verify is on). |
+| GET | `/api/auth/verify-email?token=` | Completes email verification; public. |
+| POST | `/api/auth/resend-verification` | Body `{ "email" }`; public; generic response to limit enumeration. |
+| POST | `/api/auth/login` | 403 if email not verified. |
+| GET | `/api/auth/me` | JWT; `emailVerified` on user payload. |
+
 ## Cats
+
+Cat JSON includes PawMatch fields: `prefLookingForGender` (`ANY` \| `MALE` \| `FEMALE`), optional `prefMinAgeMonths` / `prefMaxAgeMonths`, optional `behavior` (`PLAYFUL` … `CHILL`), `prefBehavior` (`ANY` or same labels), optional `prefBreed` (exact case-insensitive match to other cat’s `breed`). Discovery applies **both** cats’ filters (reciprocal).
 
 | Method | Path |
 |--------|------|

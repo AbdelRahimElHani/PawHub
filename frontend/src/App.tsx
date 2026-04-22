@@ -5,6 +5,7 @@ import { Layout } from "./shell/Layout";
 import { GuestLanding, Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { CatsPage } from "./pages/CatsPage";
 import { PawMatchPage } from "./pages/PawMatchPage";
 import { MatchesPage } from "./pages/MatchesPage";
@@ -64,6 +65,7 @@ export default function App() {
       <Route path="/" element={<AppRoot />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route
         element={
           <RequireAuth>

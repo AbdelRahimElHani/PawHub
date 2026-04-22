@@ -20,6 +20,8 @@
 
 Admin seed: `admin@pawhub.local` / `admin123`.
 
+**Email verification:** New accounts receive a verification link (SMTP via `spring.mail.*`, or the link is logged if mail is not configured). For production, set `pawhub.auth.auto-verify-email-on-registration: false` and configure SMTP. The repo default uses auto-verify on registration in `application.yml` for frictionless local dev.
+
 ## Conventions
 
 - REST base path: `/api/...`

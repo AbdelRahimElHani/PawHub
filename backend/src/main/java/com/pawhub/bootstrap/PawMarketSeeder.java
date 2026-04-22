@@ -14,13 +14,21 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Seeds rich Paw Market demo data: 6 users, 14 listings (all categories),
  * 5 orders, 6 reviews, and 2 Verified Meow sellers.
- * Runs once — skipped if luna@pawhub.local already exists.
+ * Runs once — skipped if any Paw Market demo user already exists (avoids partial re-run duplicates).
  */
 @Slf4j
 @Component
 @Order(2)
 @RequiredArgsConstructor
 public class PawMarketSeeder implements CommandLineRunner {
+
+    private static final List<String> PAW_MARKET_USER_EMAILS = List.of(
+            "luna@pawhub.local",
+            "oliver@pawhub.local",
+            "mochi@pawhub.local",
+            "simba@pawhub.local",
+            "nala@pawhub.local",
+            "chester@pawhub.local");
 
     private final UserRepository         userRepo;
     private final MarketListingRepository listingRepo;
@@ -33,7 +41,9 @@ public class PawMarketSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (userRepo.existsByEmailIgnoreCase("luna@pawhub.local")) {
+        boolean anyDemoUser = PAW_MARKET_USER_EMAILS.stream()
+                .anyMatch(userRepo::existsByEmailIgnoreCase);
+        if (anyDemoUser) {
             log.info("Paw Market seed data already present – skipping.");
             return;
         }
@@ -318,6 +328,7 @@ public class PawMarketSeeder implements CommandLineRunner {
                 .profileRegion(region)
                 .profileBio(bio)
                 .avatarUrl(avatar)
+                .emailVerified(true)
                 .build();
     }
 
