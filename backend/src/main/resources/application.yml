@@ -43,7 +43,8 @@ spring:
       max-request-size: 55MB
 
 server:
-  port: 8080
+  # Cloud hosts (e.g. Railway) set PORT; local dev uses 8080.
+  port: ${PORT:8080}
 
 pawhub:
   mail:
@@ -52,14 +53,19 @@ pawhub:
   auth:
     auto-verify-email-on-registration: ${PAWHUB_AUTO_VERIFY_EMAIL:true}
   admin:
-    email: admin@pawhub.local
-    password: admin123
-    sync-credentials-on-startup: true
+    email: ${PAWHUB_ADMIN_EMAIL:admin@pawhub.local}
+    password: ${PAWHUB_ADMIN_PASSWORD:admin123}
+    # Production: set false after the admin password is set; set PAWHUB_ADMIN_PASSWORD to a strong value.
+    sync-credentials-on-startup: ${PAWHUB_ADMIN_SYNC_CREDENTIALS_ON_STARTUP:true}
   demo-user:
-    enabled: true
-    email: demo@pawhub.local
-    password: PawHub2026!
-    display-name: Demo User
+    # Production: set PAWHUB_DEMO_USER_ENABLED=false
+    enabled: ${PAWHUB_DEMO_USER_ENABLED:true}
+    email: ${PAWHUB_DEMO_USER_EMAIL:demo@pawhub.local}
+    password: ${PAWHUB_DEMO_USER_PASSWORD:PawHub2026!}
+    display-name: ${PAWHUB_DEMO_USER_DISPLAY_NAME:Demo User}
+  bootstrap:
+    # Large demo dataset for Paw Market — disable in production (set false).
+    paw-market-seed: ${PAWHUB_BOOTSTRAP_PAW_MARKET_SEED:true}
   frontend-base-url: ${PAWHUB_FRONTEND_BASE_URL:http://localhost:5173}
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-long-random-secret-key-for-production-use-only}
@@ -71,7 +77,12 @@ pawhub:
   gemini:
     enabled: ${PAWHUB_GEMINI_ENABLED:${GEMINI_ENABLED:true}}
     api-key: ${PAWHUB_GEMINI_API_KEY:${GEMINI_API_KEY:}}
-    fail-open-on-api-error: true
+    # Optional — leave blank to use defaults in com.pawhub.config.GeminiModelIds
+    model: ${PAWHUB_GEMINI_MODEL:}
+    fallback-model: ${PAWHUB_GEMINI_FALLBACK_MODEL:}
+    whisker-model: ${PAWHUB_GEMINI_WHISKER_MODEL:}
+    # Production: set PAWHUB_GEMINI_FAIL_OPEN_ON_API_ERROR=false once Gemini is verified
+    fail-open-on-api-error: ${PAWHUB_GEMINI_FAIL_OPEN_ON_API_ERROR:true}
 
 springdoc:
   swagger-ui:

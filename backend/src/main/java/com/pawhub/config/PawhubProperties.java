@@ -41,6 +41,18 @@ public class PawhubProperties {
 
     private final Auth auth = new Auth();
 
+    private final Bootstrap bootstrap = new Bootstrap();
+
+    @Getter
+    @Setter
+    public static class Bootstrap {
+        /**
+         * When true, seeds demo Paw Market users/listings on empty DB. Set false in production via
+         * {@code pawhub.bootstrap.paw-market-seed} / env.
+         */
+        private boolean pawMarketSeed = true;
+    }
+
     @Getter
     @Setter
     public static class Auth {

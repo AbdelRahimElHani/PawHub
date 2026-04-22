@@ -1,5 +1,6 @@
 package com.pawhub.bootstrap;
 
+import com.pawhub.config.PawhubProperties;
 import com.pawhub.domain.*;
 import com.pawhub.repository.*;
 import java.util.List;
@@ -37,10 +38,15 @@ public class PawMarketSeeder implements CommandLineRunner {
     private final ChatThreadRepository    threadRepo;
     private final MessageRepository       messageRepo;
     private final PasswordEncoder         passwordEncoder;
+    private final PawhubProperties        pawhubProperties;
 
     @Override
     @Transactional
     public void run(String... args) {
+        if (!pawhubProperties.getBootstrap().isPawMarketSeed()) {
+            log.info("Paw Market seed disabled (pawhub.bootstrap.paw-market-seed=false) — skipping.");
+            return;
+        }
         boolean anyDemoUser = PAW_MARKET_USER_EMAILS.stream()
                 .anyMatch(userRepo::existsByEmailIgnoreCase);
         if (anyDemoUser) {
