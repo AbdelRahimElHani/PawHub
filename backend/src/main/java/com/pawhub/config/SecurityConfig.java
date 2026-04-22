@@ -21,6 +21,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.DispatcherType;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -57,6 +59,7 @@ public class SecurityConfig {
         http.cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+<<<<<<< HEAD
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/hub/**")
@@ -67,6 +70,33 @@ public class SecurityConfig {
                         .permitAll()
                         .anyRequest()
                         .authenticated())
+=======
+                .authorizeHttpRequests(
+                        auth -> auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                                .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/hub/**")
+                                .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/adoptable-cats")
+                                .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/pawvet/verified-vet-names")
+                                .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/adopt/listings/mine")
+                                .authenticated()
+                                .requestMatchers(HttpMethod.GET, "/api/adopt/listings", "/api/adopt/listings/*")
+                                .permitAll()
+                                .requestMatchers(
+                                        "/error",
+                                        "/api/auth/register",
+                                        "/api/auth/login",
+                                        "/ws/**",
+                                        "/v3/api-docs/**",
+                                        "/swagger-ui/**",
+                                        "/swagger",
+                                        "/api/files/**")
+                                .permitAll()
+                                .anyRequest()
+                                .authenticated())
+>>>>>>> PawAdopt-PawVet
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

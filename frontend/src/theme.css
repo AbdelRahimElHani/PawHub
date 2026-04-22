@@ -98,6 +98,19 @@ a:hover {
   background: #fffdf9;
 }
 
+/* Faded label when value is still the empty placeholder (Country / City) */
+.ph-select.ph-select--placeholder {
+  color: var(--color-muted);
+}
+
+.ph-select.ph-select--placeholder option:not([value=""]) {
+  color: var(--color-text);
+}
+
+.ph-select.ph-select--placeholder option[value=""] {
+  color: var(--color-muted);
+}
+
 .ph-grid {
   display: grid;
   gap: 1rem;
@@ -301,22 +314,318 @@ a:hover {
   background: #eef6f4;
 }
 
-.ph-user-chip {
+/* Top bar: dashboard strip + profile outside to the right */
+.ph-top-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
 }
 
-.ph-user-avatar-sm {
-  width: 36px;
-  height: 36px;
+/* Header profile (dropdown) — icon sits outside ph-surface */
+.ph-header-user {
+  position: relative;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.ph-header-user-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.45rem 0.2rem 0.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ph-header-user-trigger--icon-only {
+  padding: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid rgba(45, 74, 62, 0.14);
+  box-shadow: 0 2px 12px rgba(15, 45, 35, 0.06);
+}
+
+.ph-header-user-trigger--icon-only:hover {
+  border-color: rgba(45, 74, 62, 0.28);
+  box-shadow: 0 4px 16px rgba(15, 45, 35, 0.1);
+}
+
+.ph-header-user-trigger:hover {
+  background: var(--color-accent-soft);
+  border-color: rgba(45, 74, 62, 0.22);
+}
+
+.ph-header-user-trigger--icon-only:hover {
+  background: var(--color-surface);
+}
+
+.ph-header-user-trigger:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 2px;
+}
+
+.ph-header-user-trigger--icon-only .ph-header-user-avatar {
+  width: 40px;
+  height: 40px;
+  border: none;
+}
+
+.ph-header-user-avatar {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--color-border);
-  background: #eef6f4;
+  border: 2px solid rgba(45, 74, 62, 0.15);
+  flex-shrink: 0;
+}
+
+.ph-header-user-trigger--icon-only .ph-header-user-avatar--placeholder {
+  border: none;
+  width: 40px;
+  height: 40px;
+}
+
+.ph-header-user-avatar--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #c8e6dc 0%, #e8f5f1 55%, #fef9c3 100%);
+  color: var(--color-primary-dark);
+  border: 2px solid rgba(45, 74, 62, 0.12);
+}
+
+.ph-header-user-initials {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.ph-header-user-menu {
+  position: absolute;
+  right: 0;
+  left: auto;
+  top: calc(100% + 0.35rem);
+  min-width: 11rem;
+  padding: 0.35rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 12px 40px rgba(15, 45, 35, 0.14);
+  z-index: 50;
+}
+
+.ph-header-user-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-primary-dark);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.ph-header-user-item:hover {
+  background: var(--color-accent-soft);
+}
+
+.ph-header-user-item--danger {
+  color: #9f1239;
+}
+
+.ph-header-user-item--danger:hover {
+  background: #ffe4e6;
+}
+
+/* Account / profile page */
+.ph-account-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.ph-account-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.ph-account-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.35rem 1.5rem;
+  background: linear-gradient(125deg, #e8f4f1 0%, #fefce8 45%, #f0fdf4 100%);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ph-account-hero-avatar-wrap {
+  flex-shrink: 0;
+}
+
+.ph-account-avatar-lg {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 28px rgba(45, 74, 62, 0.15);
+}
+
+.ph-account-avatar-lg--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #c8e6dc 0%, #e8f5f1 50%, #fef9c3 100%);
+  color: var(--color-primary-dark);
+  border: 4px solid rgba(255, 255, 255, 0.9);
+}
+
+.ph-account-avatar-lg-initials {
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+.ph-account-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ph-account-title {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+  line-height: 1.2;
+}
+
+.ph-account-sub {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-muted);
+  line-height: 1.45;
+}
+
+.ph-account-body {
+  padding: 1.5rem;
+}
+
+.ph-account-meta {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: #f4faf8;
+  border: 1px solid var(--color-border);
+  font-size: 0.88rem;
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.ph-account-meta strong {
+  color: var(--color-primary-dark);
+}
+
+.ph-account-section {
+  margin-bottom: 1.35rem;
+}
+
+.ph-account-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.ph-account-photo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ph-account-file {
+  position: relative;
+  display: inline-block;
+}
+
+.ph-account-file input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.ph-account-file-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(45, 74, 62, 0.35);
+  background: #fafdfb;
+  color: var(--color-primary-dark);
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ph-account-file:hover .ph-account-file-btn {
+  border-color: var(--color-primary-dark);
+  background: var(--color-accent-soft);
+}
+
+.ph-account-alert {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ph-account-alert--ok {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.ph-account-alert--err {
+  background: #fef2f2;
+  color: #b42318;
+  border: 1px solid #fecaca;
 }
 
 /* ── Paw Market ─────────────────────────────────────────────────── */
+
+.pm-card-outer {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
 
 .pm-card {
   background: var(--color-surface);
@@ -329,6 +638,8 @@ a:hover {
   flex-direction: column;
   text-decoration: none;
   color: inherit;
+  height: 100%;
+  min-height: 300px;
 }
 
 .pm-card:hover {
@@ -344,14 +655,14 @@ a:hover {
 
 .pm-card__img {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   object-fit: cover;
   background: #eef6f4;
 }
 
 .pm-card__img-placeholder {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   background: linear-gradient(135deg, #e8f4f1 0%, #f0fdf4 100%);
   display: flex;
   align-items: center;
@@ -360,20 +671,25 @@ a:hover {
 }
 
 .pm-card__body {
-  padding: 0.9rem 1rem 1rem;
+  padding: 0.65rem 0.85rem 0.85rem;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
+  min-height: 0;
 }
 
 .pm-card__title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.92rem;
   color: var(--color-text);
   margin: 0;
   line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .pm-badge {
@@ -442,8 +758,9 @@ a:hover {
 
 .pm-grid {
   display: grid;
-  gap: 1.1rem;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(188px, 1fr));
+  align-items: stretch;
 }
 
 .pm-sidebar {
@@ -873,6 +1190,36 @@ a:hover {
   padding: 0.85rem 1.25rem;
   border-bottom: 1px solid #ebebeb;
   background: #fff;
+  flex-wrap: nowrap;
+}
+
+.ph-msg-main-head-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.ph-msg-dock-chat-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.ph-msg-dock-chat-close:hover {
+  background: #f0f0f0;
+  color: var(--color-text);
 }
 
 .ph-msg-main-head .ph-msg-title {
@@ -1122,23 +1469,81 @@ a:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.ph-msg-layout--dock .ph-listing-embed {
+.ph-msg-dock-float--chat .ph-listing-embed {
   max-width: 100%;
 }
 
-.ph-msg-layout--dock .ph-listing-embed__thumb {
+.ph-msg-dock-float--chat .ph-listing-embed__thumb {
   width: 60px;
   min-height: 60px;
 }
 
-.ph-msg-layout--dock .ph-listing-embed__thumb img {
+.ph-msg-dock-float--chat .ph-listing-embed__thumb img {
   min-height: 60px;
+}
+
+/* Copy under bubble (PawBot + messaging) */
+.ph-copy-wrap {
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  margin-top: 0.12rem;
+}
+
+.ph-msg-bubble-wrap--mine .ph-copy-wrap {
+  justify-content: flex-end;
+}
+
+.ph-msg-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: none;
+  background: transparent;
+  padding: 0.18rem 0.35rem;
+  cursor: pointer;
+  color: var(--color-muted);
+  border-radius: 6px;
+  opacity: 0.72;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.ph-msg-copy-btn:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--color-text);
+}
+
+.ph-msg-copy-btn.ph-copy-btn--success {
+  opacity: 1;
+  color: var(--color-primary-dark);
+  background: rgba(61, 139, 122, 0.12);
+}
+
+.ph-copy-done-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  animation: ph-copy-pop 0.25s ease;
+}
+
+@keyframes ph-copy-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .ph-msg-ts {
   font-size: 0.66rem;
   color: var(--color-muted);
-  margin-top: 0.2rem;
+  margin-top: 0.1rem;
   padding: 0 0.3rem;
   opacity: 0.8;
 }
@@ -1255,17 +1660,19 @@ a:hover {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   DOCK  –  fixed bottom-right tray
+   DOCK  –  fixed bottom tray (left of PawBot FAB: 60px + gap)
    ═══════════════════════════════════════════════════════════════════════ */
 .ph-msg-dock-root {
   position: fixed;
-  right: 1.25rem;
+  /* Reserve bottom-right for PawBot (60px FAB + 24px inset + gap) */
+  right: calc(24px + 60px + 14px);
   bottom: 0;
   z-index: 1200;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  width: min(400px, calc(100vw - 2rem));
+  align-items: flex-end;
+  width: max-content;
+  max-width: min(960px, calc(100vw - 24px - 60px - 14px - 1.25rem));
   pointer-events: none;
 }
 
@@ -1273,15 +1680,82 @@ a:hover {
   pointer-events: auto;
 }
 
-.ph-msg-dock-panel {
-  height: min(54vh, 460px);
+/*
+ * Row: [conversation] [contact list + Messaging tab].
+ * align-items: flex-start — tops of chat and list align; tab sits only under the list card.
+ * (flex-end was aligning chat’s bottom to list+tab, so opening a contact looked like the tab
+ * sat “under” the conversation.)
+ */
+.ph-msg-dock-floating {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 14px;
+  width: max-content;
+  max-width: 100%;
+  animation: ph-msg-dock-rise 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ph-msg-dock-col-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: max-content;
+  max-width: 100%;
+  align-self: flex-end;
+  flex-shrink: 0;
+}
+
+/* Collapsed: only the tab — keep compact width */
+.ph-msg-dock-col-list--tab-only {
+  width: max-content;
+  align-items: flex-end;
+}
+
+.ph-msg-dock-float {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: min(58vh, 540px);
   border: 1px solid var(--color-border);
   border-bottom: none;
   border-radius: 12px 12px 0 0;
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 -8px 40px rgba(15, 23, 42, 0.14);
-  animation: ph-msg-dock-rise 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 -10px 44px rgba(15, 23, 42, 0.16);
+  flex-shrink: 0;
+}
+
+/* Contact list: base width W */
+.ph-msg-dock-float--list {
+  width: clamp(288px, 30vw, 360px);
+}
+
+/* Conversation: 20% wider than the list panel (1.2×); 20% taller than list card */
+.ph-msg-dock-float--chat {
+  width: calc(clamp(288px, 30vw, 360px) * 1.2);
+  max-width: min(432px, calc(100vw - 48px));
+  /* +20% height vs default dock card (min(58vh, 540px)) */
+  height: min(calc(58vh * 1.2), calc(540px * 1.2));
+  animation: ph-msg-dock-chat-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ph-msg-dock-float .ph-msg-main--dock-chat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: none;
+}
+
+.ph-msg-dock-float--list .ph-msg-sidebar--dock-tray {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  border-right: none;
 }
 
 @keyframes ph-msg-dock-rise {
@@ -1289,23 +1763,54 @@ a:hover {
   to   { opacity: 1; transform: translateY(0);    }
 }
 
+/* DM panel: rises from below (full self-height) into dock slot */
+@keyframes ph-msg-dock-chat-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(100% + 16px));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tab: compact when dock closed; full width of contact list panel when open (unchanged when conversation opens) */
 .ph-msg-dock-tab {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.7rem 1rem;
+  gap: 0.45rem;
+  max-width: 100%;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 0.45rem 0.75rem;
   border: none;
-  border-radius: 12px 12px 0 0;
+  border-radius: 10px 10px 0 0;
   background: linear-gradient(135deg, #2a6356 0%, #1e4d42 100%);
   color: #fff;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   cursor: pointer;
   box-shadow: 0 -3px 18px rgba(15, 23, 42, 0.18);
   transition: filter 0.15s;
+}
+
+.ph-msg-dock-col-list--tab-only .ph-msg-dock-tab {
+  width: max-content;
+  align-self: flex-end;
+}
+
+.ph-msg-dock-col-list:not(.ph-msg-dock-col-list--tab-only) .ph-msg-dock-tab {
+  width: 100%;
+  align-self: stretch;
+}
+
+.ph-msg-dock-tab svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
 }
 
 .ph-msg-dock-tab:hover {
@@ -1315,91 +1820,77 @@ a:hover {
 .ph-msg-dock-tab-left {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.4rem;
 }
 
-/* dock variant overrides */
-.ph-msg-layout--dock {
-  min-height: 0;
-  height: 100%;
-  max-width: none;
-  margin: 0;
-  border-radius: 0;
-  box-shadow: none;
+/* Dock thread list: name + time only (no preview line) */
+.ph-msg-thread-row--dock .ph-msg-preview {
+  display: none;
 }
 
-.ph-msg-layout--dock .ph-msg-sidebar {
-  width: 40%;
-  min-width: 0;
-}
-
-.ph-msg-layout--dock .ph-msg-main {
-  min-width: 0;
-}
-
-.ph-msg-layout--dock .ph-msg-sidebar-head {
-  padding: 0.65rem 0.75rem 0.4rem;
-}
-
-.ph-msg-layout--dock .ph-msg-title {
-  font-size: 0.9rem;
-}
-
-.ph-msg-layout--dock .ph-msg-thread-row {
+.ph-msg-thread-row--dock {
   padding: 0.5rem 0.75rem;
   gap: 0.55rem;
 }
 
-.ph-msg-layout--dock .ph-msg-avatar {
-  width: 36px;
-  height: 36px;
-  font-size: 0.85rem;
-}
-
-.ph-msg-layout--dock .ph-msg-name {
+.ph-msg-sidebar--dock-tray .ph-msg-avatar {
+  width: 34px;
+  height: 34px;
   font-size: 0.82rem;
 }
 
-.ph-msg-layout--dock .ph-msg-preview {
+.ph-msg-dock-float .ph-msg-sidebar-head {
+  padding: 0.65rem 0.75rem 0.4rem;
+}
+
+.ph-msg-dock-float .ph-msg-title {
+  font-size: 0.9rem;
+}
+
+.ph-msg-dock-float .ph-msg-name {
+  font-size: 0.82rem;
+}
+
+.ph-msg-dock-float .ph-msg-preview {
   font-size: 0.73rem;
 }
 
-.ph-msg-layout--dock .ph-msg-main-head {
+.ph-msg-dock-float .ph-msg-main-head {
   padding: 0.55rem 0.85rem;
 }
 
-.ph-msg-layout--dock .ph-msg-scroll {
+.ph-msg-dock-float .ph-msg-scroll {
   padding: 0.75rem 0.85rem 0.5rem;
 }
 
-.ph-msg-layout--dock .ph-msg-compose {
+.ph-msg-dock-float .ph-msg-compose {
   padding: 0.5rem 0.65rem;
 }
 
-.ph-msg-layout--dock .ph-msg-bubble {
+.ph-msg-dock-float .ph-msg-bubble {
   font-size: 0.825rem;
   padding: 0.4rem 0.7rem;
 }
 
-.ph-msg-layout--dock .ph-msg-text {
+.ph-msg-dock-float .ph-msg-text {
   font-size: 0.825rem;
 }
 
-.ph-msg-layout--dock .ph-msg-compose-row {
+.ph-msg-dock-float .ph-msg-compose-row {
   border-radius: 18px;
   padding: 0.25rem 0.25rem 0.25rem 0.6rem;
 }
 
-.ph-msg-layout--dock .ph-msg-input {
+.ph-msg-dock-float .ph-msg-input {
   font-size: 0.825rem;
 }
 
-.ph-msg-layout--dock .ph-msg-send {
+.ph-msg-dock-float .ph-msg-send {
   width: 1.9rem;
   height: 1.9rem;
 }
 
-.ph-msg-layout--dock .ph-msg-icon-btn {
+.ph-msg-dock-float .ph-msg-icon-btn {
   width: 1.75rem;
   height: 1.75rem;
 }
@@ -1420,19 +1911,47 @@ a:hover {
     border-bottom: 1px solid #ebebeb;
   }
 
-  .ph-msg-layout--dock .ph-msg-sidebar {
+  .ph-msg-dock-floating {
+    flex-direction: column;
+    align-items: stretch;
     width: 100%;
-    max-height: 33vh;
+    gap: 10px;
+  }
+
+  .ph-msg-dock-col-list {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .ph-msg-dock-col-list--tab-only .ph-msg-dock-tab {
+    width: max-content;
+    align-self: flex-end;
+  }
+
+  .ph-msg-dock-col-list:not(.ph-msg-dock-col-list--tab-only) .ph-msg-dock-tab {
+    width: 100%;
+    align-self: stretch;
+  }
+
+  .ph-msg-dock-float--list {
+    width: 100% !important;
+    height: min(42vh, 320px);
+  }
+
+  .ph-msg-dock-float--chat {
+    width: 100% !important;
+    max-width: none !important;
+    height: min(calc(48vh * 1.2), calc(400px * 1.2));
   }
 
   .ph-msg-dock-root {
-    right: 0;
-    width: 100%;
-    border-radius: 12px 12px 0 0;
+    right: calc(60px + 0.5rem);
+    max-width: calc(100% - 60px - 0.75rem);
+    align-items: flex-end;
   }
 
   .ph-msg-dock-tab {
-    border-radius: 12px 12px 0 0;
+    border-radius: 10px 10px 0 0;
   }
 }
 
@@ -1519,6 +2038,11 @@ a:hover {
   align-items: center;
   gap: 1rem;
   padding: 0.85rem 1rem;
+}
+
+.pm-my-list__row--sold {
+  border-left: 3px solid #059669;
+  background: linear-gradient(90deg, rgba(5, 150, 105, 0.06) 0%, transparent 12rem);
 }
 
 .pm-my-list__thumb {

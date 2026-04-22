@@ -2,6 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { api, getToken, setToken } from "../api/client";
 import type { AccountType, RegisterPayload } from "./authTypes";
 
+export type VetVerificationStatusApi = "PENDING" | "APPROVED" | "REJECTED";
+
 export type AuthUser = {
   userId: number;
   email: string;
@@ -12,7 +14,13 @@ export type AuthUser = {
   profileCity: string | null;
   profileRegion: string | null;
   profileBio: string | null;
+<<<<<<< HEAD
   emailVerified: boolean;
+=======
+  /** Set for veterinarian accounts from the server */
+  vetVerificationStatus?: VetVerificationStatusApi | null;
+  vetRejectionReason?: string | null;
+>>>>>>> PawAdopt-PawVet
 };
 
 type RegisterResult =
@@ -24,7 +32,11 @@ type AuthContextValue = {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+<<<<<<< HEAD
   register: (payload: RegisterPayload, avatarFile?: File | null) => Promise<RegisterResult>;
+=======
+  register: (payload: RegisterPayload, avatarFile?: File | null, vetDocuments?: File[] | null) => Promise<void>;
+>>>>>>> PawAdopt-PawVet
   updateProfile: (patch: {
     displayName?: string;
     profileCity?: string | null;
@@ -33,6 +45,7 @@ type AuthContextValue = {
   }) => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
   logout: () => void;
+  /** Reload `/api/auth/me` (e.g. after vet approval). */
   refreshMe: () => Promise<void>;
 };
 
@@ -49,10 +62,25 @@ type AuthResponse = {
   profileCity: string | null;
   profileRegion: string | null;
   profileBio: string | null;
+<<<<<<< HEAD
   emailVerified?: boolean;
+=======
+  vetVerificationStatus?: string | null;
+  vetRejectionReason?: string | null;
+>>>>>>> PawAdopt-PawVet
 };
 
+function normalizeVetVerificationStatus(raw: string | null | undefined): "PENDING" | "APPROVED" | "REJECTED" | null {
+  const s = String(raw ?? "")
+    .trim()
+    .toUpperCase();
+  if (s === "PENDING" || s === "APPROVED" || s === "REJECTED") return s;
+  return null;
+}
+
 function mapUser(r: AuthResponse): AuthUser {
+  const vs = normalizeVetVerificationStatus(r.vetVerificationStatus);
+  const vetOk = vs !== null;
   return {
     userId: r.userId,
     email: r.email,
@@ -63,7 +91,13 @@ function mapUser(r: AuthResponse): AuthUser {
     profileCity: r.profileCity,
     profileRegion: r.profileRegion,
     profileBio: r.profileBio,
+<<<<<<< HEAD
     emailVerified: r.emailVerified ?? true,
+=======
+    vetVerificationStatus: r.accountType === "VET" ? (vetOk ? vs : "PENDING") : null,
+    vetRejectionReason:
+      r.accountType === "VET" && vetOk && vs === "REJECTED" ? (r.vetRejectionReason ?? null) : null,
+>>>>>>> PawAdopt-PawVet
   };
 }
 
@@ -112,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applyAuth],
   );
 
+<<<<<<< HEAD
   const register = useCallback(async (payload: RegisterPayload, avatarFile?: File | null): Promise<RegisterResult> => {
     if (avatarFile) {
       const fd = new FormData();
@@ -123,6 +158,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) {
         const msg = typeof data.error === "string" ? data.error : res.statusText;
         throw new Error(msg);
+=======
+  const register = useCallback(
+    async (payload: RegisterPayload, avatarFile?: File | null, vetDocuments?: File[] | null) => {
+      const hasAvatar = Boolean(avatarFile && avatarFile.size > 0);
+      const vetDocs = vetDocuments?.filter((f) => f.size > 0) ?? [];
+      const useMultipart = payload.accountType === "VET" || hasAvatar;
+
+      if (useMultipart) {
+        const fd = new FormData();
+        fd.append("profile", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+        if (hasAvatar && avatarFile) fd.append("avatar", avatarFile);
+        if (payload.accountType === "VET") {
+          vetDocs.forEach((f) => fd.append("vetDocuments", f));
+        }
+        const res = await fetch("/api/auth/register", { method: "POST", body: fd });
+        const text = await res.text();
+        if (!res.ok) {
+          let msg = res.statusText;
+          try {
+            const j = JSON.parse(text);
+            if (j.error) msg = j.error;
+          } catch {
+            /* ignore */
+          }
+          throw new Error(msg);
+        }
+        const r = JSON.parse(text) as AuthResponse;
+        applyAuth(r);
+      } else {
+        const r = await api<AuthResponse>("/api/auth/register", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        applyAuth(r);
+>>>>>>> PawAdopt-PawVet
       }
       if (data.verificationRequired === true) {
         return {

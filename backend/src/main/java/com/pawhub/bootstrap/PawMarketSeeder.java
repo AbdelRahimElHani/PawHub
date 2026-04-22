@@ -348,6 +348,7 @@ public class PawMarketSeeder implements CommandLineRunner {
                 .category(category)
                 .city(city)
                 .region(region)
+                .country(null)
                 .cityText(cityText)
                 .latitude(lat)
                 .longitude(lng)

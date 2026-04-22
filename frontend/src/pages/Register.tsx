@@ -23,6 +23,11 @@ const TYPES: { id: AccountType; title: string; desc: string; icon: string }[] = 
     title: "Shelter or rescue",
     desc: "Represent an organization. We create your shelter profile pending admin approval.",
   },
+  {
+    id: "VET",
+    title: "Veterinarian (PawVet)",
+    desc: "Licensed DVM path: upload proving documents, then wait for email and a short credential interview before approval.",
+  },
 ];
 
 export function Register() {
@@ -41,6 +46,12 @@ export function Register() {
   const [shelterPhone, setShelterPhone] = useState("");
   const [shelterEmailContact, setShelterEmailContact] = useState("");
   const [shelterBio, setShelterBio] = useState("");
+  const [vetLicenseNumber, setVetLicenseNumber] = useState("");
+  const [vetUniversity, setVetUniversity] = useState("");
+  const [vetYearsExperience, setVetYearsExperience] = useState("");
+  const [vetPhone, setVetPhone] = useState("");
+  const [vetProfessionalBio, setVetProfessionalBio] = useState("");
+  const [vetDocFiles, setVetDocFiles] = useState<File[]>([]);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -139,6 +150,18 @@ export function Register() {
         shelterBio: shelterBio.trim() || null,
       };
     }
+    if (accountType === "VET") {
+      const y = vetYearsExperience.trim();
+      const years = y === "" ? null : Number.parseInt(y, 10);
+      return {
+        ...base,
+        vetLicenseNumber: vetLicenseNumber.trim() || null,
+        vetUniversity: vetUniversity.trim() || null,
+        vetYearsExperience: years != null && !Number.isNaN(years) ? years : null,
+        vetPhone: vetPhone.trim() || null,
+        vetProfessionalBio: vetProfessionalBio.trim() || null,
+      };
+    }
     return base;
   }, [
     accountType,
@@ -154,6 +177,11 @@ export function Register() {
     shelterPhone,
     shelterEmailContact,
     shelterBio,
+    vetLicenseNumber,
+    vetUniversity,
+    vetYearsExperience,
+    vetPhone,
+    vetProfessionalBio,
   ]);
 
   function onAvatarChange(f: File | null) {
@@ -168,14 +196,38 @@ export function Register() {
     if (!validateBeforeSubmit() || !payload) {
       return;
     }
+    if (payload.accountType === "VET") {
+      if (!payload.vetLicenseNumber?.trim() || !payload.vetUniversity?.trim()) {
+        setErr("License number and university / DVM program are required for veterinarian accounts.");
+        return;
+      }
+      const y = payload.vetYearsExperience;
+      if (y != null && (y < 0 || y > 70)) {
+        setErr("Years of experience must be between 0 and 70.");
+        return;
+      }
+      if (vetDocFiles.length < 1) {
+        setErr("Please upload at least one proving document (PDF or image), such as your veterinary license or diploma.");
+        return;
+      }
+      if (vetDocFiles.length > 8) {
+        setErr("You can upload at most 8 documents.");
+        return;
+      }
+    }
     try {
+<<<<<<< HEAD
       const result = await register(payload, avatarFile);
       if (result.kind === "needsVerification") {
         nav(`/login?pendingVerification=1&email=${encodeURIComponent(result.email)}`);
         return;
       }
+=======
+      await register(payload, avatarFile, payload.accountType === "VET" ? vetDocFiles : undefined);
+>>>>>>> PawAdopt-PawVet
       if (payload.accountType === "SHELTER") nav("/adopt/shelter");
       else if (payload.accountType === "CAT_OWNER") nav("/cats");
+      else if (payload.accountType === "VET") nav("/vet");
       else nav("/adopt");
     } catch (ex: unknown) {
       const msg = ex instanceof Error ? ex.message : "Register failed";
@@ -300,6 +352,68 @@ export function Register() {
           <span className="ph-label">About you (optional)</span>
           <textarea className="ph-textarea" rows={3} value={profileBio} onChange={(e) => setProfileBio(e.target.value)} />
         </div>
+
+        {accountType === "VET" && (
+          <div
+            className="ph-surface"
+            style={{ padding: "1rem", background: "color-mix(in srgb, var(--pawvet-medical, #0d6efd) 8%, #faf8f5)", border: "1px dashed var(--color-border)" }}
+          >
+            <strong style={{ display: "block", marginBottom: "0.75rem", fontFamily: "var(--font-display)" }}>
+              Veterinary license application
+            </strong>
+            <p style={{ margin: "0 0 0.85rem", fontSize: "0.88rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+              Your account is created right away, but you <strong>cannot</strong> claim PawVet cases until our team verifies your
+              documents. Watch the email address you use below: we will contact you there to schedule a brief credential
+              interview (video or phone) before final approval.
+            </p>
+            <div className="ph-grid" style={{ gap: "0.75rem" }}>
+              <div>
+                <span className="ph-label">Proving documents * (PDF or images, up to 8)</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/*,.pdf"
+                  onChange={(e) => setVetDocFiles(Array.from(e.target.files ?? []))}
+                  style={{ fontSize: "0.88rem", marginTop: 4 }}
+                />
+                {vetDocFiles.length > 0 ? (
+                  <p style={{ margin: "0.35rem 0 0", fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                    Selected: {vetDocFiles.length} file{vetDocFiles.length === 1 ? "" : "s"} — {vetDocFiles.map((f) => f.name).join(", ")}
+                  </p>
+                ) : (
+                  <p style={{ margin: "0.35rem 0 0", fontSize: "0.82rem", color: "#a67c00" }}>At least one document is required.</p>
+                )}
+              </div>
+              <div>
+                <span className="ph-label">License / registration number *</span>
+                <input className="ph-input" value={vetLicenseNumber} onChange={(e) => setVetLicenseNumber(e.target.value)} required={accountType === "VET"} />
+              </div>
+              <div>
+                <span className="ph-label">University / DVM program *</span>
+                <input className="ph-input" value={vetUniversity} onChange={(e) => setVetUniversity(e.target.value)} required={accountType === "VET"} />
+              </div>
+              <div>
+                <span className="ph-label">Years in practice (optional)</span>
+                <input
+                  className="ph-input"
+                  inputMode="numeric"
+                  value={vetYearsExperience}
+                  onChange={(e) => setVetYearsExperience(e.target.value.replace(/\D/g, ""))}
+                  placeholder="e.g. 8"
+                  style={{ maxWidth: 160 }}
+                />
+              </div>
+              <div>
+                <span className="ph-label">Professional phone (optional)</span>
+                <input className="ph-input" value={vetPhone} onChange={(e) => setVetPhone(e.target.value)} />
+              </div>
+              <div>
+                <span className="ph-label">Clinical focus & credentials notes (optional)</span>
+                <textarea className="ph-textarea" rows={4} value={vetProfessionalBio} onChange={(e) => setVetProfessionalBio(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {accountType === "SHELTER" && (
           <div

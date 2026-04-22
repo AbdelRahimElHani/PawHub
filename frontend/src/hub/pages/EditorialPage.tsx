@@ -7,7 +7,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import type { HubEditorialJson } from "../api/hubApiTypes";
 import { HubConfirmDialog } from "../components/HubConfirmDialog";
-import { EDITORIAL_TOPICS } from "../mockData";
+import { EDITORIAL_TOPICS } from "../hubConstants";
 import { useSavedArticles } from "../context/SavedArticlesContext";
 import type { ExternalLinkEntry } from "../types";
 
@@ -221,50 +221,54 @@ export function EditorialPage() {
         </motion.section>
       )}
 
-      <div className="hub-masonry">
+      <div className="hub-editorial-grid">
         {rest.map((a, i) => (
-          <motion.div key={a.id} className="hub-masonry-item" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 * i }}>
-            <article className="ph-surface" style={{ padding: 0, overflow: "hidden", position: "relative" }}>
-              {isAdmin && (
-                <button
-                  type="button"
-                  className="ph-btn ph-btn-ghost"
-                  title="Remove article"
-                  aria-label="Remove article"
-                  onClick={() => setDeleteId(a.id)}
-                  style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}
-                >
-                  <Trash2 size={16} />
-                </button>
+          <motion.article
+            key={a.id}
+            className="ph-surface hub-editorial-card"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 * i }}
+          >
+            {isAdmin && (
+              <button
+                type="button"
+                className="ph-btn ph-btn-ghost"
+                title="Remove article"
+                aria-label="Remove article"
+                onClick={() => setDeleteId(a.id)}
+                style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
+            <a className="hub-editorial-card__link" href={a.url} target="_blank" rel="noopener noreferrer">
+              {a.imageUrl ? (
+                <img className="hub-editorial-card__media" src={a.imageUrl} alt="" loading="lazy" />
+              ) : (
+                <div className="hub-editorial-card__media-placeholder" aria-hidden />
               )}
-              <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", color: "inherit" }}>
-                {a.imageUrl ? (
-                  <img src={a.imageUrl} alt="" style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }} loading="lazy" />
-                ) : (
-                  <div style={{ height: 120, background: "var(--hub-sage-soft)" }} />
-                )}
-                <div style={{ padding: "1rem 1.1rem 1rem" }}>
-                  <p className="hub-meta" style={{ marginBottom: "0.35rem" }}>
-                    {a.sourceLabel}
-                  </p>
-                  <h2 style={{ fontFamily: "var(--hub-serif)", fontSize: "1.2rem", margin: "0 0 0.5rem", lineHeight: 1.25, color: "var(--hub-charcoal)" }}>{a.title}</h2>
-                  <p style={{ margin: 0, fontSize: "0.92rem", color: "var(--color-muted)", lineHeight: 1.45 }}>{a.dek}</p>
-                  <span className="hub-tag" style={{ marginTop: "0.5rem", display: "inline-block" }}>
-                    {EDITORIAL_TOPICS.find((x) => x.id === a.topicId)?.label ?? a.topicId}
-                  </span>
-                </div>
-              </a>
-              <div style={{ padding: "0 1rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                <a className="ph-btn ph-btn-primary" style={{ fontSize: "0.88rem", textDecoration: "none" }} href={a.url} target="_blank" rel="noopener noreferrer">
-                  Open article <ExternalLink size={14} style={{ marginLeft: "0.25rem" }} aria-hidden />
-                </a>
-                <button type="button" className="ph-btn ph-btn-ghost" style={{ fontSize: "0.85rem" }} onClick={() => toggle(a.id)} aria-label={isSaved(a.id) ? "Remove save" : "Save link"}>
-                  <Bookmark size={16} aria-hidden fill={isSaved(a.id) ? "currentColor" : "none"} />
-                  {isSaved(a.id) ? "Saved" : "Save"}
-                </button>
+              <div className="hub-editorial-card__body">
+                <p className="hub-meta" style={{ margin: 0 }}>
+                  {a.sourceLabel}
+                </p>
+                <h2 className="hub-editorial-card__title">{a.title}</h2>
+                <p className="hub-editorial-card__dek">{a.dek}</p>
+                <span className="hub-tag" style={{ marginTop: "0.25rem", display: "inline-block" }}>
+                  {EDITORIAL_TOPICS.find((x) => x.id === a.topicId)?.label ?? a.topicId}
+                </span>
               </div>
-            </article>
-          </motion.div>
+            </a>
+            <div className="hub-editorial-card__footer">
+              <a className="ph-btn ph-btn-primary" style={{ fontSize: "0.88rem", textDecoration: "none" }} href={a.url} target="_blank" rel="noopener noreferrer">
+                Open article <ExternalLink size={14} style={{ marginLeft: "0.25rem" }} aria-hidden />
+              </a>
+              <button type="button" className="ph-btn ph-btn-ghost" style={{ fontSize: "0.85rem" }} onClick={() => toggle(a.id)} aria-label={isSaved(a.id) ? "Remove save" : "Save link"}>
+                <Bookmark size={16} aria-hidden fill={isSaved(a.id) ? "currentColor" : "none"} />
+                {isSaved(a.id) ? "Saved" : "Save"}
+              </button>
+            </div>
+          </motion.article>
         ))}
       </div>
 

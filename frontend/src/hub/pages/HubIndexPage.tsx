@@ -20,7 +20,7 @@ const cards = [
   {
     to: "/hub/community/help",
     title: "Community",
-    desc: "Create forums, post threads, comment, and vote — stored locally until you add a backend.",
+    desc: "Forum rooms, threads, comments, and votes — powered by PawHub’s backend.",
     icon: MessageSquare,
     accent: "var(--color-primary)",
   },

@@ -2,6 +2,8 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useState } from "react";
 import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import type { ReverseGeocodedPlace } from "./reverseGeocodeNominatim";
+import { reverseGeocodeNominatim } from "./reverseGeocodeNominatim";
 
 // Fix default marker icons broken by webpack/vite bundling
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -13,9 +15,13 @@ L.Icon.Default.mergeOptions({
 
 export type LatLng = { lat: number; lng: number };
 
+/** Default view when no pin yet: Ras Beirut (Raouche), Beirut, Lebanon */
+const DEFAULT_CENTER: [number, number] = [33.9014, 35.4818];
+
 interface LocationPickerMapProps {
   initial?: LatLng;
-  onLocationChange: (pos: LatLng, cityText: string) => void;
+  /** Fires after each map click; `place` is null if geocoding failed. */
+  onLocationChange: (pos: LatLng, place: ReverseGeocodedPlace | null) => void;
 }
 
 function ClickHandler({ onPick }: { onPick: (pos: LatLng) => void }) {
@@ -27,39 +33,14 @@ function ClickHandler({ onPick }: { onPick: (pos: LatLng) => void }) {
   return null;
 }
 
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`;
-    const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-    const data = (await res.json()) as {
-      address?: {
-        city?: string;
-        town?: string;
-        village?: string;
-        suburb?: string;
-        neighbourhood?: string;
-        county?: string;
-      };
-    };
-    const a = data.address ?? {};
-    const city = a.city ?? a.town ?? a.village ?? a.county ?? "";
-    const area = a.suburb ?? a.neighbourhood ?? "";
-    return [city, area].filter(Boolean).join(", ");
-  } catch {
-    return "";
-  }
-}
-
 export function LocationPickerMap({ initial, onLocationChange }: LocationPickerMapProps) {
   const [pin, setPin] = useState<LatLng | null>(initial ?? null);
-  const center: [number, number] = initial
-    ? [initial.lat, initial.lng]
-    : [48.8566, 2.3522]; // default to Paris
+  const center: [number, number] = initial ? [initial.lat, initial.lng] : DEFAULT_CENTER;
 
   async function handlePick(pos: LatLng) {
     setPin(pos);
-    const cityText = await reverseGeocode(pos.lat, pos.lng);
-    onLocationChange(pos, cityText);
+    const place = await reverseGeocodeNominatim(pos.lat, pos.lng);
+    onLocationChange(pos, place);
   }
 
   return (

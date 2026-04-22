@@ -1,10 +1,11 @@
 import { Gift, MapPin, Search, Sliders, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { HubConfirmDialog } from "../hub/components/HubConfirmDialog";
 import { haversineKm, formatDistance } from "../market/haversine";
+import { useCountriesCitiesCatalog } from "../market/useCountriesCitiesCatalog";
 import { useGeolocation } from "../market/useGeolocation";
 import type { PawCategory, PawListingDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
@@ -43,7 +44,7 @@ function ListingCard({
       : null;
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className="pm-card-outer">
       {isAdmin && (
         <>
           <button
@@ -83,7 +84,7 @@ function ListingCard({
           />
         </>
       )}
-      <Link to={`/market/${listing.id}`} className={`pm-card${isFree ? " pm-card--free" : ""}`} style={{ display: "block" }}>
+      <Link to={`/market/${listing.id}`} className={`pm-card${isFree ? " pm-card--free" : ""}`}>
       {cover ? (
         <img src={cover} alt={listing.title} className="pm-card__img" />
       ) : (
@@ -152,6 +153,20 @@ function ListingCard({
   );
 }
 
+const LS_MARKET_CITY = "pawhub_market_buyer_city";
+const LS_MARKET_REGION = "pawhub_market_buyer_region";
+const LS_MARKET_COUNTRY = "pawhub_market_buyer_country";
+
+function readSavedBuyerArea() {
+  const city = (localStorage.getItem(LS_MARKET_CITY) ?? "").trim();
+  const country = (localStorage.getItem(LS_MARKET_COUNTRY) ?? "").trim();
+  return {
+    pickerCountry: country,
+    /** City is only valid when country is saved (dropdown-only flow). */
+    pickerCity: country ? city : "",
+  };
+}
+
 /** Browse and buy: filters + listing grid (Paw Market Shop tab). */
 export function MarketBrowsePage() {
   const { user } = useAuth();
@@ -164,19 +179,77 @@ export function MarketBrowsePage() {
   const [freeOnly, setFreeOnly] = useState(false);
   const [maxDistKm, setMaxDistKm] = useState(100);
 
-  const { position } = useGeolocation();
+  const initLoc = useMemo(() => readSavedBuyerArea(), []);
+  const [pickerCountry, setPickerCountry] = useState(initLoc.pickerCountry);
+  const [pickerCity, setPickerCity] = useState(initLoc.pickerCity);
+  const [areaApplyHint, setAreaApplyHint] = useState<string | null>(null);
 
-  const loadListings = () => {
+  const [appliedCity, setAppliedCity] = useState(() => localStorage.getItem(LS_MARKET_CITY) ?? "");
+  const [appliedRegion, setAppliedRegion] = useState(() => localStorage.getItem(LS_MARKET_REGION) ?? "");
+
+  const { position } = useGeolocation();
+  const { countries, getCities, loading: catalogLoading, error: catalogError, hasData } = useCountriesCitiesCatalog();
+
+  const cityOptions = useMemo(() => (pickerCountry ? getCities(pickerCountry) : []), [pickerCountry, getCities]);
+
+  useEffect(() => {
+    if (!pickerCountry || !pickerCity || !hasData) return;
+    const list = getCities(pickerCountry);
+    if (!list.includes(pickerCity)) setPickerCity("");
+  }, [pickerCountry, pickerCity, hasData, getCities]);
+
+  const loadListings = useCallback(() => {
     setLoading(true);
-    api<PawListingDto[]>("/api/paw/listings")
+    const params = new URLSearchParams();
+    const c = appliedCity.trim();
+    const r = appliedRegion.trim();
+    if (c) params.set("city", c);
+    if (r) params.set("region", r);
+    const qs = params.toString();
+    api<PawListingDto[]>(`/api/paw/listings${qs ? `?${qs}` : ""}`)
       .then(setAll)
       .catch(() => setAll([]))
       .finally(() => setLoading(false));
-  };
+  }, [appliedCity, appliedRegion]);
 
   useEffect(() => {
-    loadListings();
-  }, []);
+    void loadListings();
+  }, [loadListings]);
+
+  function applyBuyerLocation() {
+    setAreaApplyHint(null);
+    if (catalogError || !hasData) {
+      setAreaApplyHint("Location list is not available. Refresh the page and try again.");
+      return;
+    }
+    const country = pickerCountry.trim();
+    const city = pickerCity.trim();
+    if (!country || !city) {
+      setAreaApplyHint("Choose a country, then pick a city from the dropdown.");
+      return;
+    }
+    const allowed = getCities(country);
+    if (!allowed.includes(city)) {
+      setAreaApplyHint("Pick a city from the list for that country.");
+      return;
+    }
+    localStorage.setItem(LS_MARKET_COUNTRY, country);
+    localStorage.setItem(LS_MARKET_CITY, city);
+    localStorage.setItem(LS_MARKET_REGION, "");
+    setAppliedCity(city);
+    setAppliedRegion("");
+  }
+
+  function clearBuyerLocation() {
+    setPickerCountry("");
+    setPickerCity("");
+    setAreaApplyHint(null);
+    localStorage.removeItem(LS_MARKET_CITY);
+    localStorage.removeItem(LS_MARKET_REGION);
+    localStorage.removeItem(LS_MARKET_COUNTRY);
+    setAppliedCity("");
+    setAppliedRegion("");
+  }
 
   const filtered = all.filter((l) => {
     if (freeOnly && !l.isFree) return false;
@@ -239,6 +312,87 @@ export function MarketBrowsePage() {
           </label>
         </div>
 
+        <div className="pm-filter-section">
+          <span className="pm-filter-label">
+            <MapPin size={12} style={{ verticalAlign: "middle" }} /> My area (listings)
+          </span>
+          <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "var(--color-muted)", lineHeight: 1.35 }}>
+            Choose your <strong>country</strong>, then a <strong>city</strong> from the list so spelling matches sellers. Leave
+            empty and clear to see all areas.
+          </p>
+
+          {catalogLoading && !hasData && (
+            <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "var(--color-muted)" }}>Loading location list…</p>
+          )}
+          {catalogError && (
+            <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#b42318", lineHeight: 1.35 }}>
+              {catalogError} — area filter is unavailable until this loads.
+            </p>
+          )}
+
+          {hasData && !catalogError && (
+            <>
+              <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.78rem", fontWeight: 600 }}>
+                Country
+              </label>
+              <select
+                className={`ph-select${!pickerCountry ? " ph-select--placeholder" : ""}`}
+                style={{ width: "100%", fontSize: "0.88rem", marginBottom: "0.55rem" }}
+                value={pickerCountry}
+                onChange={(e) => {
+                  setPickerCountry(e.target.value);
+                  setPickerCity("");
+                }}
+                aria-label="Country"
+              >
+                <option value="">Country</option>
+                {countries.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+
+              {pickerCountry ? (
+                <>
+                  <label style={{ display: "block", marginBottom: "0.35rem", fontSize: "0.78rem", fontWeight: 600 }}>
+                    City
+                  </label>
+                  <select
+                    className={`ph-select${!pickerCity ? " ph-select--placeholder" : ""}`}
+                    style={{ width: "100%", fontSize: "0.88rem", marginBottom: "0.5rem" }}
+                    value={pickerCity}
+                    onChange={(e) => setPickerCity(e.target.value)}
+                    aria-label="City"
+                  >
+                    <option value="">City</option>
+                    {cityOptions.map((cityName) => (
+                      <option key={cityName} value={cityName}>
+                        {cityName}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <p style={{ margin: "0 0 0.5rem", fontSize: "0.76rem", color: "var(--color-muted)" }}>Select a country to see cities.</p>
+              )}
+            </>
+          )}
+
+          {areaApplyHint && (
+            <p style={{ margin: "0 0 0.45rem", fontSize: "0.78rem", color: "#b42318" }}>{areaApplyHint}</p>
+          )}
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+            <button type="button" className="ph-btn ph-btn-primary" style={{ fontSize: "0.82rem" }} onClick={applyBuyerLocation}>
+              Apply area
+            </button>
+            <button type="button" className="ph-btn ph-btn-ghost" style={{ fontSize: "0.82rem" }} onClick={clearBuyerLocation}>
+              Clear
+            </button>
+          </div>
+        </div>
+
         {position && (
           <div className="pm-filter-section">
             <span className="pm-filter-label">
@@ -286,7 +440,7 @@ export function MarketBrowsePage() {
             <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🐱</div>
             <p style={{ margin: 0, fontWeight: 600 }}>No listings match your filters.</p>
             <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem" }}>
-              Try adjusting the category or distance slider.
+              Try adjusting the category, your city filter, or distance slider.
             </p>
           </div>
         ) : (

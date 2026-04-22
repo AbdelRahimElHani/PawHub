@@ -1,0 +1,207 @@
+/* PawVet — medical triage module (glass + clinical blue accents) */
+:root {
+  --pawvet-medical: #0d6efd;
+  --pawvet-medical-soft: color-mix(in srgb, #0d6efd 12%, transparent);
+  --pawvet-glass: rgba(255, 253, 249, 0.72);
+  --pawvet-glass-border: rgba(45, 74, 62, 0.12);
+}
+
+.pawvet-shell {
+  max-width: 920px;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.pawvet-hero {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.35rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--pawvet-medical-soft), var(--color-accent-soft));
+  border: 1px solid var(--color-border);
+}
+
+.pawvet-hero h1 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  color: var(--color-primary-dark);
+  font-size: 1.65rem;
+}
+
+.pawvet-hero p {
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.55;
+  max-width: 56ch;
+}
+
+.pawvet-glass-card {
+  background: var(--pawvet-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--pawvet-glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+.pawvet-chat-bubble {
+  max-width: min(85%, 420px);
+  padding: 0.65rem 0.85rem;
+  border-radius: 14px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.pawvet-chat-bubble--user {
+  margin-left: auto;
+  background: color-mix(in srgb, var(--pawvet-medical) 18%, #fff);
+  border: 1px solid color-mix(in srgb, var(--pawvet-medical) 28%, transparent);
+  color: var(--color-text);
+}
+
+.pawvet-chat-bubble--vet {
+  margin-right: auto;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--color-border);
+}
+
+.pawvet-chat-bubble--system {
+  margin: 0 auto;
+  text-align: center;
+  max-width: 100%;
+  background: rgba(240, 244, 242, 0.9);
+  border: 1px dashed var(--color-border);
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.pawvet-stat-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.pawvet-stat {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: #fffdf9;
+}
+
+.pawvet-stat strong {
+  display: block;
+  font-size: 1.35rem;
+  font-family: var(--font-display);
+  color: var(--color-primary-dark);
+}
+
+.pawvet-stat span {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pawvet-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.pawvet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.pawvet-table th,
+.pawvet-table td {
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pawvet-table th {
+  background: var(--hub-sage-soft);
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.pawvet-urgent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.pawvet-urgent--urgent {
+  background: #fef2f2;
+  color: #b42318;
+  border: 1px solid #fecaca;
+}
+
+.pawvet-urgent--soon {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.pawvet-urgent--routine {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.pawvet-pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--pawvet-medical);
+  animation: pawvet-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pawvet-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.pawvet-stepper {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.pawvet-step {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+  background: #fff;
+}
+
+.pawvet-step--active {
+  border-color: var(--pawvet-medical);
+  color: var(--pawvet-medical);
+  background: var(--pawvet-medical-soft);
+}
+
+.pawvet-step--done {
+  border-color: #6ee7b7;
+  color: #065f46;
+  background: #ecfdf5;
+}

@@ -110,6 +110,8 @@ export type PawListingDto = {
   category: PawCategory | null;
   city: string | null;
   region: string | null;
+  /** Present on newer API responses */
+  country?: string | null;
   cityText: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -164,4 +166,58 @@ export type ShelterDto = {
   emailContact: string | null;
   bio: string | null;
   status: string;
+  legalEntityName?: string | null;
+  einOrTaxId?: string | null;
+  yearFounded?: number | null;
+  websiteUrl?: string | null;
+  facilityAddress?: string | null;
+  mailingSameAsFacility?: boolean | null;
+  mailingAddress?: string | null;
+  animalFocus?: string | null;
+  avgMonthlyIntakes?: number | null;
+  avgCatsInCare?: number | null;
+  staffingOverview?: string | null;
+  volunteerProgramSummary?: string | null;
+  stateLicenseStatus?: string | null;
+  homeVisitPolicy?: string | null;
+  adoptionFeePolicy?: string | null;
+  spayNeuterPolicy?: string | null;
+  returnPolicy?: string | null;
+  medicalCareDescription?: string | null;
+  behaviorModificationResources?: string | null;
+  transportAssistanceNotes?: string | null;
+  disasterContingencyPlan?: string | null;
+  characterReferences?: string | null;
+  missionStatement?: string | null;
+  boardChairOrDirectorContact?: string | null;
+  socialWebsiteHandles?: string | null;
+  docNonprofitUrl?: string | null;
+  docFacilityLicenseUrl?: string | null;
+  docInsuranceUrl?: string | null;
+  docProtocolsUrl?: string | null;
+  profileCompletedAt?: string | null;
+  profileLastSavedAt?: string | null;
+};
+
+export type VetLicenseApplicationAdminDto = {
+  id: number;
+  userId: number;
+  email: string;
+  displayName: string;
+  licenseNumber: string;
+  university: string;
+  yearsExperience: number | null;
+  phone: string | null;
+  professionalBio: string | null;
+  status: string;
+  rejectionReason: string | null;
+  createdAt: string;
+  supportingDocumentUrls?: string[];
+};
+
+export type VetApplicationMetricsDto = {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
 };

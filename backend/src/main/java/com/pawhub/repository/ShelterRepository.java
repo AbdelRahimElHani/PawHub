@@ -11,4 +11,7 @@ public interface ShelterRepository extends JpaRepository<Shelter, Long> {
     Optional<Shelter> findByUserId(Long userId);
 
     List<Shelter> findByStatusOrderByCreatedAtAsc(ShelterStatus status);
+
+    /** Pending shelters that have submitted a complete dossier (ready for admin review). */
+    List<Shelter> findByStatusAndProfileCompletedAtIsNotNullOrderByProfileCompletedAtAsc(ShelterStatus status);
 }

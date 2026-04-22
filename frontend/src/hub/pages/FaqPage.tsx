@@ -10,7 +10,7 @@ import { useAuth } from "../../auth/AuthContext";
 import type { HubFaqJson } from "../api/hubApiTypes";
 import { FaqAccordion } from "../components/organisms/FaqAccordion";
 import { HubConfirmDialog } from "../components/HubConfirmDialog";
-import { FAQ_CATEGORY_META } from "../mockData";
+import { FAQ_CATEGORY_META } from "../hubConstants";
 import type { FaqCategoryId, FAQItem } from "../types";
 
 function mapToFaqItem(j: HubFaqJson): FAQItem {

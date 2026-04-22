@@ -37,26 +37,98 @@ public class PawMarketService {
     // ── Browse ────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<PawListingDto> browse(String category, Boolean isFree) {
+    public List<PawListingDto> browse(
+            String category, Boolean isFree, String city, String region, Long excludeSellerUserId) {
+        String cityNorm = normalizeFilter(city);
+        String regionNorm = normalizeFilter(region);
         return listingRepository.findAll().stream()
                 .filter(l -> l.getPawStatus() == PawListingStatus.Available)
                 .filter(l -> l.getStockQuantity() > 0)
                 .filter(l -> !isPastPublicWindow(l))
+                .filter(l -> excludeSellerUserId == null
+                        || !l.getUser().getId().equals(excludeSellerUserId))
                 .filter(l -> category == null || category.isBlank()
                         || (l.getCategory() != null
                                 && l.getCategory().name().equalsIgnoreCase(category)))
                 .filter(l -> isFree == null || l.isFree() == isFree)
+                .filter(l -> matchesBuyerLocation(l, cityNorm, regionNorm))
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .map(this::toDto)
                 .toList();
+    }
+
+    private static String normalizeFilter(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** city_text plus country so buyer city substring matches catalog-backed listings. */
+    private static String combinedLocationText(MarketListing l) {
+        String t = l.getCityText() != null ? l.getCityText().toLowerCase(Locale.ROOT) : "";
+        String c = l.getCountry() != null ? l.getCountry().trim().toLowerCase(Locale.ROOT) : "";
+        if (c.isEmpty()) {
+            return t;
+        }
+        return (t + " " + c).trim();
+    }
+
+    /**
+     * When the buyer sets a city (and optionally region), only listings whose seller location matches are shown.
+     * Empty filters mean no location restriction.
+     */
+    private static boolean matchesBuyerLocation(MarketListing l, String cityNorm, String regionNorm) {
+        if (cityNorm.isEmpty() && regionNorm.isEmpty()) {
+            return true;
+        }
+        String lct = combinedLocationText(l);
+        if (!cityNorm.isEmpty()) {
+            String lc = l.getCity() != null ? l.getCity().trim().toLowerCase(Locale.ROOT) : "";
+            boolean cityOk = lc.equals(cityNorm) || (!lct.isEmpty() && lct.contains(cityNorm));
+            if (!cityOk) {
+                return false;
+            }
+        }
+        if (!regionNorm.isEmpty()) {
+            String lr = l.getRegion() != null ? l.getRegion().trim().toLowerCase(Locale.ROOT) : "";
+            boolean regionOk = lr.equals(regionNorm) || (!lct.isEmpty() && lct.contains(regionNorm));
+            if (!regionOk) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Transactional(readOnly = true)
     public List<PawListingDto> mine(SecurityUser principal) {
         return listingRepository.findByUserIdOrderByCreatedAtDesc(principal.getId()).stream()
                 .filter(l -> l.getPawStatus() != null)
+                .sorted(Comparator.<MarketListing, Integer>comparing(
+                                l -> l.getPawStatus() == PawListingStatus.Available ? 0 : 1)
+                        .thenComparing(
+                                MarketListing::getCreatedAt,
+                                Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::toDto)
                 .toList();
+    }
+
+    /**
+     * Seller marks an active listing as sold outside the normal checkout (e.g. cash deal, sold elsewhere).
+     * Listing stays in “mine” as {@link PawListingStatus#Sold} with zero stock and is hidden from browse.
+     */
+    @Transactional
+    public PawListingDto markSoldOffMarket(Long id, SecurityUser principal) {
+        MarketListing l = listingRepository.findById(id).orElseThrow();
+        assertOwner(l, principal);
+        if (l.getPawStatus() != PawListingStatus.Available) {
+            throw new IllegalStateException("Only active listings can be marked as sold.");
+        }
+        l.setStockQuantity(0);
+        l.setPawStatus(PawListingStatus.Sold);
+        l.setStatus(ListingStatus.SOLD);
+        listingRepository.save(l);
+        return toDto(l);
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +152,7 @@ public class PawMarketService {
                 .category(parseCategory(req.category()))
                 .city(req.city())
                 .region(req.region())
+                .country(req.country())
                 .cityText(req.cityText())
                 .latitude(req.latitude())
                 .longitude(req.longitude())
@@ -102,6 +175,7 @@ public class PawMarketService {
         l.setCategory(parseCategory(req.category()));
         l.setCity(req.city());
         l.setRegion(req.region());
+        l.setCountry(req.country());
         l.setCityText(req.cityText());
         l.setLatitude(req.latitude());
         l.setLongitude(req.longitude());
@@ -181,6 +255,7 @@ public class PawMarketService {
         l.setCategory(parseCategory(req.category()));
         l.setCity(req.city());
         l.setRegion(req.region());
+        l.setCountry(req.country());
         l.setCityText(req.cityText());
         l.setLatitude(req.latitude());
         l.setLongitude(req.longitude());
@@ -425,6 +500,7 @@ public class PawMarketService {
                 l.getCategory() != null ? l.getCategory().name() : null,
                 l.getCity(),
                 l.getRegion(),
+                l.getCountry(),
                 l.getCityText(),
                 l.getLatitude(),
                 l.getLongitude(),

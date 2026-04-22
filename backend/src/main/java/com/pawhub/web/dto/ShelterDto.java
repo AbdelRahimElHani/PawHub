@@ -1,5 +1,7 @@
 package com.pawhub.web.dto;
 
+import java.time.Instant;
+
 public record ShelterDto(
         Long id,
         Long ownerUserId,
@@ -9,4 +11,35 @@ public record ShelterDto(
         String phone,
         String emailContact,
         String bio,
-        String status) {}
+        String status,
+        String legalEntityName,
+        String einOrTaxId,
+        Integer yearFounded,
+        String websiteUrl,
+        String facilityAddress,
+        Boolean mailingSameAsFacility,
+        String mailingAddress,
+        String animalFocus,
+        Integer avgMonthlyIntakes,
+        Integer avgCatsInCare,
+        String staffingOverview,
+        String volunteerProgramSummary,
+        String stateLicenseStatus,
+        String homeVisitPolicy,
+        String adoptionFeePolicy,
+        String spayNeuterPolicy,
+        String returnPolicy,
+        String medicalCareDescription,
+        String behaviorModificationResources,
+        String transportAssistanceNotes,
+        String disasterContingencyPlan,
+        String characterReferences,
+        String missionStatement,
+        String boardChairOrDirectorContact,
+        String socialWebsiteHandles,
+        String docNonprofitUrl,
+        String docFacilityLicenseUrl,
+        String docInsuranceUrl,
+        String docProtocolsUrl,
+        Instant profileCompletedAt,
+        Instant profileLastSavedAt) {}

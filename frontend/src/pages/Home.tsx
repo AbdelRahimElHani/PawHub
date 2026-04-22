@@ -1,5 +1,6 @@
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { isAdminAccount } from "../auth/vetAccess";
 
 export function GuestLanding() {
   return (
@@ -29,6 +30,7 @@ const TYPE_INTRO: Record<string, string> = {
   ADOPTER: "Explore matches, browse adoptions, and save your profile.",
   CAT_OWNER: "List your cats on PawMatch and PawMarket from My cats.",
   SHELTER: "Your shelter application is tied to your account — manage it under PawAdopt.",
+  VET: "PawVet triage — upload credentials at signup, then watch your email for an interview invite before you can claim cases.",
 };
 
 export function Home() {
@@ -91,6 +93,18 @@ export function Home() {
           <strong>My cats</strong>
           <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Profiles and photos for your cats.</div>
         </Link>
+        <Link className="ph-surface" to={isAdminAccount(user) ? "/pawvet/admin" : "/pawvet"} style={{ padding: "1rem", display: "block" }}>
+          <strong>PawVet</strong>
+          <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>
+            {isAdminAccount(user) ? "Verification queue and PawVet administration." : "Triage, chat, and vet tools."}
+          </div>
+        </Link>
+        {user.accountType === "VET" && !isAdminAccount(user) && (
+          <Link className="ph-surface" to="/vet" style={{ padding: "1rem", display: "block" }}>
+            <strong>Vet dashboard</strong>
+            <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>Claim cases after admin approval.</div>
+          </Link>
+        )}
         {user.accountType === "SHELTER" && (
           <Link className="ph-surface" to="/adopt/shelter" style={{ padding: "1rem", display: "block" }}>
             <strong>Shelter profile</strong>

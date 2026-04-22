@@ -4,7 +4,11 @@ import com.pawhub.service.AuthService;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.*;
 import jakarta.validation.Valid;
+<<<<<<< HEAD
 import java.util.Map;
+=======
+import java.util.List;
+>>>>>>> PawAdopt-PawVet
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,8 +31,9 @@ public class AuthController {
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public RegistrationResponse registerMultipart(
             @RequestPart("profile") @Valid RegisterRequest profile,
-            @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
-        return authService.register(profile, avatar);
+            @RequestPart(value = "avatar", required = false) MultipartFile avatar,
+            @RequestPart(value = "vetDocuments", required = false) List<MultipartFile> vetDocuments) {
+        return authService.register(profile, avatar, vetDocuments);
     }
 
     @GetMapping("/verify-email")

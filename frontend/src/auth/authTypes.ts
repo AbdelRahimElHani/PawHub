@@ -1,4 +1,4 @@
-export type AccountType = "ADOPTER" | "CAT_OWNER" | "SHELTER";
+export type AccountType = "ADOPTER" | "CAT_OWNER" | "SHELTER" | "VET";
 
 export type RegisterPayload = {
   email: string;
@@ -14,4 +14,10 @@ export type RegisterPayload = {
   shelterPhone?: string | null;
   shelterEmailContact?: string | null;
   shelterBio?: string | null;
+  /** Required when accountType is VET */
+  vetLicenseNumber?: string | null;
+  vetUniversity?: string | null;
+  vetYearsExperience?: number | null;
+  vetPhone?: string | null;
+  vetProfessionalBio?: string | null;
 };

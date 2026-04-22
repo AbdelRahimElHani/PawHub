@@ -1,6 +1,7 @@
 spring:
   application:
     name: pawhub-api
+<<<<<<< HEAD
   # Optional local overrides (SMTP, API keys). File is gitignored — copy from application-local.yml.example
   config:
     import:
@@ -21,6 +22,13 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
       mail.smtp.ssl.trust: ${MAIL_SMTP_SSL_TRUST:smtp.gmail.com}
+=======
+  # Load optional local secrets (gitignored). See backend/config/application-secrets.yml.example
+  config:
+    import:
+      - optional:file:config/application-secrets.yml
+      - optional:file:backend/config/application-secrets.yml
+>>>>>>> PawAdopt-PawVet
   datasource:
     url: jdbc:mysql://localhost:3306/pawhub?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
@@ -69,10 +77,19 @@ pawhub:
   upload-dir: ${user.dir}/uploads
   public-base-url: http://localhost:8080
   gemini:
+<<<<<<< HEAD
     enabled: ${GEMINI_ENABLED:true}
     api-key: ${GEMINI_API_KEY:}
     model: gemini-2.5-flash
     fallback-model: gemini-3.1-flash-lite
+=======
+    enabled: true
+    # Prefer backend/config/application-secrets.yml (gitignored) or env PAWHUB_GEMINI_API_KEY — never commit keys.
+    api-key: ${PAWHUB_GEMINI_API_KEY:}
+    # Model IDs default from com.pawhub.config.GeminiModelIds (gemini-3-flash + fallback). Override here or in application-secrets.yml if needed.
+    # List models: GET https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
+    # While debugging: true = listings still work if the API errors. Set false when Cat-Check is stable.
+>>>>>>> PawAdopt-PawVet
     fail-open-on-api-error: true
 
 springdoc:

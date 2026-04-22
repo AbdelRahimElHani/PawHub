@@ -18,7 +18,7 @@ public class SwipeController {
     private final SwipeService swipeService;
 
     @GetMapping("/candidates")
-    public CatCardDto next(@RequestParam Long myCatId, @AuthenticationPrincipal SecurityUser user) {
+    public CatCardDto next(@RequeostParam Long myCatId, @AuthenticationPrincipal SecurityUser user) {
         return swipeService.nextCandidate(myCatId, user);
     }
 

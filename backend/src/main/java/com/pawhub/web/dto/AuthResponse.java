@@ -11,4 +11,11 @@ public record AuthResponse(
         String profileCity,
         String profileRegion,
         String profileBio,
+<<<<<<< HEAD
         boolean emailVerified) {}
+=======
+        /** PENDING / APPROVED / REJECTED when accountType is VET; otherwise null */
+        String vetVerificationStatus,
+        /** Populated when vet verification was rejected */
+        String vetRejectionReason) {}
+>>>>>>> PawAdopt-PawVet

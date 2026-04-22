@@ -1,5 +1,9 @@
 package com.pawhub.config;
 
+import static com.pawhub.config.GeminiModelIds.DEFAULT;
+import static com.pawhub.config.GeminiModelIds.FALLBACK_ON_429;
+import static com.pawhub.config.GeminiModelIds.WHISKER;
+
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -101,17 +105,17 @@ public class PawhubProperties {
     public static class Gemini {
         private String apiKey = "";
         private boolean enabled = false;
-        /** REST model id for generateContent (see AI Studio rate limits; avoid models with 0/0 quota). */
-        private String model = "gemini-2.5-flash";
-        /**
-         * If set, one retry uses this model when the primary returns HTTP 429 (quota / rate limit).
-         * Pick a model that still has quota for your API key (see Google AI Studio).
-         */
-        private String fallbackModel = "";
+        /** Defaults to {@link GeminiModelIds#DEFAULT}; override in yaml if needed. */
+        private String model = DEFAULT;
+        /** Defaults to {@link GeminiModelIds#FALLBACK_ON_429} for 429 retries. */
+        private String fallbackModel = FALLBACK_ON_429;
         /**
          * If true, transport/API failures (bad key, wrong model id, timeouts) allow the listing
          * instead of hard-rejecting. Set false in production once Gemini is verified working.
          */
         private boolean failOpenOnApiError = true;
+
+        /** Defaults to {@link GeminiModelIds#WHISKER}; falls back to {@link #model} if blank. */
+        private String whiskerModel = WHISKER;
     }
 }

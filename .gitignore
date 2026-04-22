@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Local secrets (copy from application-local.yml.example)
 backend/src/main/resources/application-local.yml
 
@@ -16,3 +17,18 @@ frontend/dist/
 # Backend
 backend/target/
 backend/uploads/
+=======
+# Local secrets — never commit
+backend/config/application-secrets.yml
+**/application-secrets.yml
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# Build / deps
+backend/target/
+frontend/dist/
+frontend/node_modules/
+*.class
+>>>>>>> PawAdopt-PawVet
