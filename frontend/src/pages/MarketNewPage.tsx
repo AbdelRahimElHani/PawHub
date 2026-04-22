@@ -4,8 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { apiUrl, getToken } from "../api/client";
 import { LocationPickerMap } from "../market/LocationPickerMap";
 import type { LatLng } from "../market/LocationPickerMap";
+<<<<<<< HEAD
 import type { ReverseGeocodedPlace } from "../market/reverseGeocodeNominatim";
 import { useCountriesCitiesCatalog } from "../market/useCountriesCitiesCatalog";
+=======
+import { useGeolocation } from "../market/useGeolocation";
+>>>>>>> origin/Branch3rd
 import type { PawListingDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
 
@@ -21,6 +25,7 @@ type ListingLocationMode = "dropdown" | "map";
 
 export function MarketNewPage() {
   const nav = useNavigate();
+  const { position: geoHint } = useGeolocation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -485,6 +490,7 @@ export function MarketNewPage() {
             <span className="ph-label" style={{ display: "block", marginBottom: "0.5rem" }}>
               📍 Item location
             </span>
+<<<<<<< HEAD
             <p style={{ margin: "0 0 0.6rem", fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.4 }}>
               Pick your country and city from the list, or drop a pin on the map — we save city, region (when available),
               and country from the map automatically.
@@ -509,6 +515,19 @@ export function MarketNewPage() {
                 Map pin
               </label>
             </div>
+=======
+            <LocationPickerMap
+              hintCenter={geoHint}
+              initial={pin ?? undefined}
+              onLocationChange={handleLocationChange}
+            />
+            {cityText && (
+              <p style={{ margin: "0.4rem 0 0", fontSize: "0.82rem", color: "var(--color-primary-dark)", fontWeight: 600 }}>
+                📌 {cityText}
+              </p>
+            )}
+          </div>
+>>>>>>> origin/Branch3rd
 
             {locationMode === "dropdown" && (
               <div style={{ display: "grid", gap: "0.65rem" }}>

@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { BrandLogo } from "../components/BrandLogo";
 
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="ph-auth-root">
       <div className="ph-auth-hero">
-        <Link to="/" className="ph-auth-brand">
-          PawHub
+        <Link to="/" className="ph-auth-brand ph-auth-brand--logo" aria-label="PawHub home">
+          <BrandLogo variant="hero" />
         </Link>
         <p className="ph-auth-tagline">One cozy place for whiskers, matches, and forever homes.</p>
         <ul className="ph-auth-bullets">

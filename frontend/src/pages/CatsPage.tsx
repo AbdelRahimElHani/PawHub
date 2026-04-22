@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { CatBehavior, CatDto, MatchBehaviorPreference, MatchGenderPreference } from "../types";
 import { CAT_BEHAVIORS } from "../types";
@@ -179,6 +179,14 @@ export function CatsPage() {
   const [prefBehavior, setPrefBehavior] = useState<MatchBehaviorPreference>("ANY");
   const [prefBreed, setPrefBreed] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const createPhotoRef = useRef<HTMLInputElement>(null);
+  const [createPhotoPreview, setCreatePhotoPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (createPhotoPreview) URL.revokeObjectURL(createPhotoPreview);
+    };
+  }, [createPhotoPreview]);
 
   async function load() {
     setErr(null);
@@ -196,8 +204,9 @@ export function CatsPage() {
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     setErr(null);
+    const file = createPhotoRef.current?.files?.[0] ?? null;
     try {
-      await api("/api/cats", {
+      const created = await api<CatDto>("/api/cats", {
         method: "POST",
         body: JSON.stringify({
           name,
@@ -213,6 +222,19 @@ export function CatsPage() {
           prefBreed: prefBreed.trim() === "" ? null : prefBreed.trim(),
         }),
       });
+      if (file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        try {
+          await api(`/api/cats/${created.id}/photos`, { method: "POST", body: fd });
+        } catch (photoEx: unknown) {
+          setErr(
+            photoEx instanceof Error
+              ? `${photoEx.message} (cat was saved — add a photo from the list if needed.)`
+              : "Photo upload failed (cat was saved).",
+          );
+        }
+      }
       setName("");
       setBreed("");
       setAge("");
@@ -224,10 +246,21 @@ export function CatsPage() {
       setPrefMaxAge("");
       setPrefBehavior("ANY");
       setPrefBreed("");
+      if (createPhotoPreview) URL.revokeObjectURL(createPhotoPreview);
+      setCreatePhotoPreview(null);
+      if (createPhotoRef.current) createPhotoRef.current.value = "";
       await load();
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : "Create failed");
     }
+  }
+
+  function onCreatePhotoPick() {
+    const f = createPhotoRef.current?.files?.[0];
+    setCreatePhotoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return f ? URL.createObjectURL(f) : null;
+    });
   }
 
   return (
@@ -299,6 +332,44 @@ export function CatsPage() {
           PawMatch matches on gender, age, <strong>vibe</strong>, and optional <strong>breed</strong>. Both cats must fit each other&apos;s filters.
         </p>
         <form onSubmit={onCreate} className="ph-grid">
+          <div style={{ gridColumn: "1 / -1", display: "flex", flexWrap: "wrap", gap: "1rem", alignItems: "center" }}>
+            {createPhotoPreview ? (
+              <img
+                src={createPhotoPreview}
+                alt=""
+                style={{ width: 88, height: 88, borderRadius: 12, objectFit: "cover", border: "1px solid var(--color-border)" }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 88,
+                  height: 88,
+                  borderRadius: 12,
+                  background: "var(--color-bg)",
+                  border: "1px dashed var(--color-border)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.75rem",
+                  flexShrink: 0,
+                }}
+                aria-hidden
+              >
+                🐱
+              </div>
+            )}
+            <label style={{ flex: "1 1 200px", margin: 0 }}>
+              Photo (optional)
+              <input
+                ref={createPhotoRef}
+                className="ph-input"
+                type="file"
+                accept="image/*"
+                style={{ marginTop: "0.35rem", padding: "0.4rem" }}
+                onChange={onCreatePhotoPick}
+              />
+            </label>
+          </div>
           <label>
             Name
             <input className="ph-input" value={name} onChange={(e) => setName(e.target.value)} required />

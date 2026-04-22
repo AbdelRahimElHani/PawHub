@@ -76,6 +76,14 @@
   margin-bottom: 0.5rem;
 }
 
+.hub-sidebar-brand-logo {
+  display: block;
+  max-height: 56px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
 .hub-nav-link {
   display: flex;
   align-items: center;

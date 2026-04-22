@@ -78,6 +78,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/error")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/pawhub-logo.png")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/hub/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/adoptable-cats")

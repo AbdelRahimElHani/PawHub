@@ -33,7 +33,8 @@ public class EmailVerificationNotifier {
                         + "If you didn’t create a PawHub account, you can ignore this message.\n\n"
                         + "— The PawHub team\n";
 
-        String htmlBody = buildVerificationEmailHtml(escapeHtml(displayName), verificationLink);
+        String htmlBody =
+                buildVerificationEmailHtml(escapeHtml(displayName), verificationLink, escapeHtmlAttribute(logoUrlForEmail()));
 
         JavaMailSender sender = mailSender.getIfAvailable();
         if (sender != null) {
@@ -129,9 +130,29 @@ public class EmailVerificationNotifier {
     /**
      * HTML verification email: PawHub {@code theme.css} colors, Inter + Nunito. Inline styles for every client;
      * extra {@code <style>} block for resets + mobile padding where supported (Apple Mail, many web clients).
-     * Placeholders: %s = display name (escaped), %s = verification URL for button href, %s = same URL (paste block).
+     * Placeholders: %s = display name (escaped), %s = verification URL (button href), %s = same URL (paste block),
+     * %s = absolute logo URL for {@code <img src>} (attribute-escaped).
      */
-    private static String buildVerificationEmailHtml(String displayNameHtmlSafe, String verificationLink) {
+    private String logoUrlForEmail() {
+        String base = pawhubProperties.getPublicBaseUrl();
+        if (base == null || base.isBlank()) {
+            base = "http://localhost:8080";
+        }
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base + "/pawhub-logo.png";
+    }
+
+    private static String escapeHtmlAttribute(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "";
+        }
+        return raw.replace("&", "&amp;").replace("\"", "&quot;");
+    }
+
+    private String buildVerificationEmailHtml(
+            String displayNameHtmlSafe, String verificationLink, String logoSrcAttrSafe) {
         String href = verificationLink == null ? "" : verificationLink.replace("&", "&amp;");
         // language=HTML
         return """
@@ -162,7 +183,6 @@ public class EmailVerificationNotifier {
                     .ph-email-card { border-radius: 18px !important; }
                     .ph-email-px { padding-left: 22px !important; padding-right: 22px !important; }
                     .ph-email-hero { padding: 22px 20px 18px 20px !important; }
-                    .ph-email-h1 { font-size: 26px !important; }
                     .ph-email-btn td { border-radius: 999px !important; }
                     .ph-email-btn a { padding: 16px 26px !important; font-size: 15px !important; }
                   }
@@ -190,14 +210,13 @@ public class EmailVerificationNotifier {
                             <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" border="0" style="background-color:#3d8b7a;background-image:linear-gradient(135deg,#3d8b7a 0%%,#2f6d5f 100%%);">
                               <tr>
                                 <td class="ph-email-hero" style="padding:28px 28px 22px 28px;text-align:center;border-bottom:1px solid rgba(255,253,249,0.12);">
-                                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 14px auto;">
+                                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 10px auto;">
                                     <tr>
-                                      <td style="width:76px;height:76px;border-radius:22px;background-color:rgba(255,253,249,0.2);border:2px solid rgba(255,253,249,0.35);text-align:center;vertical-align:middle;box-shadow:inset 0 1px 0 rgba(255,255,255,0.25),0 6px 16px rgba(0,0,0,0.12);">
-                                        <span style="font-family:'Nunito',Georgia,serif;font-size:30px;font-weight:700;color:#fffdf8;line-height:76px;display:block;letter-spacing:0.06em;">PH</span>
+                                      <td align="center" style="padding:0 12px;">
+                                        <img src="%s" width="280" alt="PawHub" style="display:block;margin:0 auto;height:auto;max-width:300px;border:0;outline:none;text-decoration:none;" />
                                       </td>
                                     </tr>
                                   </table>
-                                  <h1 class="ph-email-h1" style="margin:0;padding:0;font-family:'Nunito',Georgia,serif;font-size:30px;font-weight:700;color:#fffdf8;letter-spacing:0.02em;line-height:1.2;text-shadow:0 1px 2px rgba(0,0,0,0.12);">PawHub</h1>
                                   <p style="margin:8px 0 0 0;padding:0;font-family:'Inter',system-ui,Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;font-weight:400;color:#e8f4f1;line-height:1.5;max-width:420px;margin-left:auto;margin-right:auto;">
                                     One cozy place for whiskers, matches, and forever homes.
                                   </p>
@@ -283,6 +302,7 @@ public class EmailVerificationNotifier {
                 </html>
                 """
                 .formatted(
+                        logoSrcAttrSafe,
                         displayNameHtmlSafe,
                         href,
                         href);
