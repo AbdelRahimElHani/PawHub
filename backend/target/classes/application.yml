@@ -18,10 +18,12 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
       mail.smtp.ssl.trust: ${MAIL_SMTP_SSL_TRUST:smtp.gmail.com}
+  # Local defaults when MYSQL* env vars are unset. Railway: set MYSQLHOST, MYSQLPORT, MYSQLDATABASE, MYSQLUSER, MYSQLPASSWORD
+  # Equivalent properties form: spring.datasource.url / username / password
   datasource:
-    url: jdbc:mysql://localhost:3306/pawhub?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: smab
+    url: jdbc:mysql://${MYSQLHOST:localhost}:${MYSQLPORT:3306}/${MYSQLDATABASE:pawhub}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${MYSQLUSER:root}
+    password: ${MYSQLPASSWORD:smab}
   jpa:
     hibernate:
       ddl-auto: validate

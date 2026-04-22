@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
+@CrossOrigin(origins = "${pawhub.frontend-base-url:http://localhost:5173}")
 @RequiredArgsConstructor
 public class AuthController {
 
