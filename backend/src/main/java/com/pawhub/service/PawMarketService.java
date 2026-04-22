@@ -105,7 +105,10 @@ public class PawMarketService {
         return listingRepository.findByUserIdOrderByCreatedAtDesc(principal.getId()).stream()
                 .filter(l -> l.getPawStatus() != null)
                 .sorted(Comparator.<MarketListing, Integer>comparing(
-                                l -> l.getPawStatus() == PawListingStatus.Available ? 0 : 1)
+                                l -> (l.getPawStatus() == PawListingStatus.Available
+                                                || l.getPawStatus() == PawListingStatus.Draft)
+                                        ? 0
+                                        : 1)
                         .thenComparing(
                                 MarketListing::getCreatedAt,
                                 Comparator.nullsLast(Comparator.reverseOrder())))
@@ -133,7 +136,18 @@ public class PawMarketService {
 
     @Transactional(readOnly = true)
     public PawListingDto get(Long id) {
-        return listingRepository.findById(id).map(this::toDto).orElseThrow();
+        return get(id, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PawListingDto get(Long id, SecurityUser viewer) {
+        MarketListing l = listingRepository.findById(id).orElseThrow();
+        if (l.getPawStatus() == PawListingStatus.Draft) {
+            if (viewer == null || !l.getUser().getId().equals(viewer.getId())) {
+                throw new NoSuchElementException("Listing not found");
+            }
+        }
+        return toDto(l);
     }
 
     // ── Create / Update ───────────────────────────────────────────────────
@@ -156,11 +170,55 @@ public class PawMarketService {
                 .cityText(req.cityText())
                 .latitude(req.latitude())
                 .longitude(req.longitude())
-                .pawStatus(PawListingStatus.Available)
+                .pawStatus(PawListingStatus.Draft)
                 .status(ListingStatus.ACTIVE)
                 .stockQuantity(stock)
                 .build();
         listingRepository.save(l);
+        return toDto(l);
+    }
+
+    /**
+     * Second AI step: verify stored image + title + description together, then set status to
+     * {@link PawListingStatus#Available} (public browse).
+     */
+    @Transactional
+    public PawListingDto publishToMarket(Long id, SecurityUser principal) {
+        MarketListing l = listingRepository.findById(id).orElseThrow();
+        assertOwner(l, principal);
+        if (l.getPawStatus() != PawListingStatus.Draft) {
+            throw new IllegalStateException(
+                    "This listing is not a draft, or is already live. Only drafts can be published here.");
+        }
+        if (l.getTitle() == null || l.getTitle().isBlank()) {
+            throw new IllegalArgumentException("Add a title before publishing.");
+        }
+        String imageUrl = l.getPhotoUrl();
+        if ((imageUrl == null || imageUrl.isBlank()) && l.getImageUrls() != null && !l.getImageUrls().isEmpty()) {
+            imageUrl = l.getImageUrls().get(0);
+        }
+        if (imageUrl == null || imageUrl.isBlank()) {
+            throw new IllegalArgumentException("Add a listing photo before publishing.");
+        }
+        if (aiCatCheckService.isCatCheckEnabled()) {
+            try {
+                Optional<byte[]> img = fileStorageService.readByPublicFileUrl(imageUrl);
+                if (img.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Photo file is missing on the server. Re-upload the image and try again.");
+                }
+                CatCheckResponse cat =
+                        aiCatCheckService.verifyListingTextMatchesImage(
+                                img.get(), mimeTypeForImageUrl(imageUrl), l.getTitle(), l.getDescription());
+                if (!cat.isCatRelated()) {
+                    throw new AiCatCheckService.CatCheckFailedException(cat.reason());
+                }
+            } catch (IOException e) {
+                throw new IllegalArgumentException(
+                        "Could not read the photo for matching. Re-upload the image and try again.");
+            }
+        }
+        l.setPawStatus(PawListingStatus.Available);
         return toDto(l);
     }
 
@@ -189,7 +247,10 @@ public class PawMarketService {
             l.setStockQuantity(req.stockQuantity());
         }
 
-        if (aiCatCheckService.isCatCheckEnabled()) {
+        if (l.getPawStatus() == PawListingStatus.Draft) {
+            return toDto(l);
+        }
+        if (aiCatCheckService.isCatCheckEnabled() && l.getPawStatus() == PawListingStatus.Available) {
             String imageUrl = l.getPhotoUrl();
             if ((imageUrl == null || imageUrl.isBlank())
                     && l.getImageUrls() != null
@@ -208,7 +269,7 @@ public class PawMarketService {
                     throw new IllegalArgumentException(
                             "Listing photo is missing on the server. Re-upload an image before changing text.");
                 }
-                CatCheckResponse cat = aiCatCheckService.verifyImage(
+                CatCheckResponse cat = aiCatCheckService.verifyListingTextMatchesImage(
                         img.get(), mimeTypeForImageUrl(imageUrl), l.getTitle(), l.getDescription());
                 if (!cat.isCatRelated()) {
                     throw new AiCatCheckService.CatCheckFailedException(cat.reason());
@@ -289,8 +350,10 @@ public class PawMarketService {
     public void deleteListing(Long id, SecurityUser principal) {
         MarketListing l = listingRepository.findById(id).orElseThrow();
         assertOwner(l, principal);
-        if (l.getPawStatus() != PawListingStatus.Available && l.getPawStatus() != PawListingStatus.Expired) {
-            throw new IllegalStateException("Only available or expired listings can be deleted.");
+        if (l.getPawStatus() != PawListingStatus.Available
+                && l.getPawStatus() != PawListingStatus.Expired
+                && l.getPawStatus() != PawListingStatus.Draft) {
+            throw new IllegalStateException("This listing cannot be deleted.");
         }
         if (orderRepository.existsByListingId(id)) {
             throw new IllegalStateException("Cannot delete a listing that already has orders.");
@@ -304,8 +367,7 @@ public class PawMarketService {
         MarketListing l = listingRepository.findById(id).orElseThrow();
         assertOwner(l, principal);
 
-        CatCheckResponse cat = aiCatCheckService.verifyImage(
-                file.getBytes(), file.getContentType(), l.getTitle(), l.getDescription());
+        CatCheckResponse cat = aiCatCheckService.verifyImageCatOnly(file.getBytes(), file.getContentType());
         if (!cat.isCatRelated()) {
             throw new AiCatCheckService.CatCheckFailedException(cat.reason());
         }

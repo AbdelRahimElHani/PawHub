@@ -1,4 +1,3 @@
-import { Client, type StompSubscription } from "@stomp/stompjs";
 import { ImagePlus, MessagesSquare, MessageSquarePlus, Send, X } from "lucide-react";
 import { CopyMessageButton } from "../components/CopyMessageButton";
 import { type ReactNode, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -6,7 +5,7 @@ import { Link } from "react-router-dom";
 import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
-import { createStompClient, subscribeThread } from "../chat/stomp";
+import { useChatStomp } from "../chat/ChatStompContext";
 import type { MessageDto, ThreadSummaryDto } from "../types";
 import { ListingShareEmbed } from "./ListingShareEmbed";
 import { parseListingShareFromMessage } from "./listingShareMessage";
@@ -88,6 +87,7 @@ export function MessengerWorkspace({
 }: MessengerWorkspaceProps) {
   const { token, user } = useAuth();
   const { refresh: refreshGlobalThreads } = useThreadNotifications();
+  const { setActiveThread, sendTyping, registerInbox } = useChatStomp();
 
   const [threads, setThreads] = useState<ThreadSummaryDto[]>([]);
   const [messages, setMessages] = useState<MessageDto[]>([]);
@@ -103,9 +103,11 @@ export function MessengerWorkspace({
   const fileRef = useRef<HTMLInputElement>(null);
   const newChatPopRef = useRef<HTMLDivElement>(null);
   const composeBtnRef = useRef<HTMLButtonElement>(null);
-  const clientRef = useRef<Client | null>(null);
-  const subRef = useRef<StompSubscription | null>(null);
   const listEndRef = useRef<HTMLDivElement | null>(null);
+  const tidRef = useRef(tid);
+  const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peerClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [peerTyping, setPeerTyping] = useState<string | null>(null);
 
   const sorted = useMemo(
     () => [...messages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
@@ -149,33 +151,85 @@ export function MessengerWorkspace({
   }, [tid, token, refreshGlobalThreads]);
 
   useEffect(() => {
-    if (!token || !Number.isFinite(tid) || tid <= 0) {
-      subRef.current?.unsubscribe();
-      subRef.current = null;
-      clientRef.current?.deactivate();
-      clientRef.current = null;
+    tidRef.current = tid;
+  }, [tid]);
+
+  useEffect(() => {
+    if (!token) return;
+    return registerInbox((p) => {
+      if (p.threadId === tidRef.current && p.threadId > 0) {
+        setMessages((m) => appendUnique(m, p.message));
+      }
+      void loadThreads();
+    });
+  }, [token, registerInbox, loadThreads]);
+
+  useEffect(() => {
+    if (!token || !user || !Number.isFinite(tid) || tid <= 0) {
+      setActiveThread(null, null);
+      setPeerTyping(null);
+      if (peerClearRef.current) {
+        clearTimeout(peerClearRef.current);
+        peerClearRef.current = null;
+      }
       return;
     }
-    const client = createStompClient(
-      token,
-      (c) => {
-        subRef.current?.unsubscribe();
-        subRef.current = subscribeThread(c, tid, (raw) => {
-          const dto = JSON.parse(raw) as MessageDto;
-          setMessages((m) => appendUnique(m, dto));
-        });
+    const myId = user.userId;
+    setActiveThread(tid, {
+      onMessage: (raw) => {
+        const dto = JSON.parse(raw) as MessageDto;
+        setMessages((m) => appendUnique(m, dto));
       },
-      () => {},
-    );
-    clientRef.current = client;
-    client.activate();
+      onTyping: (raw) => {
+        let t: { userId: number; displayName: string; typing: boolean };
+        try {
+          t = JSON.parse(raw);
+        } catch {
+          return;
+        }
+        if (t.userId === myId) return;
+        if (t.typing) {
+          setPeerTyping(t.displayName || "Someone");
+          if (peerClearRef.current) clearTimeout(peerClearRef.current);
+          peerClearRef.current = setTimeout(() => setPeerTyping(null), 4000);
+        } else {
+          setPeerTyping(null);
+        }
+      },
+    });
     return () => {
-      subRef.current?.unsubscribe();
-      subRef.current = null;
-      client.deactivate();
-      clientRef.current = null;
+      setActiveThread(null, null);
     };
-  }, [tid, token]);
+  }, [tid, token, user?.userId, setActiveThread]);
+
+  useEffect(() => {
+    return () => {
+      if (validTid && Number.isFinite(tid) && tid > 0) {
+        sendTyping(tid, false);
+      }
+      if (typingIdleRef.current) {
+        clearTimeout(typingIdleRef.current);
+        typingIdleRef.current = null;
+      }
+    };
+  }, [tid, validTid, sendTyping]);
+
+  const scheduleComposerTyping = useCallback(
+    (textLen: number) => {
+      if (!validTid) return;
+      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+      if (textLen > 0) {
+        sendTyping(tid, true);
+        typingIdleRef.current = setTimeout(() => {
+          sendTyping(tid, false);
+          typingIdleRef.current = null;
+        }, 2800);
+      } else {
+        sendTyping(tid, false);
+      }
+    },
+    [validTid, tid, sendTyping],
+  );
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -225,6 +279,11 @@ export function MessengerWorkspace({
     if (!Number.isFinite(tid) || tid <= 0) return;
     const text = compose.trim();
     if (!text && !pendingFile) return;
+    if (typingIdleRef.current) {
+      clearTimeout(typingIdleRef.current);
+      typingIdleRef.current = null;
+    }
+    sendTyping(tid, false);
 
     const auth = getToken();
     const headers: HeadersInit = {};
@@ -406,13 +465,26 @@ export function MessengerWorkspace({
                       <h3 className="ph-msg-title" style={{ margin: 0 }}>
                         {active.otherDisplayName}
                       </h3>
-                      <div className="ph-msg-sub">Thread #{tid}</div>
+                      {peerTyping ? (
+                        <div className="ph-msg-typing-hint" aria-live="polite">
+                          {peerTyping} is typing…
+                        </div>
+                      ) : (
+                        <div className="ph-msg-sub">Thread #{tid}</div>
+                      )}
                     </div>
                   </>
                 ) : (
-                  <h3 className="ph-msg-title" style={{ margin: 0 }}>
-                    Thread #{tid}
-                  </h3>
+                  <div>
+                    <h3 className="ph-msg-title" style={{ margin: 0 }}>
+                      Thread #{tid}
+                    </h3>
+                    {peerTyping ? (
+                      <div className="ph-msg-typing-hint" aria-live="polite">
+                        {peerTyping} is typing…
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })()}
               </div>
@@ -501,7 +573,18 @@ export function MessengerWorkspace({
                   className="ph-msg-input"
                   rows={1}
                   value={compose}
-                  onChange={(e) => setCompose(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setCompose(v);
+                    scheduleComposerTyping(v.trim().length);
+                  }}
+                  onBlur={() => {
+                    if (typingIdleRef.current) {
+                      clearTimeout(typingIdleRef.current);
+                      typingIdleRef.current = null;
+                    }
+                    if (validTid) sendTyping(tid, false);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void onSend(e as unknown as FormEvent); }
                   }}

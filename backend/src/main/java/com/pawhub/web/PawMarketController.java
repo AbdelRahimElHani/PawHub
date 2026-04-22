@@ -26,16 +26,22 @@ public class PawMarketController {
     // ── AI Cat-Check (image-based) ────────────────────────────────────────
 
     /**
-     * Accepts a product image plus optional title/description. Gemini checks that the photo is
-     * cat-related and that the text matches the photo and each other. Returns {isCatRelated, reason}.
+     * Full check: image + optional title + description (alignment). Same rules as “publish to market”
+     * (second AI step). Useful for manual testing or a client preview when all fields are set.
      */
     @PostMapping(value = "/cat-check", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CatCheckResponse catCheck(
             @RequestPart("file") MultipartFile file,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String description) throws Exception {
-        return aiCatCheckService.verifyImage(
+        return aiCatCheckService.verifyListingTextMatchesImage(
                 file.getBytes(), file.getContentType(), title, description);
+    }
+
+    /** First-step preview: image only (cat-related product photo), no text matching. */
+    @PostMapping(value = "/cat-check-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CatCheckResponse catCheckImage(@RequestPart("file") MultipartFile file) throws Exception {
+        return aiCatCheckService.verifyImageCatOnly(file.getBytes(), file.getContentType());
     }
 
     // ── Listings ──────────────────────────────────────────────────────────
@@ -57,8 +63,8 @@ public class PawMarketController {
     }
 
     @GetMapping("/listings/{id}")
-    public PawListingDto get(@PathVariable Long id) {
-        return pawMarketService.get(id);
+    public PawListingDto get(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
+        return pawMarketService.get(id, user);
     }
 
     @PostMapping("/listings")
@@ -97,6 +103,13 @@ public class PawMarketController {
             @AuthenticationPrincipal SecurityUser user)
             throws Exception {
         return pawMarketService.uploadPhoto(id, file, user);
+    }
+
+    /** Second AI step: match stored image to title + description, then go live. */
+    @PostMapping("/listings/{id}/publish")
+    public PawListingDto publish(
+            @PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
+        return pawMarketService.publishToMarket(id, user);
     }
 
     // ── Buy flow ──────────────────────────────────────────────────────────

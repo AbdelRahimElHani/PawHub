@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { isAdminAccount } from "../auth/vetAccess";
 import { ChatWidget } from "../components/chat/ChatWidget";
 import { HeaderUserMenu } from "./HeaderUserMenu";
+import { NotificationCenter } from "./NotificationCenter";
 import { MessagingDock } from "../messenger/MessagingDock";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
 
@@ -132,7 +133,15 @@ export function Layout({ children }: { children?: ReactNode }) {
             )}
           </nav>
         </header>
-        {user ? <HeaderUserMenu /> : null}
+        {user ? (
+          <div
+            className="ph-header-actions"
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", flexShrink: 0 }}
+          >
+            <NotificationCenter />
+            <HeaderUserMenu />
+          </div>
+        ) : null}
       </div>
       {children !== undefined ? children : <Outlet />}
       {user ? <MessagingDock /> : null}

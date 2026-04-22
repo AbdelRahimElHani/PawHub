@@ -10,6 +10,7 @@ C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\Ch
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\repository\AdoptionListingRepository.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\repository\SwipeRepository.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\service\PawVetPublicService.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\ChatInboxEvent.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\CatController.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\UserAccountType.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\bootstrap\DemoUserSeedRunner.java
@@ -102,6 +103,7 @@ C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dt
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\PawhubApplication.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\hub\HubForumPost.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\hub\ForumCommentDto.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\ChatTypingPayload.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\hub\ForumNewPostRequest.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\hub\HubEditorialUpsertRequest.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\AdoptionListingUpsertRequest.java
@@ -168,6 +170,7 @@ C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dt
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\hub\HubForumRoom.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\repository\MarketListingRepository.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\service\EmailVerificationNotifier.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\ChatTypingEvent.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\MarketListingUpsertRequest.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\ChatThread.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\AdoptableCatsController.java

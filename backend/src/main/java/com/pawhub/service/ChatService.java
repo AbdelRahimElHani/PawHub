@@ -8,6 +8,8 @@ import com.pawhub.repository.ChatThreadRepository;
 import com.pawhub.repository.MessageRepository;
 import com.pawhub.repository.UserRepository;
 import com.pawhub.security.SecurityUser;
+import com.pawhub.web.dto.ChatInboxEvent;
+import com.pawhub.web.dto.ChatTypingEvent;
 import com.pawhub.web.dto.MessageDto;
 import com.pawhub.web.dto.ThreadIdResponse;
 import com.pawhub.web.dto.ThreadSummaryDto;
@@ -121,7 +123,26 @@ public class ChatService {
         messageRepository.save(msg);
         MessageDto dto = toMessageDto(msg);
         messagingTemplate.convertAndSend("/topic/threads." + threadId, dto);
+        pushInboxToParticipants(t, ChatInboxEvent.message(threadId, dto));
         return dto;
+    }
+
+    /** In-app + cross-device: notify both participants' WebSocket sessions (per-user queue). */
+    private void pushInboxToParticipants(ChatThread t, ChatInboxEvent event) {
+        String a = t.getParticipantOne().getEmail();
+        String b = t.getParticipantTwo().getEmail();
+        messagingTemplate.convertAndSendToUser(a, "/queue/pawhub-chat", event);
+        messagingTemplate.convertAndSendToUser(b, "/queue/pawhub-chat", event);
+    }
+
+    /** STOMP: typing indicator; only participants receive via thread-scoped topic. */
+    @Transactional(readOnly = true)
+    public void broadcastTyping(long threadId, long userId, String displayName, boolean typing) {
+        ChatThread t = chatThreadRepository.findById(threadId).orElseThrow();
+        assertParticipant(t, userId);
+        String name = displayName == null || displayName.isBlank() ? "Someone" : displayName;
+        messagingTemplate.convertAndSend(
+                "/topic/threads." + threadId + ".typing", new ChatTypingEvent(userId, name, typing));
     }
 
     public void assertParticipant(ChatThread t, Long userId) {

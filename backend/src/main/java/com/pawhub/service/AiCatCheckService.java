@@ -71,6 +71,24 @@ public class AiCatCheckService {
             DESCRIPTION: "%s"
             """;
 
+    /**
+     * First-step check: image only. Used on photo upload. Does not consider title or description.
+     */
+    private static final String IMAGE_ONLY_PROMPT =
+            """
+            You are screening a product PHOTO for a cat-only C2C marketplace (Paw Market).
+
+            Set isCatRelated=true ONLY if the image clearly shows cat-specific merchandise or supplies
+            (food/treats, toys, beds/trees/scratchers, litter/boxes, carriers, cat collars/harnesses,
+            grooming/health products for cats, or packaging clearly for cats).
+
+            Set isCatRelated=false for: blank or unreadable images, random objects, unrelated rooms,
+            dogs-only products, people-only, cars, landscapes, or anything that is not plausibly a
+            cat-related item for sale.
+
+            In "reason" give a short human-readable note.
+            """;
+
     private static final Pattern IS_CAT =
             Pattern.compile("\"isCatRelated\"\\s*:\\s*(true|false)", Pattern.CASE_INSENSITIVE);
     private static final Pattern REASON =
@@ -84,12 +102,34 @@ public class AiCatCheckService {
     }
 
     /**
-     * Verifies the photo is cat-appropriate and that {@code title} / {@code description} describe the
-     * same item as the photo (no bait-and-switch). When Gemini is disabled, returns pass with a skip reason.
+     * First step: whether the image alone is acceptable cat-related product photography. Used when
+     * uploading a photo; title/description are not considered.
      */
+    public CatCheckResponse verifyImageCatOnly(byte[] imageBytes, String mimeType) {
+        return verifyWithTextPrompt(IMAGE_ONLY_PROMPT, imageBytes, mimeType);
+    }
+
+    /**
+     * Second step: image + title + description must match (no bait-and-switch). Used at publish and
+     * when editing a live listing’s text.
+     */
+    public CatCheckResponse verifyListingTextMatchesImage(
+            byte[] imageBytes, String mimeType, String title, String description) {
+        String prompt = IMAGE_PROMPT.formatted(
+                title != null ? title : "", description != null ? description : "");
+        return verifyWithTextPrompt(prompt, imageBytes, mimeType);
+    }
+
+    /**
+     * @deprecated use {@link #verifyListingTextMatchesImage} (same behavior)
+     */
+    @Deprecated
     public CatCheckResponse verifyImage(
             byte[] imageBytes, String mimeType, String title, String description) {
+        return verifyListingTextMatchesImage(imageBytes, mimeType, title, description);
+    }
 
+    private CatCheckResponse verifyWithTextPrompt(String prompt, byte[] imageBytes, String mimeType) {
         if (!isEnabled()) {
             return new CatCheckResponse(true, "AI verification skipped — Gemini is disabled or has no API key.");
         }
@@ -98,15 +138,12 @@ public class AiCatCheckService {
             return new CatCheckResponse(false, "No image data was sent.");
         }
 
-        // Gemini inline limits — very large images often cause 400/413
         if (imageBytes.length > 7 * 1024 * 1024) {
             return new CatCheckResponse(false, "Image is too large. Try a photo under about 7 MB.");
         }
 
         String base64 = Base64.getEncoder().encodeToString(imageBytes);
         String safeMime = (mimeType != null && !mimeType.isBlank()) ? mimeType : "image/jpeg";
-        String prompt = IMAGE_PROMPT.formatted(
-                title != null ? title : "", description != null ? description : "");
 
         Map<String, Object> imagePart = Map.of(
                 "inline_data", Map.of("mime_type", safeMime, "data", base64));

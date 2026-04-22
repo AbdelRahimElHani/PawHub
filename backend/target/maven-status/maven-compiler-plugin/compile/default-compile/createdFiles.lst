@@ -4,3 +4,4 @@ com\pawhub\web\dto\VetApplicationMetricsDto.class
 com\pawhub\web\dto\RejectVetApplicationRequest.class
 com\pawhub\web\dto\WhiskerTitleResponse.class
 com\pawhub\web\dto\UpdateProfileRequest.class
+com\pawhub\web\dto\ChatTypingEvent.class

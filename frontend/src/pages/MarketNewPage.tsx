@@ -10,6 +10,7 @@ import { useGeolocation } from "../market/useGeolocation";
 import type { PawListingDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
 
+/** Step 1: image only (cat-related product photo). */
 type CatCheckResult =
   | { state: "idle" }
   | { state: "checking" }
@@ -39,6 +40,9 @@ export function MarketNewPage() {
   const [stockQuantity, setStockQuantity] = useState("1");
 
   const [catCheck, setCatCheck] = useState<CatCheckResult>({ state: "idle" });
+  /** Step 2: full match at publish (image + title + description). */
+  const [alignPhase, setAlignPhase] = useState<"idle" | "matching" | "failed">("idle");
+  const [alignReason, setAlignReason] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -50,17 +54,15 @@ export function MarketNewPage() {
     setMapPlace(place);
   }
 
-  // ── Real-time Cat-Check (image + title + description must align) ───────
-  const runCatCheck = useCallback(async (file: File) => {
+  // ── Step 1: image-only check (cat-related product photo) ─────────────────
+  const runImageCatCheck = useCallback(async (file: File) => {
     setCatCheck({ state: "checking" });
     try {
       const token = getToken();
       const form = new FormData();
       form.append("file", file);
-      if (title) form.append("title", title);
-      if (description) form.append("description", description);
 
-      const res = await fetch(apiUrl("/api/paw/cat-check"), {
+      const res = await fetch(apiUrl("/api/paw/cat-check-image"), {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
@@ -69,7 +71,7 @@ export function MarketNewPage() {
       if (!res.ok) {
         setCatCheck({
           state: "unavailable",
-          message: "Preview check could not run. Your photo will be verified again when you publish.",
+          message: "Image preview could not run. The photo is still checked when you upload and before going live.",
         });
         return;
       }
@@ -85,19 +87,19 @@ export function MarketNewPage() {
     } catch {
       setCatCheck({
         state: "unavailable",
-        message: "Preview check could not run. Your photo will be verified again when you publish.",
+        message: "Image preview could not run. The photo is still checked when you upload and before going live.",
       });
     }
-  }, [title, description]);
+  }, []);
 
   useEffect(() => {
     const file = fileRef.current?.files?.[0];
     if (!file || !previewUrl) return;
     const id = window.setTimeout(() => {
-      void runCatCheck(file);
+      void runImageCatCheck(file);
     }, 650);
     return () => window.clearTimeout(id);
-  }, [title, description, previewUrl, runCatCheck]);
+  }, [previewUrl, runImageCatCheck]);
 
   function handleFileChange() {
     const file = fileRef.current?.files?.[0];
@@ -113,10 +115,17 @@ export function MarketNewPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
 
-    // Block submission if AI definitively rejected the image
     if (catCheck.state === "failed") return;
 
+    const file = fileRef.current?.files?.[0];
+    if (!file) {
+      setErr("Add a product photo to list on Paw Market.");
+      return;
+    }
+
     setErr(null);
+    setAlignPhase("idle");
+    setAlignReason(null);
     setSubmitting(true);
 
     try {
@@ -193,13 +202,6 @@ export function MarketNewPage() {
         body: JSON.stringify(body),
       });
 
-      if (res.status === 422) {
-        const json = (await res.json()) as { error: string; reason: string };
-        if (json.error === "CAT_CHECK_FAILED") {
-          setCatCheck({ state: "failed", reason: json.reason });
-          return;
-        }
-      }
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(j.error ?? res.statusText);
@@ -207,38 +209,60 @@ export function MarketNewPage() {
 
       const created = (await res.json()) as PawListingDto;
 
-      const file = fileRef.current?.files?.[0];
-      if (file) {
-        const form = new FormData();
-        form.append("file", file);
-        const photoRes = await fetch(apiUrl(`/api/paw/listings/${created.id}/photo`), {
-          method: "POST",
+      const form = new FormData();
+      form.append("file", file);
+      const photoRes = await fetch(apiUrl(`/api/paw/listings/${created.id}/photo`), {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      if (photoRes.status === 422) {
+        const json = (await photoRes.json()) as { error?: string; reason?: string };
+        await fetch(apiUrl(`/api/paw/listings/${created.id}`), {
+          method: "DELETE",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
-          body: form,
         });
-        if (photoRes.status === 422) {
-          const json = (await photoRes.json()) as { error?: string; reason?: string };
-          await fetch(apiUrl(`/api/paw/listings/${created.id}`), {
-            method: "DELETE",
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          });
-          setCatCheck({
-            state: "failed",
-            reason: json.reason ?? "This photo is not allowed on Paw Market.",
-          });
+        setCatCheck({
+          state: "failed",
+          reason: json.reason ?? "This photo is not allowed on Paw Market (cat-related product image required).",
+        });
+        setErr("The image did not pass the first check. Nothing was saved.");
+        return;
+      }
+      if (!photoRes.ok) {
+        const j = (await photoRes.json().catch(() => ({}))) as { error?: string };
+        await fetch(apiUrl(`/api/paw/listings/${created.id}`), {
+          method: "DELETE",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        throw new Error(j.error ?? photoRes.statusText);
+      }
+
+      setAlignPhase("matching");
+      const pubRes = await fetch(apiUrl(`/api/paw/listings/${created.id}/publish`), {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (pubRes.status === 422) {
+        const json = (await pubRes.json()) as { error?: string; reason?: string };
+        if (json.error === "CAT_CHECK_FAILED" && json.reason) {
+          setAlignPhase("failed");
+          setAlignReason(json.reason);
           setErr(
-            "Listing failed Cat-Check (photo must match title/description and be cat-related). Nothing was published.",
+            "Title, description, and image could not be verified to match. Update the fields or photo above and try again.",
           );
           return;
         }
-        if (!photoRes.ok) {
-          const j = (await photoRes.json().catch(() => ({}))) as { error?: string };
-          await fetch(apiUrl(`/api/paw/listings/${created.id}`), {
-            method: "DELETE",
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          });
-          throw new Error(j.error ?? photoRes.statusText);
-        }
+        setAlignPhase("failed");
+        setAlignReason(json.reason ?? json.error ?? "Publish verification failed.");
+        setErr("Could not publish this listing. You can try again, or go to My listings to open your draft.");
+        return;
+      }
+      if (!pubRes.ok) {
+        const j = (await pubRes.json().catch(() => ({}))) as { error?: string };
+        setAlignPhase("failed");
+        setErr(j.error ?? pubRes.statusText);
+        return;
       }
 
       nav(`/market/${created.id}`);
@@ -250,7 +274,10 @@ export function MarketNewPage() {
   }
 
   const canSubmit =
-    catCheck.state !== "failed" && catCheck.state !== "checking" && !submitting;
+    catCheck.state !== "failed" &&
+    catCheck.state !== "checking" &&
+    alignPhase !== "matching" &&
+    !submitting;
 
   return (
     <div style={{ maxWidth: 620, margin: "0 auto", paddingBottom: "2rem" }}>
@@ -273,8 +300,9 @@ export function MarketNewPage() {
           🐾 List a Cat Item
         </h2>
         <p style={{ margin: "0 0 1.5rem", color: "var(--color-muted)", fontSize: "0.9rem" }}>
-          Gemini checks the photo, title, and description together: they must describe the same cat-related item.
-          If you change the text after choosing a photo, we re-scan automatically.
+          <strong>Step 1</strong> — When you pick a photo, we check that it shows cat-related merchandise.{" "}
+          <strong>Step 2</strong> — When you publish, we verify the title and description match that photo. Nothing
+          goes on the public market until both steps pass.
         </p>
 
         <form onSubmit={onSubmit} className="ph-grid" style={{ gap: "1.1rem" }}>
@@ -283,7 +311,7 @@ export function MarketNewPage() {
           <div>
             <span className="ph-label" style={{ display: "block", marginBottom: "0.5rem" }}>
               Photo <span style={{ color: "#b42318" }}>*</span>
-              <span style={{ fontWeight: 400, color: "var(--color-muted)" }}> — checked with your title & description</span>
+              <span style={{ fontWeight: 400, color: "var(--color-muted)" }}> — step 1: cat-related product image</span>
             </span>
 
             <label
@@ -391,7 +419,7 @@ export function MarketNewPage() {
                     {catCheck.reason}
                   </p>
                   <p style={{ margin: "0.3rem 0 0", fontSize: "0.8rem", color: "#991b1b" }}>
-                    Adjust the photo, title, or description so they all describe the same cat-related item.
+                    Use a clear photo of cat-related merchandise (food, toys, tree, litter, etc.).
                   </p>
                 </div>
               </div>
@@ -599,6 +627,33 @@ export function MarketNewPage() {
             </div>
           )}
 
+          {alignPhase === "matching" && (
+            <div className="pm-ai-banner" style={{ marginTop: "0.2rem" }}>
+              <span className="pm-paw-spin">🐾</span>
+              <div>
+                <strong style={{ fontSize: "0.9rem" }}>Verifying title, description & image…</strong>
+                <p style={{ margin: "0.1rem 0 0", fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                  Step 2 — this can take a few seconds.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {alignPhase === "failed" && alignReason && (
+            <div
+              style={{
+                background: "#fff1f0",
+                border: "1.5px solid #fca5a5",
+                borderRadius: 10,
+                padding: "0.75rem 1rem",
+                fontSize: "0.85rem",
+                color: "#7f1d1d",
+              }}
+            >
+              <strong>Step 2 failed:</strong> {alignReason}
+            </div>
+          )}
+
           {/* ── Submit ─────────────────────────────────────────────────── */}
           <button
             className="ph-btn ph-btn-primary"
@@ -613,10 +668,12 @@ export function MarketNewPage() {
           >
             {catCheck.state === "checking" ? (
               <><span className="pm-paw-spin" style={{ fontSize: "1rem" }}>🐾</span> Scanning image…</>
+            ) : alignPhase === "matching" ? (
+              <><span className="pm-paw-spin" style={{ fontSize: "1rem" }}>🐾</span> Verifying match…</>
             ) : catCheck.state === "failed" ? (
               "🚫 Fix the image first"
             ) : submitting ? (
-              "Publishing…"
+              "Working…"
             ) : (
               "🐾 Publish Listing"
             )}

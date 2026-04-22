@@ -47,20 +47,21 @@ export function MarketEditPage() {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [listingPawStatus, setListingPawStatus] = useState<string | null>(null);
+  const [alignPhase, setAlignPhase] = useState<"idle" | "matching" | "failed">("idle");
+  const [alignReason, setAlignReason] = useState<string | null>(null);
 
   const { countries, getCities, loading: catLoading, hasData: catHasData, error: catErr } = useCountriesCitiesCatalog();
   const ddCityOptions = useMemo(() => (ddCountry ? getCities(ddCountry) : []), [ddCountry, getCities]);
 
-  const runCatCheck = useCallback(async (file: File) => {
+  const runImageCatCheck = useCallback(async (file: File) => {
     setCatCheck({ state: "checking" });
     try {
       const token = getToken();
       const form = new FormData();
       form.append("file", file);
-      if (title) form.append("title", title);
-      if (description) form.append("description", description);
 
-      const res = await fetch(apiUrl("/api/paw/cat-check"), {
+      const res = await fetch(apiUrl("/api/paw/cat-check-image"), {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
@@ -69,7 +70,7 @@ export function MarketEditPage() {
       if (!res.ok) {
         setCatCheck({
           state: "unavailable",
-          message: "Preview check could not run. The image will be verified again when you save.",
+          message: "Image preview could not run. The upload still checks the image on the server.",
         });
         return;
       }
@@ -85,19 +86,19 @@ export function MarketEditPage() {
     } catch {
       setCatCheck({
         state: "unavailable",
-        message: "Preview check could not run. The image will be verified again when you save.",
+        message: "Image preview could not run. The upload still checks the image on the server.",
       });
     }
-  }, [title, description]);
+  }, []);
 
   useEffect(() => {
     const file = fileRef.current?.files?.[0];
     if (!file || !previewUrl) return;
     const tid = window.setTimeout(() => {
-      void runCatCheck(file);
+      void runImageCatCheck(file);
     }, 650);
     return () => window.clearTimeout(tid);
-  }, [title, description, previewUrl, runCatCheck]);
+  }, [previewUrl, runImageCatCheck]);
 
   useEffect(() => {
     if (!id) return;
@@ -110,11 +111,12 @@ export function MarketEditPage() {
           nav("/market/selling", { replace: true });
           return;
         }
-        if (l.pawStatus !== "Available") {
-          setLoadErr("Only listings that are still available can be edited here.");
+        if (l.pawStatus !== "Available" && l.pawStatus !== "Draft") {
+          setLoadErr("Only draft or available listings can be edited here.");
           setLoaded(true);
           return;
         }
+        setListingPawStatus(l.pawStatus);
         setTitle(l.title);
         setDescription(l.description ?? "");
         setPrice(l.isFree ? "" : (l.priceCents / 100).toFixed(2));
@@ -176,6 +178,8 @@ export function MarketEditPage() {
     if (!id || catCheck.state === "failed") return;
 
     setErr(null);
+    setAlignPhase("idle");
+    setAlignReason(null);
     setSubmitting(true);
     const token = getToken();
 
@@ -287,6 +291,33 @@ export function MarketEditPage() {
         }
       }
 
+      if (listingPawStatus === "Draft") {
+        setAlignPhase("matching");
+        const pubRes = await fetch(apiUrl(`/api/paw/listings/${id}/publish`), {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (pubRes.status === 422) {
+          const json = (await pubRes.json()) as { error?: string; reason?: string };
+          setAlignPhase("failed");
+          if (json.reason) {
+            setAlignReason(json.reason);
+          }
+          setErr(
+            json.error === "CAT_CHECK_FAILED" && json.reason
+              ? "Title, description, and image could not be verified to match. Adjust the text or image and try again."
+              : (json.error ?? "Could not publish to Paw Market."),
+          );
+          return;
+        }
+        if (!pubRes.ok) {
+          const j = (await pubRes.json().catch(() => ({}))) as { error?: string };
+          setAlignPhase("failed");
+          throw new Error(j.error ?? pubRes.statusText);
+        }
+        setListingPawStatus("Available");
+      }
+
       nav(`/market/${id}`);
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : "Update failed.");
@@ -295,7 +326,13 @@ export function MarketEditPage() {
     }
   }
 
-  const canSubmit = catCheck.state !== "failed" && catCheck.state !== "checking" && !submitting && loaded && !loadErr;
+  const canSubmit =
+    catCheck.state !== "failed" &&
+    catCheck.state !== "checking" &&
+    alignPhase !== "matching" &&
+    !submitting &&
+    loaded &&
+    !loadErr;
 
   if (loadErr) {
     return (
@@ -335,9 +372,25 @@ export function MarketEditPage() {
         <h2 style={{ margin: "0 0 0.25rem", fontFamily: "var(--font-display)", color: "var(--color-primary-dark)" }}>
           Edit listing
         </h2>
+        {listingPawStatus === "Draft" && (
+          <p
+            style={{
+              margin: "0 0 0.9rem",
+              padding: "0.55rem 0.75rem",
+              background: "#eff6ff",
+              border: "1px solid #93c5fd",
+              borderRadius: 8,
+              fontSize: "0.88rem",
+              color: "#1e3a5f",
+            }}
+          >
+            <strong>Draft</strong> — this listing is not on the public market until you save and pass the final
+            verification (title, description, and image).
+          </p>
+        )}
         <p style={{ margin: "0 0 1.5rem", color: "var(--color-muted)", fontSize: "0.9rem" }}>
-          Replace the photo only if you want a new image; otherwise your current photo stays. Text changes may trigger
-          Cat-Check when you upload a new image.
+          New photos: step 1 checks the image alone. When you save a <strong>draft</strong>, step 2 verifies
+          text + image before going live. Editing a <strong>live</strong> listing re-checks text and image on save.
         </p>
 
         <form onSubmit={onSubmit} className="ph-grid" style={{ gap: "1.1rem" }}>
@@ -608,8 +661,45 @@ export function MarketEditPage() {
             </div>
           )}
 
+          {alignPhase === "matching" && (
+            <div className="pm-ai-banner" style={{ marginTop: "0.2rem" }}>
+              <span className="pm-paw-spin">🐾</span>
+              <div>
+                <strong style={{ fontSize: "0.9rem" }}>Verifying title, description & image…</strong>
+                <p style={{ margin: "0.1rem 0 0", fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                  Publishing to Paw Market (step 2).
+                </p>
+              </div>
+            </div>
+          )}
+
+          {alignPhase === "failed" && alignReason && (
+            <div
+              style={{
+                background: "#fff1f0",
+                border: "1.5px solid #fca5a5",
+                borderRadius: 10,
+                padding: "0.75rem 1rem",
+                fontSize: "0.85rem",
+                color: "#7f1d1d",
+              }}
+            >
+              <strong>Verification failed:</strong> {alignReason}
+            </div>
+          )}
+
           <button className="ph-btn ph-btn-primary" type="submit" disabled={!canSubmit} style={{ fontSize: "1rem", padding: "0.75rem" }}>
-            {submitting ? "Saving…" : "Save changes"}
+            {alignPhase === "matching" ? (
+              <>
+                <span className="pm-paw-spin" style={{ fontSize: "1rem" }}>🐾</span> Verifying match…
+              </>
+            ) : submitting ? (
+              "Saving…"
+            ) : listingPawStatus === "Draft" ? (
+              "Save & publish to Paw Market"
+            ) : (
+              "Save changes"
+            )}
           </button>
         </form>
       </div>

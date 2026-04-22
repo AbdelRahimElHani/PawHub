@@ -36,3 +36,13 @@ export function sendChatMessage(client: Client, threadId: number, body: string) 
     body: JSON.stringify({ threadId, body }),
   });
 }
+
+export function sendChatTyping(client: Client, threadId: number, typing: boolean) {
+  if (!client.connected) {
+    return;
+  }
+  client.publish({
+    destination: "/app/chat.typing",
+    body: JSON.stringify({ threadId, typing }),
+  });
+}

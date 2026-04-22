@@ -115,7 +115,7 @@ export type PawListingDto = {
   cityText: string | null;
   latitude: number | null;
   longitude: number | null;
-  pawStatus: "Available" | "Pending" | "Sold" | "Expired";
+  pawStatus: "Draft" | "Available" | "Pending" | "Sold" | "Expired";
   imageUrls: string[];
   photoUrl: string | null;
   averageRating: number;

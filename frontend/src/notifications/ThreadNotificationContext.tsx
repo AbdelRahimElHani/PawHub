@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useChatStomp } from "../chat/ChatStompContext";
 import type { ThreadSummaryDto } from "../types";
 
 type ThreadNotificationContextValue = {
@@ -14,6 +15,7 @@ const ThreadNotificationContext = createContext<ThreadNotificationContextValue |
 
 export function ThreadNotificationProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
+  const { registerInbox } = useChatStomp();
   const [threads, setThreads] = useState<ThreadSummaryDto[]>([]);
 
   const refresh = useCallback(() => {
@@ -32,7 +34,14 @@ export function ThreadNotificationProvider({ children }: { children: ReactNode }
 
   useEffect(() => {
     if (!token) return;
-    const id = window.setInterval(refresh, 45_000);
+    return registerInbox(() => {
+      refresh();
+    });
+  }, [token, registerInbox, refresh]);
+
+  useEffect(() => {
+    if (!token) return;
+    const id = window.setInterval(refresh, 180_000);
     return () => clearInterval(id);
   }, [token, refresh]);
 

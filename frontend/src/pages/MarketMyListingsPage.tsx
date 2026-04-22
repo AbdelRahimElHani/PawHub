@@ -8,6 +8,7 @@ import type { PawListingDto } from "../types";
 
 function StatusPill({ status }: { status: PawListingDto["pawStatus"] }) {
   const map: Record<string, string> = {
+    Draft: "pm-status pm-status--pending",
     Available: "pm-status pm-status--ok",
     Pending: "pm-status pm-status--pending",
     Sold: "pm-status pm-status--sold",
@@ -124,7 +125,8 @@ export function MarketMyListingsPage() {
         <ul className="pm-my-list">
           {rows.map((l) => {
             const thumb = l.imageUrls?.[0] ?? l.photoUrl;
-            const canEdit = l.pawStatus === "Available";
+            const canEdit = l.pawStatus === "Available" || l.pawStatus === "Draft";
+            const canMarkSold = l.pawStatus === "Available";
             return (
               <li
                 key={l.id}
@@ -177,7 +179,7 @@ export function MarketMyListingsPage() {
                       <Edit3 size={16} />
                     </Link>
                   ) : null}
-                  {canEdit ? (
+                  {canMarkSold ? (
                     <button
                       type="button"
                       className="ph-btn ph-btn-ghost"
