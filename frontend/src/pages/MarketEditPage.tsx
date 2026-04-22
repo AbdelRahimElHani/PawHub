@@ -1,7 +1,7 @@
 import { ArrowLeft, CheckCircle, Gift, Upload, XCircle } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, getToken } from "../api/client";
+import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { LocationPickerMap } from "../market/LocationPickerMap";
 import type { LatLng } from "../market/LocationPickerMap";
@@ -58,7 +58,7 @@ export function MarketEditPage() {
       if (title) form.append("title", title);
       if (description) form.append("description", description);
 
-      const res = await fetch("/api/paw/cat-check", {
+      const res = await fetch(apiUrl("/api/paw/cat-check"), {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
@@ -241,7 +241,7 @@ export function MarketEditPage() {
         stockQuantity: stock,
       };
 
-      const res = await fetch(`/api/paw/listings/${id}`, {
+      const res = await fetch(apiUrl(`/api/paw/listings/${id}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -266,7 +266,7 @@ export function MarketEditPage() {
       if (file) {
         const form = new FormData();
         form.append("file", file);
-        const photoRes = await fetch(`/api/paw/listings/${id}/photo`, {
+        const photoRes = await fetch(apiUrl(`/api/paw/listings/${id}/photo`), {
           method: "POST",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: form,

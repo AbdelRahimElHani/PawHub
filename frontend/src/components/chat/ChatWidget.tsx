@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link } from "react-router-dom";
 import { CopyMessageButton } from "../CopyMessageButton";
-import { getToken } from "../../api/client";
+import { apiUrl, getToken } from "../../api/client";
 import "./whisker-chat.css";
 
 /** Multi-session store (localStorage). */
@@ -231,7 +231,7 @@ export function ChatWidget() {
       }));
     if (trimmed.length === 0) return;
     try {
-      const res = await fetch("/api/chat/title", {
+      const res = await fetch(apiUrl("/api/chat/title"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -328,7 +328,7 @@ export function ChatWidget() {
       lastAiFetchRef.current = Date.now();
       setAiHealthPhase("loading");
       try {
-        const res = await fetch("/api/chat/status", {
+        const res = await fetch(apiUrl("/api/chat/status"), {
           headers: { Authorization: `Bearer ${t}` },
         });
         const data = (await res.json()) as { ok?: boolean; message?: string };
@@ -400,7 +400,7 @@ export function ChatWidget() {
       setLoading(true);
 
       try {
-        const res = await fetch("/api/chat/stream", {
+        const res = await fetch(apiUrl("/api/chat/stream"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

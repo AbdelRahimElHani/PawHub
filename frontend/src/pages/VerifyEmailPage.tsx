@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AuthShell } from "../auth/AuthShell";
+import { apiUrl } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 type VerifyState = "loading" | "ok" | "err";
@@ -40,7 +41,7 @@ export function VerifyEmailPage() {
       if (emailParam) {
         q.set("email", emailParam);
       }
-      const verifyUrl = `/api/auth/verify-email?${q.toString()}`;
+      const verifyUrl = apiUrl(`/api/auth/verify-email?${q.toString()}`);
 
       try {
         const res = await fetch(verifyUrl);
@@ -62,7 +63,7 @@ export function VerifyEmailPage() {
         const errText = j.error ?? res.statusText;
         if (emailParam) {
           const check = await fetch(
-            `/api/auth/email-verified?email=${encodeURIComponent(emailParam)}`
+            apiUrl(`/api/auth/email-verified?email=${encodeURIComponent(emailParam)}`)
           );
           const cj = (await check.json().catch(() => ({}))) as { verified?: boolean };
           if (!cancelled && check.ok && cj.verified) {

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { apiUrl } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AuthShell } from "../auth/AuthShell";
 
@@ -60,7 +61,7 @@ export function Login() {
     }
     setResendBusy(true);
     try {
-      const res = await fetch("/api/auth/resend-verification", {
+      const res = await fetch(apiUrl("/api/auth/resend-verification"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: em }),

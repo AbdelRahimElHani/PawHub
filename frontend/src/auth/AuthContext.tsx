@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, getToken, setToken } from "../api/client";
+import { api, apiUrl, getToken, setToken } from "../api/client";
 import type { AccountType, RegisterPayload } from "./authTypes";
 
 export type VetVerificationStatusApi = "PENDING" | "APPROVED" | "REJECTED";
@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (payload.accountType === "VET") {
           vetDocs.forEach((f) => fd.append("vetDocuments", f));
         }
-        const res = await fetch("/api/auth/register", { method: "POST", body: fd });
+        const res = await fetch(apiUrl("/api/auth/register"), { method: "POST", body: fd });
         const text = await res.text();
         try {
           data = text ? (JSON.parse(text) as RegBody) : {};
@@ -174,7 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(typeof data.error === "string" ? data.error : res.statusText);
         }
       } else {
-        const res = await fetch("/api/auth/register", {
+        const res = await fetch(apiUrl("/api/auth/register"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),

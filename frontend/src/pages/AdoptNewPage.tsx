@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BadgeCheck } from "lucide-react";
-import { api, getToken } from "../api/client";
+import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { AdoptionListingDto, ShelterDto } from "../types";
 import "../adopt/adopt.css";
@@ -53,7 +53,7 @@ export function AdoptNewPage() {
         const fd = new FormData();
         fd.append("file", photo);
         const token = getToken();
-        const photoRes = await fetch(`/api/adopt/listings/${listingId}/photo`, {
+        const photoRes = await fetch(apiUrl(`/api/adopt/listings/${listingId}/photo`), {
           method: "POST",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: fd,

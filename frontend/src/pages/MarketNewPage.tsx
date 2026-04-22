@@ -1,7 +1,7 @@
 import { ArrowLeft, CheckCircle, Gift, Upload, XCircle } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getToken } from "../api/client";
+import { apiUrl, getToken } from "../api/client";
 import { LocationPickerMap } from "../market/LocationPickerMap";
 import type { LatLng } from "../market/LocationPickerMap";
 import type { ReverseGeocodedPlace } from "../market/reverseGeocodeNominatim";
@@ -58,7 +58,7 @@ export function MarketNewPage() {
       if (title) form.append("title", title);
       if (description) form.append("description", description);
 
-      const res = await fetch("/api/paw/cat-check", {
+      const res = await fetch(apiUrl("/api/paw/cat-check"), {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
@@ -182,7 +182,7 @@ export function MarketNewPage() {
       };
 
       const token = getToken();
-      const res = await fetch("/api/paw/listings", {
+      const res = await fetch(apiUrl("/api/paw/listings"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -209,14 +209,14 @@ export function MarketNewPage() {
       if (file) {
         const form = new FormData();
         form.append("file", file);
-        const photoRes = await fetch(`/api/paw/listings/${created.id}/photo`, {
+        const photoRes = await fetch(apiUrl(`/api/paw/listings/${created.id}/photo`), {
           method: "POST",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: form,
         });
         if (photoRes.status === 422) {
           const json = (await photoRes.json()) as { error?: string; reason?: string };
-          await fetch(`/api/paw/listings/${created.id}`, {
+          await fetch(apiUrl(`/api/paw/listings/${created.id}`), {
             method: "DELETE",
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
@@ -231,7 +231,7 @@ export function MarketNewPage() {
         }
         if (!photoRes.ok) {
           const j = (await photoRes.json().catch(() => ({}))) as { error?: string };
-          await fetch(`/api/paw/listings/${created.id}`, {
+          await fetch(apiUrl(`/api/paw/listings/${created.id}`), {
             method: "DELETE",
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });

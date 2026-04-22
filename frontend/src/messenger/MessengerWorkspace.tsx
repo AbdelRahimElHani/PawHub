@@ -3,7 +3,7 @@ import { ImagePlus, MessagesSquare, MessageSquarePlus, Send, X } from "lucide-re
 import { CopyMessageButton } from "../components/CopyMessageButton";
 import { type ReactNode, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, getToken } from "../api/client";
+import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
 import { createStompClient, subscribeThread } from "../chat/stomp";
@@ -235,7 +235,7 @@ export function MessengerWorkspace({
         const fd = new FormData();
         if (text) fd.append("body", text);
         fd.append("file", pendingFile);
-        const res = await fetch(`/api/chat/threads/${tid}/messages`, { method: "POST", headers, body: fd });
+        const res = await fetch(apiUrl(`/api/chat/threads/${tid}/messages`), { method: "POST", headers, body: fd });
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string };
           throw new Error(j.error ?? res.statusText);

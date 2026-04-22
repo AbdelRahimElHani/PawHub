@@ -1,3 +1,4 @@
+import { apiUrl } from "../api/client";
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 
@@ -11,7 +12,9 @@ export function createStompClient(
     heartbeatIncoming: 10000,
     heartbeatOutgoing: 10000,
     webSocketFactory: () =>
-      new SockJS(`/ws?access_token=${encodeURIComponent(token)}`) as unknown as WebSocket,
+      new SockJS(
+        apiUrl("/ws") + `?access_token=${encodeURIComponent(token)}`,
+      ) as unknown as WebSocket,
     connectHeaders: { access_token: token },
     debug: () => undefined,
     onConnect: () => onConnect(client),

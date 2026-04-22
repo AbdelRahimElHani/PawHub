@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useMemo, useState } from "react";
 import { FileText, Upload } from "lucide-react";
-import { api, getToken } from "../api/client";
+import { api, apiUrl, getToken } from "../api/client";
 import type { ShelterDto } from "../types";
 import "../adopt/adopt.css";
 
@@ -176,7 +176,7 @@ export function ShelterProfileWizard({ profile, onProfileUpdated }: Props) {
       const fd = new FormData();
       fd.append("file", file);
       const token = getToken();
-      const res = await fetch(`/api/adopt/shelters/mine/documents?kind=${kind}`, {
+      const res = await fetch(apiUrl(`/api/adopt/shelters/mine/documents?kind=${kind}`), {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd,

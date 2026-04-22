@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, Camera, Cat, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { type ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { apiUrl } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { isAdminAccount, isVeterinarianAccount } from "../auth/vetAccess";
 import { useCatSanctuaryStore } from "../cats/useCatSanctuaryStore";
@@ -105,7 +106,7 @@ export function FileCase() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/pawvet/verified-vet-names");
+        const res = await fetch(apiUrl("/api/pawvet/verified-vet-names"));
         if (!res.ok) return;
         const data = (await res.json()) as string[];
         if (!cancelled && Array.isArray(data)) setVerifiedVetNames(data);

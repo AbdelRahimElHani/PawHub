@@ -1,5 +1,20 @@
 const TOKEN_KEY = "pawhub_token";
 
+/**
+ * Public URL of the Spring Boot API (no trailing slash), e.g. `https://your-api.up.railway.app`.
+ * Set in Railway (and in `.env.local` for a prod-like test): `VITE_API_BASE_URL=...`
+ * When unset, requests stay same-origin and Vite’s dev proxy (`/api` → localhost:8080) is used.
+ */
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/$/, "") ?? "";
+
+/** Turn `/api/...` into a full URL in production, or pass through in dev. */
+export function apiUrl(path: string): string {
+  if (!path) return path;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  if (!API_BASE) return path;
+  return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -16,7 +31,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(apiUrl(path), { ...init, headers });
   if (res.status === 204) {
     return null as T;
   }
