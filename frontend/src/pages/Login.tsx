@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import { FormEvent, useEffect, useState } from "react";
-=======
-import { FormEvent, useState } from "react";
->>>>>>> PawAdopt-PawVet
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { AuthShell } from "../auth/AuthShell";
@@ -48,12 +44,7 @@ export function Login() {
     setErr(null);
     try {
       await login(email, password);
-<<<<<<< HEAD
       nav(safeNext ?? "/");
-=======
-      const next = searchParams.get("next");
-      nav(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
->>>>>>> PawAdopt-PawVet
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : "Login failed");
     }

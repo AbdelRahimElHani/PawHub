@@ -4,11 +4,8 @@ import com.pawhub.service.AuthService;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.*;
 import jakarta.validation.Valid;
-<<<<<<< HEAD
-import java.util.Map;
-=======
 import java.util.List;
->>>>>>> PawAdopt-PawVet
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;

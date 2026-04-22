@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "pawvet_consultation_review")
@@ -30,6 +32,7 @@ public class PawvetConsultationReview {
     private User owner;
 
     @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.TINYINT)
     private int stars;
 
     @Column(columnDefinition = "TEXT")

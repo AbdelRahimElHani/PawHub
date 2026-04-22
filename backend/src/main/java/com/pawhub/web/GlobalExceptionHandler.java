@@ -43,12 +43,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid credentials"));
     }
 
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, String>> responseStatus(ResponseStatusException ex) {
-        String msg = ex.getReason() != null ? ex.getReason() : ex.getStatusCode().toString();
-        return ResponseEntity.status(ex.getStatusCode()).body(Map.of("error", msg));
-    }
-
     @ExceptionHandler(AiCatCheckService.CatCheckFailedException.class)
     public ResponseEntity<Map<String, String>> catCheckFailed(AiCatCheckService.CatCheckFailedException ex) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)

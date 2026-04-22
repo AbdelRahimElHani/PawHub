@@ -1,34 +1,23 @@
 package com.pawhub.service;
 
-<<<<<<< HEAD
-import com.pawhub.config.PawhubProperties;
-=======
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
->>>>>>> PawAdopt-PawVet
+import com.pawhub.config.PawhubProperties;
 import com.pawhub.domain.*;
 import com.pawhub.repository.ShelterRepository;
 import com.pawhub.repository.UserRepository;
 import com.pawhub.repository.VetLicenseApplicationRepository;
 import com.pawhub.security.JwtService;
 import com.pawhub.security.SecurityUser;
-<<<<<<< HEAD
 import com.pawhub.web.dto.*;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.UUID;
-=======
-import com.pawhub.web.dto.AuthResponse;
-import com.pawhub.web.dto.LoginRequest;
-import com.pawhub.web.dto.RegisterRequest;
-import com.pawhub.web.dto.UpdateProfileRequest;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
->>>>>>> PawAdopt-PawVet
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,10 +26,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-<<<<<<< HEAD
 import org.springframework.web.server.ResponseStatusException;
-=======
->>>>>>> PawAdopt-PawVet
 
 @Service
 @RequiredArgsConstructor
@@ -55,22 +41,12 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final FileStorageService fileStorageService;
-<<<<<<< HEAD
     private final EmailVerificationNotifier emailVerificationNotifier;
     private final PawhubProperties pawhubProperties;
-
-    @Transactional
-    public RegistrationResponse register(RegisterRequest req) {
-        return register(req, null);
-    }
-
-    @Transactional
-    public RegistrationResponse register(RegisterRequest req, MultipartFile avatar) {
-=======
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public AuthResponse register(RegisterRequest req) {
+    public RegistrationResponse register(RegisterRequest req) {
         if (req.accountType() == UserAccountType.VET) {
             throw new IllegalArgumentException(
                     "Veterinarian registration requires proving documents (PDF or images). Please use the signup form and attach at least one file.");
@@ -79,13 +55,13 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse register(RegisterRequest req, MultipartFile avatar, List<MultipartFile> vetDocuments) {
+    public RegistrationResponse register(RegisterRequest req, MultipartFile avatar, List<MultipartFile> vetDocuments) {
         List<MultipartFile> docs = vetDocuments == null ? List.of() : vetDocuments;
         return registerInternal(req, avatar, docs);
     }
 
-    private AuthResponse registerInternal(RegisterRequest req, MultipartFile avatar, List<MultipartFile> vetDocuments) {
->>>>>>> PawAdopt-PawVet
+    private RegistrationResponse registerInternal(
+            RegisterRequest req, MultipartFile avatar, List<MultipartFile> vetDocuments) {
         if (userRepository.existsByEmailIgnoreCase(req.email())) {
             throw new IllegalArgumentException("Email already registered");
         }
@@ -163,98 +139,6 @@ public class AuthService {
             shelterRepository.save(shelter);
         }
 
-<<<<<<< HEAD
-        if (!autoVerify) {
-            String link = verificationLink(rawToken, user.getEmail());
-            emailVerificationNotifier.sendVerificationEmail(user.getEmail(), user.getDisplayName(), link);
-        }
-
-        String msg = autoVerify
-                ? "Account created. You can sign in now."
-                : "Account created. Check your inbox to verify your email before signing in.";
-        return new RegistrationResponse(msg, user.getEmail(), !autoVerify);
-    }
-
-    @Transactional
-    public VerifyEmailResponse verifyEmail(String token, String emailHint) {
-        if (token == null || token.isBlank()) {
-            throw new IllegalArgumentException("Verification token is required");
-        }
-        String trimmed = token.trim();
-        User u = userRepository.findByEmailVerificationToken(trimmed).orElse(null);
-        if (u != null) {
-            return completeEmailVerification(u);
-        }
-        // Token no longer in DB (already used) or unknown — e.g. React Strict Mode double request.
-        if (emailHint != null && !emailHint.isBlank()) {
-            User byEmail = userRepository.findByEmailIgnoreCase(emailHint.trim().toLowerCase()).orElse(null);
-            if (byEmail != null && byEmail.isEmailVerified()) {
-                return new VerifyEmailResponse("This email is already verified. You can sign in.", true);
-            }
-        }
-        throw new IllegalArgumentException(
-                "Invalid or expired verification link. Use “Resend verification” on the login page if you need a new link.");
-    }
-
-    private VerifyEmailResponse completeEmailVerification(User u) {
-        if (u.isEmailVerified()) {
-            return new VerifyEmailResponse("This email is already verified. You can sign in.", true);
-        }
-        if (u.getEmailVerificationExpiresAt() == null || Instant.now().isAfter(u.getEmailVerificationExpiresAt())) {
-            throw new IllegalArgumentException("This verification link has expired. Use “Resend verification” on the login page.");
-        }
-        u.setEmailVerified(true);
-        u.setEmailVerificationToken(null);
-        u.setEmailVerificationExpiresAt(null);
-        userRepository.save(u);
-        return new VerifyEmailResponse("Your email is verified. You can sign in now.", true);
-    }
-
-    /**
-     * Resend verification email. Does nothing if email is unknown or already verified (limits account enumeration).
-     */
-    @Transactional
-    public void resendVerification(ResendVerificationRequest req) {
-        String email = req.email().trim().toLowerCase();
-        userRepository
-                .findByEmailIgnoreCase(email)
-                .filter(u -> !u.isEmailVerified())
-                .ifPresent(u -> {
-                    String rawToken = UUID.randomUUID().toString().replace("-", "");
-                    u.setEmailVerificationToken(rawToken);
-                    u.setEmailVerificationExpiresAt(Instant.now().plus(48, ChronoUnit.HOURS));
-                    userRepository.save(u);
-                    emailVerificationNotifier.sendVerificationEmail(
-                            u.getEmail(), u.getDisplayName(), verificationLink(rawToken, u.getEmail()));
-                });
-    }
-
-    /**
-     * Public check for clients that need to recover a "success" UI when the token was already consumed
-     * (e.g. duplicate requests) but the address is known.
-     */
-    public boolean isEmailVerifiedForAddress(String email) {
-        if (email == null || email.isBlank()) {
-            return false;
-        }
-        return userRepository
-                .findByEmailIgnoreCase(email.trim().toLowerCase())
-                .map(User::isEmailVerified)
-                .orElse(false);
-    }
-
-    private String verificationLink(String rawToken, String email) {
-        String base = pawhubProperties.getFrontendBaseUrl();
-        if (base == null || base.isBlank()) {
-            base = "http://localhost:5173";
-        }
-        while (base.endsWith("/")) {
-            base = base.substring(0, base.length() - 1);
-        }
-        String enc = URLEncoder.encode(
-                email == null ? "" : email.trim().toLowerCase(), StandardCharsets.UTF_8);
-        return base + "/verify-email?token=" + rawToken + "&email=" + enc;
-=======
         if (req.accountType() == UserAccountType.VET) {
             List<String> urls = new ArrayList<>();
             try {
@@ -286,9 +170,88 @@ public class AuthService {
             vetLicenseApplicationRepository.save(vapp);
         }
 
-        String token = jwtService.generateToken(user.getId(), user.getEmail());
-        return toAuthResponse(token, userRepository.getReferenceById(user.getId()));
->>>>>>> PawAdopt-PawVet
+        if (!autoVerify) {
+            String link = verificationLink(rawToken, user.getEmail());
+            emailVerificationNotifier.sendVerificationEmail(user.getEmail(), user.getDisplayName(), link);
+        }
+
+        String msg = autoVerify
+                ? "Account created. You can sign in now."
+                : "Account created. Check your inbox to verify your email before signing in.";
+        return new RegistrationResponse(msg, user.getEmail(), !autoVerify);
+    }
+
+    @Transactional
+    public VerifyEmailResponse verifyEmail(String token, String emailHint) {
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("Verification token is required");
+        }
+        String trimmed = token.trim();
+        User u = userRepository.findByEmailVerificationToken(trimmed).orElse(null);
+        if (u != null) {
+            return completeEmailVerification(u);
+        }
+        if (emailHint != null && !emailHint.isBlank()) {
+            User byEmail = userRepository.findByEmailIgnoreCase(emailHint.trim().toLowerCase()).orElse(null);
+            if (byEmail != null && byEmail.isEmailVerified()) {
+                return new VerifyEmailResponse("This email is already verified. You can sign in.", true);
+            }
+        }
+        throw new IllegalArgumentException(
+                "Invalid or expired verification link. Use “Resend verification” on the login page if you need a new link.");
+    }
+
+    private VerifyEmailResponse completeEmailVerification(User u) {
+        if (u.isEmailVerified()) {
+            return new VerifyEmailResponse("This email is already verified. You can sign in.", true);
+        }
+        if (u.getEmailVerificationExpiresAt() == null || Instant.now().isAfter(u.getEmailVerificationExpiresAt())) {
+            throw new IllegalArgumentException("This verification link has expired. Use “Resend verification” on the login page.");
+        }
+        u.setEmailVerified(true);
+        u.setEmailVerificationToken(null);
+        u.setEmailVerificationExpiresAt(null);
+        userRepository.save(u);
+        return new VerifyEmailResponse("Your email is verified. You can sign in now.", true);
+    }
+
+    @Transactional
+    public void resendVerification(ResendVerificationRequest req) {
+        String email = req.email().trim().toLowerCase();
+        userRepository
+                .findByEmailIgnoreCase(email)
+                .filter(u -> !u.isEmailVerified())
+                .ifPresent(u -> {
+                    String rawToken = UUID.randomUUID().toString().replace("-", "");
+                    u.setEmailVerificationToken(rawToken);
+                    u.setEmailVerificationExpiresAt(Instant.now().plus(48, ChronoUnit.HOURS));
+                    userRepository.save(u);
+                    emailVerificationNotifier.sendVerificationEmail(
+                            u.getEmail(), u.getDisplayName(), verificationLink(rawToken, u.getEmail()));
+                });
+    }
+
+    public boolean isEmailVerifiedForAddress(String email) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        return userRepository
+                .findByEmailIgnoreCase(email.trim().toLowerCase())
+                .map(User::isEmailVerified)
+                .orElse(false);
+    }
+
+    private String verificationLink(String rawToken, String email) {
+        String base = pawhubProperties.getFrontendBaseUrl();
+        if (base == null || base.isBlank()) {
+            base = "http://localhost:5173";
+        }
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        String enc = URLEncoder.encode(
+                email == null ? "" : email.trim().toLowerCase(), StandardCharsets.UTF_8);
+        return base + "/verify-email?token=" + rawToken + "&email=" + enc;
     }
 
     private static boolean isAllowedVetDocumentMime(MultipartFile f) {
@@ -378,9 +341,7 @@ public class AuthService {
                 user.getProfileCity(),
                 user.getProfileRegion(),
                 user.getProfileBio(),
-<<<<<<< HEAD
-                user.isEmailVerified());
-=======
+                user.isEmailVerified(),
                 vetStatus,
                 vetReject);
     }
@@ -391,6 +352,5 @@ public class AuthService {
         }
         String t = s.trim();
         return t.isEmpty() ? null : t;
->>>>>>> PawAdopt-PawVet
     }
 }

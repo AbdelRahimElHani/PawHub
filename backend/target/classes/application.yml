@@ -1,18 +1,14 @@
 spring:
   application:
     name: pawhub-api
-<<<<<<< HEAD
-  # Optional local overrides (SMTP, API keys). File is gitignored — copy from application-local.yml.example
+  # Local overrides: optional classpath file, plus optional secrets on disk (gitignored).
   config:
     import:
       - optional:classpath:application-local.yml
-  # Email: set MAIL_* env vars, OR use application-local.yml (not committed).
+      - optional:file:config/application-secrets.yml
+      - optional:file:backend/config/application-secrets.yml
+  # Email: set MAIL_* env vars, OR use application-local.yml / application-secrets.yml (not committed).
   # If host is unset, verification links are logged instead of sent.
-  #
-  # Outlook / @outlook.com: if logs show 535 5.7.139 "SmtpClientAuthentication is disabled", Microsoft has turned
-  # off basic SMTP for that mailbox—an app password will NOT fix it. Use Gmail + App Password for local dev, or
-  # SendGrid/Mailgun, or have a Microsoft 365 admin enable "Authenticated SMTP" for the mailbox
-  # (see https://aka.ms/smtp_auth_disabled).
   mail:
     host: ${MAIL_HOST:}
     port: ${MAIL_PORT:587}
@@ -22,17 +18,10 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
       mail.smtp.ssl.trust: ${MAIL_SMTP_SSL_TRUST:smtp.gmail.com}
-=======
-  # Load optional local secrets (gitignored). See backend/config/application-secrets.yml.example
-  config:
-    import:
-      - optional:file:config/application-secrets.yml
-      - optional:file:backend/config/application-secrets.yml
->>>>>>> PawAdopt-PawVet
   datasource:
     url: jdbc:mysql://localhost:3306/pawhub?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
-    password: root
+    password: smab
   jpa:
     hibernate:
       ddl-auto: validate
@@ -55,7 +44,6 @@ server:
 
 pawhub:
   mail:
-    # Shown as “From:” — set MAIL_FROM or it falls back to MAIL_USERNAME
     from: ${MAIL_FROM:${MAIL_USERNAME:noreply@localhost}}
     from-name: ${MAIL_FROM_NAME:PawHub}
   auth:
@@ -64,7 +52,6 @@ pawhub:
     email: admin@pawhub.local
     password: admin123
     sync-credentials-on-startup: true
-  # Regular user created on first startup if the email is not already registered. Set enabled: false in production.
   demo-user:
     enabled: true
     email: demo@pawhub.local
@@ -77,19 +64,8 @@ pawhub:
   upload-dir: ${user.dir}/uploads
   public-base-url: http://localhost:8080
   gemini:
-<<<<<<< HEAD
-    enabled: ${GEMINI_ENABLED:true}
-    api-key: ${GEMINI_API_KEY:}
-    model: gemini-2.5-flash
-    fallback-model: gemini-3.1-flash-lite
-=======
-    enabled: true
-    # Prefer backend/config/application-secrets.yml (gitignored) or env PAWHUB_GEMINI_API_KEY — never commit keys.
-    api-key: ${PAWHUB_GEMINI_API_KEY:}
-    # Model IDs default from com.pawhub.config.GeminiModelIds (gemini-3-flash + fallback). Override here or in application-secrets.yml if needed.
-    # List models: GET https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
-    # While debugging: true = listings still work if the API errors. Set false when Cat-Check is stable.
->>>>>>> PawAdopt-PawVet
+    enabled: ${PAWHUB_GEMINI_ENABLED:${GEMINI_ENABLED:true}}
+    api-key: ${PAWHUB_GEMINI_API_KEY:${GEMINI_API_KEY:}}
     fail-open-on-api-error: true
 
 springdoc:

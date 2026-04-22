@@ -25,6 +25,7 @@ const TYPES: { id: AccountType; title: string; desc: string; icon: string }[] = 
   },
   {
     id: "VET",
+    icon: "🩺",
     title: "Veterinarian (PawVet)",
     desc: "Licensed DVM path: upload proving documents, then wait for email and a short credential interview before approval.",
   },
@@ -216,15 +217,15 @@ export function Register() {
       }
     }
     try {
-<<<<<<< HEAD
-      const result = await register(payload, avatarFile);
+      const result = await register(
+        payload,
+        avatarFile,
+        payload.accountType === "VET" ? vetDocFiles : undefined,
+      );
       if (result.kind === "needsVerification") {
         nav(`/login?pendingVerification=1&email=${encodeURIComponent(result.email)}`);
         return;
       }
-=======
-      await register(payload, avatarFile, payload.accountType === "VET" ? vetDocFiles : undefined);
->>>>>>> PawAdopt-PawVet
       if (payload.accountType === "SHELTER") nav("/adopt/shelter");
       else if (payload.accountType === "CAT_OWNER") nav("/cats");
       else if (payload.accountType === "VET") nav("/vet");

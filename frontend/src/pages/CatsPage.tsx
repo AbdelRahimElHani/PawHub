@@ -1,16 +1,9 @@
-<<<<<<< HEAD
 import { FormEvent, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { CatBehavior, CatDto, MatchBehaviorPreference, MatchGenderPreference } from "../types";
 import { CAT_BEHAVIORS } from "../types";
 
 const GENDER_LABEL: Record<string, string> = { MALE: "♂ Male", FEMALE: "♀ Female" };
-=======
-import { useEffect } from "react";
-import { CatGallery } from "../cats/gallery/CatGallery";
-import { useCatSanctuaryStore } from "../cats/useCatSanctuaryStore";
-import "../cats/cats.css";
->>>>>>> PawAdopt-PawVet
 
 const PREF_LOOKING_LABEL: Record<MatchGenderPreference, string> = {
   ANY: "Any gender",
@@ -173,7 +166,6 @@ function CatPawMatchPrefsForm({ cat, onSaved }: { cat: CatDto; onSaved: () => vo
 }
 
 export function CatsPage() {
-<<<<<<< HEAD
   const [cats, setCats] = useState<CatDto[]>([]);
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
@@ -387,17 +379,6 @@ export function CatsPage() {
           </button>
         </form>
       </div>
-=======
-  const fetchCats = useCatSanctuaryStore((s) => s.fetchCats);
-
-  useEffect(() => {
-    void fetchCats();
-  }, [fetchCats]);
-
-  return (
-    <div className="cats-sanctuary">
-      <CatGallery />
->>>>>>> PawAdopt-PawVet
     </div>
   );
 }

@@ -14,13 +14,10 @@ export type AuthUser = {
   profileCity: string | null;
   profileRegion: string | null;
   profileBio: string | null;
-<<<<<<< HEAD
   emailVerified: boolean;
-=======
   /** Set for veterinarian accounts from the server */
   vetVerificationStatus?: VetVerificationStatusApi | null;
   vetRejectionReason?: string | null;
->>>>>>> PawAdopt-PawVet
 };
 
 type RegisterResult =
@@ -32,11 +29,11 @@ type AuthContextValue = {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-<<<<<<< HEAD
-  register: (payload: RegisterPayload, avatarFile?: File | null) => Promise<RegisterResult>;
-=======
-  register: (payload: RegisterPayload, avatarFile?: File | null, vetDocuments?: File[] | null) => Promise<void>;
->>>>>>> PawAdopt-PawVet
+  register: (
+    payload: RegisterPayload,
+    avatarFile?: File | null,
+    vetDocuments?: File[] | null,
+  ) => Promise<RegisterResult>;
   updateProfile: (patch: {
     displayName?: string;
     profileCity?: string | null;
@@ -62,12 +59,9 @@ type AuthResponse = {
   profileCity: string | null;
   profileRegion: string | null;
   profileBio: string | null;
-<<<<<<< HEAD
   emailVerified?: boolean;
-=======
   vetVerificationStatus?: string | null;
   vetRejectionReason?: string | null;
->>>>>>> PawAdopt-PawVet
 };
 
 function normalizeVetVerificationStatus(raw: string | null | undefined): "PENDING" | "APPROVED" | "REJECTED" | null {
@@ -91,13 +85,10 @@ function mapUser(r: AuthResponse): AuthUser {
     profileCity: r.profileCity,
     profileRegion: r.profileRegion,
     profileBio: r.profileBio,
-<<<<<<< HEAD
     emailVerified: r.emailVerified ?? true,
-=======
     vetVerificationStatus: r.accountType === "VET" ? (vetOk ? vs : "PENDING") : null,
     vetRejectionReason:
       r.accountType === "VET" && vetOk && vs === "REJECTED" ? (r.vetRejectionReason ?? null) : null,
->>>>>>> PawAdopt-PawVet
   };
 }
 
@@ -146,24 +137,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applyAuth],
   );
 
-<<<<<<< HEAD
-  const register = useCallback(async (payload: RegisterPayload, avatarFile?: File | null): Promise<RegisterResult> => {
-    if (avatarFile) {
-      const fd = new FormData();
-      fd.append("profile", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-      fd.append("avatar", avatarFile);
-      const res = await fetch("/api/auth/register", { method: "POST", body: fd });
-      const text = await res.text();
-      const data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
-      if (!res.ok) {
-        const msg = typeof data.error === "string" ? data.error : res.statusText;
-        throw new Error(msg);
-=======
   const register = useCallback(
-    async (payload: RegisterPayload, avatarFile?: File | null, vetDocuments?: File[] | null) => {
+    async (
+      payload: RegisterPayload,
+      avatarFile?: File | null,
+      vetDocuments?: File[] | null,
+    ): Promise<RegisterResult> => {
       const hasAvatar = Boolean(avatarFile && avatarFile.size > 0);
       const vetDocs = vetDocuments?.filter((f) => f.size > 0) ?? [];
       const useMultipart = payload.accountType === "VET" || hasAvatar;
+
+      type RegBody = {
+        message?: string;
+        email?: string;
+        verificationRequired?: boolean;
+        error?: string;
+      };
+
+      let data: RegBody;
 
       if (useMultipart) {
         const fd = new FormData();
@@ -174,26 +165,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         const res = await fetch("/api/auth/register", { method: "POST", body: fd });
         const text = await res.text();
-        if (!res.ok) {
-          let msg = res.statusText;
-          try {
-            const j = JSON.parse(text);
-            if (j.error) msg = j.error;
-          } catch {
-            /* ignore */
-          }
-          throw new Error(msg);
+        try {
+          data = text ? (JSON.parse(text) as RegBody) : {};
+        } catch {
+          data = {};
         }
-        const r = JSON.parse(text) as AuthResponse;
-        applyAuth(r);
+        if (!res.ok) {
+          throw new Error(typeof data.error === "string" ? data.error : res.statusText);
+        }
       } else {
-        const r = await api<AuthResponse>("/api/auth/register", {
+        const res = await fetch("/api/auth/register", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        applyAuth(r);
->>>>>>> PawAdopt-PawVet
+        const text = await res.text();
+        try {
+          data = text ? (JSON.parse(text) as RegBody) : {};
+        } catch {
+          data = {};
+        }
+        if (!res.ok) {
+          throw new Error(typeof data.error === "string" ? data.error : res.statusText);
+        }
       }
+
       if (data.verificationRequired === true) {
         return {
           kind: "needsVerification",
@@ -201,21 +197,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: typeof data.email === "string" ? data.email : payload.email,
         };
       }
+
+      await login(payload.email, payload.password);
       return { kind: "ready" };
-    }
-    const data = (await api<Record<string, unknown>>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    })) as { verificationRequired?: boolean; message?: string; email?: string };
-    if (data.verificationRequired === true) {
-      return {
-        kind: "needsVerification",
-        message: typeof data.message === "string" ? data.message : "Check your email.",
-        email: typeof data.email === "string" ? data.email : payload.email,
-      };
-    }
-    return { kind: "ready" };
-  }, []);
+    },
+    [login],
+  );
 
   const updateProfile = useCallback(
     async (patch: { displayName?: string; profileCity?: string | null; profileRegion?: string | null; profileBio?: string | null }) => {
