@@ -33,6 +33,22 @@ function appendUnique(prev: MessageDto[], dto: MessageDto): MessageDto[] {
   return [...prev, dto];
 }
 
+/** Match server preview line for thread list (see ChatService#previewLine). */
+function previewFromMessage(m: MessageDto): string {
+  const hasImg = m.attachmentUrl != null && m.attachmentUrl !== "";
+  const b = m.body?.trim() ?? "";
+  if (hasImg && !b) {
+    return "[Photo]";
+  }
+  if (hasImg && b) {
+    return b.length > 60 ? b.substring(0, 57) + "…" : b;
+  }
+  if (!b) {
+    return "";
+  }
+  return b.length > 80 ? b.substring(0, 77) + "…" : b;
+}
+
 /** Linkify non-listing https URLs in message text (listing URLs are stripped and shown as embed cards). */
 const EXTERNAL_URL_RE = /(https?:\/\/[^\s]+)/g;
 
@@ -157,9 +173,29 @@ export function MessengerWorkspace({
   useEffect(() => {
     if (!token) return;
     return registerInbox((p) => {
-      if (p.threadId === tidRef.current && p.threadId > 0) {
+      const pid = Number(p.threadId);
+      const openTid = Number(tidRef.current);
+      const isOpenForThis = Number.isFinite(openTid) && openTid > 0 && pid === openTid;
+      if (isOpenForThis) {
         setMessages((m) => appendUnique(m, p.message));
       }
+      setThreads((rows) => {
+        const i = rows.findIndex((r) => r.id === pid);
+        if (i < 0) {
+          return rows;
+        }
+        const nextRow: ThreadSummaryDto = {
+          ...rows[i],
+          lastMessagePreview: previewFromMessage(p.message),
+          lastMessageAt: p.message.createdAt,
+        };
+        const rest = rows.filter((_, j) => j !== i);
+        return [nextRow, ...rest].sort((a, b) => {
+          const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return tb - ta;
+        });
+      });
       void loadThreads();
     });
   }, [token, registerInbox, loadThreads]);
@@ -177,8 +213,12 @@ export function MessengerWorkspace({
     const myId = user.userId;
     setActiveThread(tid, {
       onMessage: (raw) => {
-        const dto = JSON.parse(raw) as MessageDto;
-        setMessages((m) => appendUnique(m, dto));
+        try {
+          const dto = JSON.parse(raw) as MessageDto;
+          setMessages((m) => appendUnique(m, dto));
+        } catch {
+          /* ignore malformed STOMP body */
+        }
       },
       onTyping: (raw) => {
         let t: { userId: number; displayName: string; typing: boolean };

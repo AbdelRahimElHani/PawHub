@@ -19,8 +19,15 @@ public class PawhubProperties {
 
     /**
      * SPA origin for deep links in chat (e.g. listing page). Used in automated messages after buy / message seller.
+     * Also used for CORS / SockJS (no trailing slash).
      */
     private String frontendBaseUrl = "http://localhost:5173";
+
+    /**
+     * Comma-separated ant-style extra origins for CORS and WebSocket (e.g. https://app.example.com,
+     * https://*.yourdomain.com). Set when the SPA is not covered by the built-in patterns.
+     */
+    private String corsAdditionalAllowedPatterns = "";
 
     /** Absolute URL to the Paw Market listing page (trailing slashes on base are stripped). */
     public String listingPageUrl(long listingId) {

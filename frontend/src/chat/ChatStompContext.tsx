@@ -109,11 +109,16 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
         setConnected(true);
         inboxSubRef.current = c.subscribe("/user/queue/pawhub-chat", (message: IMessage) => {
           try {
-            const j = JSON.parse(message.body) as { type?: string; threadId?: number; message?: MessageDto };
-            if (j.type === "MESSAGE" && j.message && j.threadId != null) {
-              const p: ChatInboxPayload = { type: "MESSAGE", threadId: j.threadId, message: j.message };
-              inboxListenersRef.current.forEach((fn) => fn(p));
+            const j = JSON.parse(message.body) as { type?: string; threadId?: unknown; message?: MessageDto };
+            if (j.type !== "MESSAGE" || !j.message || j.threadId == null) {
+              return;
             }
+            const threadId = Number(j.threadId);
+            if (!Number.isFinite(threadId) || threadId <= 0) {
+              return;
+            }
+            const p: ChatInboxPayload = { type: "MESSAGE", threadId, message: j.message };
+            inboxListenersRef.current.forEach((fn) => fn(p));
           } catch (e) {
             console.error("PawHub inbox event parse", e);
           }

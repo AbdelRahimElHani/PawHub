@@ -67,6 +67,8 @@ pawhub:
     # Large demo dataset for Paw Market — disable in production (set false).
     paw-market-seed: ${PAWHUB_BOOTSTRAP_PAW_MARKET_SEED:true}
   frontend-base-url: ${PAWHUB_FRONTEND_BASE_URL:http://localhost:5173}
+  # Comma-separated; use for custom domains or hosts not covered by built-in patterns (Vercel/Railway/etc.).
+  cors-additional-allowed-patterns: ${PAWHUB_CORS_ADDITIONAL:}
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-long-random-secret-key-for-production-use-only}
     expiration-ms: 86400000

@@ -1,10 +1,8 @@
 package com.pawhub.config;
 
 import com.pawhub.security.JwtAuthFilter;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.util.StringUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -37,17 +35,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
-        List<String> patterns = new ArrayList<>(
-                List.of(
-                        "http://localhost:*",
-                        "http://127.0.0.1:*",
-                        "http://[::1]:*",
-                        "https://localhost:*",
-                        "https://*.up.railway.app",
-                        "https://*.railway.app"));
-        if (StringUtils.hasText(pawhubProperties.getFrontendBaseUrl())) {
-            patterns.add(pawhubProperties.getFrontendBaseUrl().trim());
-        }
+        List<String> patterns = CorsOriginPatterns.forPawhub(pawhubProperties);
         cors.setAllowedOriginPatterns(patterns);
         cors.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("*"));
