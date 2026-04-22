@@ -72,7 +72,9 @@ pawhub:
     expiration-ms: 86400000
   # Local: default under cwd. Railway: attach a Volume at /app/uploads and set PAWHUB_UPLOAD_DIR=/app/uploads
   upload-dir: ${PAWHUB_UPLOAD_DIR:${user.dir}/uploads}
-  # Base URL of this API (no trailing slash). Used in stored file URLs: {public-base-url}/api/files/{name}
+  # Public origin of this API (no path, no trailing slash). Stored as {public-base-url}/api/files/{name}
+  # In production: set PAWHUB_PUBLIC_BASE_URL=https://your-api.example.com
+  # On Railway, if you omit it, RAILWAY_PUBLIC_DOMAIN is auto-applied at startup (see PublicBaseUrlFromRailwayRunner).
   public-base-url: ${PAWHUB_PUBLIC_BASE_URL:http://localhost:8080}
   gemini:
     enabled: ${PAWHUB_GEMINI_ENABLED:${GEMINI_ENABLED:true}}
