@@ -9,6 +9,7 @@ import { useChatStomp } from "../chat/ChatStompContext";
 import type { MessageDto, ThreadSummaryDto } from "../types";
 import { ListingShareEmbed } from "./ListingShareEmbed";
 import { parseListingShareFromMessage } from "./listingShareMessage";
+import { PeerTypingIndicator } from "./PeerTypingIndicator";
 
 type Page<T> = { content: T[] };
 
@@ -273,7 +274,7 @@ export function MessengerWorkspace({
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [sorted.length, tid]);
+  }, [sorted.length, tid, peerTyping]);
 
   useEffect(() => {
     if (!newChatOpen) return;
@@ -506,9 +507,7 @@ export function MessengerWorkspace({
                         {active.otherDisplayName}
                       </h3>
                       {peerTyping ? (
-                        <div className="ph-msg-typing-hint" aria-live="polite">
-                          {peerTyping} is typing…
-                        </div>
+                        <PeerTypingIndicator layout="header" displayName={peerTyping} />
                       ) : (
                         <div className="ph-msg-sub">Thread #{tid}</div>
                       )}
@@ -519,11 +518,7 @@ export function MessengerWorkspace({
                     <h3 className="ph-msg-title" style={{ margin: 0 }}>
                       Thread #{tid}
                     </h3>
-                    {peerTyping ? (
-                      <div className="ph-msg-typing-hint" aria-live="polite">
-                        {peerTyping} is typing…
-                      </div>
-                    ) : null}
+                    {peerTyping ? <PeerTypingIndicator layout="header" displayName={peerTyping} /> : null}
                   </div>
                 );
               })()}
@@ -575,6 +570,7 @@ export function MessengerWorkspace({
                   </div>
                 );
               })}
+              {peerTyping ? <PeerTypingIndicator layout="thread" displayName={peerTyping} /> : null}
               <div ref={listEndRef} />
             </div>
 

@@ -728,13 +728,134 @@ a:hover {
   color: #1d4a3c;
 }
 
-/* Messenger: typing under header */
+/* Messenger: typing (header + in-thread) */
+@keyframes ph-msg-typing-dot {
+  0%,
+  70%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  35% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.ph-msg-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ph-msg-typing-dots--sm {
+  gap: 2px;
+}
+
+.ph-msg-typing-dots--lg {
+  gap: 4px;
+}
+
+.ph-msg-typing-dot {
+  display: block;
+  border-radius: 50%;
+  background: #64748b;
+  animation: ph-msg-typing-dot 1.05s ease-in-out infinite;
+}
+
+.ph-msg-typing-dots--sm .ph-msg-typing-dot {
+  width: 4px;
+  height: 4px;
+}
+
+.ph-msg-typing-dots--lg .ph-msg-typing-dot {
+  width: 7px;
+  height: 7px;
+  background: #475569;
+}
+
+.ph-msg-typing-dot:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.ph-msg-typing-dot:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
 .ph-msg-typing-hint {
-  font-size: 0.8rem;
-  color: #2a6a55;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.ph-msg-typing-hint-text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.ph-msg-typing-hint-name {
   font-weight: 600;
-  font-style: italic;
-  margin: 0.1rem 0 0;
+  color: #2a6a55;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ph-msg-typing-hint-action {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+}
+
+.ph-msg-typing-thread {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: flex-start;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  margin-bottom: 0.35rem;
+  max-width: 72%;
+}
+
+.ph-msg-typing-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.25rem;
+  padding: 0.65rem 1rem;
+  border-radius: 18px 18px 18px 4px;
+  background: linear-gradient(180deg, #ececec 0%, #e4e4e4 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.ph-msg-typing-thread-caption {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding-left: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--color-muted);
+}
+
+.ph-msg-typing-thread-name {
+  font-weight: 600;
+  color: #334155;
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ph-msg-typing-thread-word {
+  font-weight: 500;
+  letter-spacing: 0.03em;
 }
 
 /* Account / profile page */
