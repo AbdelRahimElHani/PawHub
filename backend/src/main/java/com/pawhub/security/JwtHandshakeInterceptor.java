@@ -2,6 +2,7 @@ package com.pawhub.security;
 
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
@@ -19,19 +20,31 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
     public boolean beforeHandshake(
             ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Map<String, Object> attributes) {
         if (!(request instanceof ServletServerHttpRequest servletRequest)) {
-            return false;
-        }
-        String token = servletRequest.getServletRequest().getParameter("access_token");
-        if (token == null || token.isBlank()) {
-            return false;
-        }
-        try {
-            Long userId = jwtService.parseUserId(token);
-            attributes.put("userId", userId);
             return true;
-        } catch (Exception e) {
-            return false;
         }
+        String token = extractAccessToken(servletRequest);
+        if (token != null && !token.isBlank()) {
+            try {
+                attributes.put("userId", jwtService.parseUserId(token));
+            } catch (Exception ignored) {
+                // SockJS may open the transport before a query token is visible; STOMP CONNECT must still authenticate.
+            }
+        }
+        // Never block the HTTP upgrade / SockJS transport here — auth is enforced on STOMP CONNECT.
+        return true;
+    }
+
+    private static String extractAccessToken(ServletServerHttpRequest servletRequest) {
+        var req = servletRequest.getServletRequest();
+        String q = req.getParameter("access_token");
+        if (q != null && !q.isBlank()) {
+            return q.trim();
+        }
+        String auth = req.getHeader(HttpHeaders.AUTHORIZATION);
+        if (auth != null && auth.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return auth.substring(7).trim();
+        }
+        return null;
     }
 
     @Override

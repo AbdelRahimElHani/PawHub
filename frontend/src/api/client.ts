@@ -3,7 +3,7 @@ const TOKEN_KEY = "pawhub_token";
 /**
  * Public URL of the Spring Boot API (no trailing slash), e.g. `https://your-api.up.railway.app`.
  * Set in Railway (and in `.env.local` for a prod-like test): `VITE_API_BASE_URL=...`
- * When unset, requests stay same-origin and Vite’s dev proxy (`/api` → localhost:8080) is used.
+ * When unset, requests stay same-origin and Vite’s dev proxy (`/api` → localhost:8081) is used.
  */
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/$/, "") ?? "";
 
@@ -13,6 +13,16 @@ export function apiUrl(path: string): string {
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   if (!API_BASE) return path;
   return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/**
+ * SockJS endpoint for STOMP (must hit the API host). In production set `VITE_API_BASE_URL` to the Railway HTTPS API
+ * origin (no trailing slash), e.g. `https://your-service.up.railway.app`.
+ */
+export function stompSockJsUrl(token: string): string {
+  const base = apiUrl("/ws");
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}access_token=${encodeURIComponent(token)}`;
 }
 
 export function getToken(): string | null {

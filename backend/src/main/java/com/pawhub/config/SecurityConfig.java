@@ -17,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -58,6 +59,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.cors(Customizer.withDefaults())
+                // SockJS may use an iframe from the API host while the SPA runs on another origin; DENY/SAMEORIGIN
+                // blocks that embed and breaks the transport (often reported as a CORS failure in the browser).
+                .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ERROR)
@@ -80,7 +84,11 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/api/auth/**")
                         .permitAll()
-                        .requestMatchers("/ws/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger", "/api/files/**")
+                        // SockJS: GET /ws/info, session transports, iframe, and WebSocket upgrade (must not require JWT
+                        // filter auth; token is validated on STOMP CONNECT and optionally on handshake).
+                        .requestMatchers("/ws", "/ws/**")
+                        .permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger", "/api/files/**")
                         .permitAll()
                         .anyRequest()
                         .authenticated())

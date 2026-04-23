@@ -1,6 +1,6 @@
 # API surface (index)
 
-OpenAPI: `http://localhost:8080/v3/api-docs` — Swagger UI: `/swagger`.
+OpenAPI: `http://localhost:8081/v3/api-docs` — Swagger UI: `/swagger`.
 
 ## Auth
 

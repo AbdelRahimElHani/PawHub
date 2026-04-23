@@ -10,6 +10,9 @@ public final class CorsOriginPatterns {
     private CorsOriginPatterns() {}
 
     public static List<String> forPawhub(PawhubProperties pawhubProperties) {
+        if (pawhubProperties.isCorsAllowAllOrigins()) {
+            return List.of("*");
+        }
         List<String> patterns = new ArrayList<>(
                 List.of(
                         "http://localhost:*",

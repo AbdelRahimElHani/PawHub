@@ -36,8 +36,8 @@ $env:MAIL_PASSWORD = "YOUR_16_CHAR_APP_PASSWORD"
 
 Or set `MAIL_PASSWORD` (and optionally `MAIL_USERNAME`) in your IDE run configuration.
 
-- API: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger`
+- API: `http://localhost:8081`
+- Swagger UI: `http://localhost:8081/swagger`
 - Uploads are stored under `./uploads` (from the JVM working directory).
 
 ## Seed admin

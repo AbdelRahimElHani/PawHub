@@ -11,7 +11,9 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageDeliveryException;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -43,13 +45,26 @@ public class StompUserChannelInterceptor implements ChannelInterceptor {
                 }
             }
         }
+        if (userId == null) {
+            List<String> authHeaders = accessor.getNativeHeader("Authorization");
+            if (authHeaders != null && !authHeaders.isEmpty()) {
+                String val = authHeaders.get(0);
+                if (val != null && val.regionMatches(true, 0, "Bearer ", 0, 7)) {
+                    try {
+                        userId = jwtService.parseUserId(val.substring(7).trim());
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        }
         if (userId != null) {
             var user = userRepository.findById(userId).orElse(null);
             if (user != null) {
                 Principal principal = new SecurityUser(user);
                 accessor.setUser(principal);
+                return message;
             }
         }
-        return message;
+        throw new MessageDeliveryException(message, new AccessDeniedException("Missing or invalid access_token on STOMP CONNECT"));
     }
 }

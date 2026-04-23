@@ -27,6 +27,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // Must use origin patterns (not setAllowedOrigins) so Railway/Vercel-style hosts and ports work.
         List<String> patterns = CorsOriginPatterns.forPawhub(pawhubProperties);
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(patterns.toArray(String[]::new))

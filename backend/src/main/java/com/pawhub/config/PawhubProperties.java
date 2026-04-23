@@ -15,7 +15,7 @@ public class PawhubProperties {
 
     private final Jwt jwt = new Jwt();
     private String uploadDir = "./uploads";
-    private String publicBaseUrl = "http://localhost:8080";
+    private String publicBaseUrl = "http://localhost:8081";
 
     /**
      * SPA origin for deep links in chat (e.g. listing page). Used in automated messages after buy / message seller.
@@ -28,6 +28,13 @@ public class PawhubProperties {
      * https://*.yourdomain.com). Set when the SPA is not covered by the built-in patterns.
      */
     private String corsAdditionalAllowedPatterns = "";
+
+    /**
+     * When true, adds {@code *} to CORS and SockJS allowed origin patterns (any browser origin).
+     * Use only for narrow debugging; prefer {@link #frontendBaseUrl} or {@link #corsAdditionalAllowedPatterns} in
+     * production.
+     */
+    private boolean corsAllowAllOrigins = false;
 
     /** Absolute URL to the Paw Market listing page (trailing slashes on base are stripped). */
     public String listingPageUrl(long listingId) {

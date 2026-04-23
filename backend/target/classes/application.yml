@@ -43,8 +43,8 @@ spring:
       max-request-size: 55MB
 
 server:
-  # Cloud hosts (e.g. Railway) set PORT; local dev uses 8080.
-  port: ${PORT:8080}
+  # Cloud hosts (e.g. Railway) set PORT; local dev uses 8081.
+  port: ${PORT:8081}
 
 pawhub:
   mail:
@@ -69,6 +69,8 @@ pawhub:
   frontend-base-url: ${PAWHUB_FRONTEND_BASE_URL:http://localhost:5173}
   # Comma-separated; use for custom domains or hosts not covered by built-in patterns (Vercel/Railway/etc.).
   cors-additional-allowed-patterns: ${PAWHUB_CORS_ADDITIONAL:}
+  # Emergency only: allow any Origin for CORS + SockJS (set true to verify WS/CORS; do not leave on in production).
+  cors-allow-all-origins: ${PAWHUB_CORS_ALLOW_ALL_ORIGINS:false}
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-long-random-secret-key-for-production-use-only}
     expiration-ms: 86400000
@@ -77,7 +79,7 @@ pawhub:
   # Public origin of this API (no path, no trailing slash). Stored as {public-base-url}/api/files/{name}
   # In production: set PAWHUB_PUBLIC_BASE_URL=https://your-api.example.com
   # On Railway, if you omit it, RAILWAY_PUBLIC_DOMAIN is auto-applied at startup (see PublicBaseUrlFromRailwayRunner).
-  public-base-url: ${PAWHUB_PUBLIC_BASE_URL:http://localhost:8080}
+  public-base-url: ${PAWHUB_PUBLIC_BASE_URL:http://localhost:8081}
   gemini:
     enabled: ${PAWHUB_GEMINI_ENABLED:${GEMINI_ENABLED:true}}
     api-key: ${PAWHUB_GEMINI_API_KEY:${GEMINI_API_KEY:}}

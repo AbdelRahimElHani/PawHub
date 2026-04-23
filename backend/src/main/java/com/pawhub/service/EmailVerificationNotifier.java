@@ -136,7 +136,7 @@ public class EmailVerificationNotifier {
     private String logoUrlForEmail() {
         String base = pawhubProperties.getPublicBaseUrl();
         if (base == null || base.isBlank()) {
-            base = "http://localhost:8080";
+            base = "http://localhost:8081";
         }
         while (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
