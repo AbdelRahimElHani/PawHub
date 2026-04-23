@@ -171,6 +171,7 @@ C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dt
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\hub\HubForumRoom.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\repository\MarketListingRepository.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\service\EmailVerificationNotifier.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\config\WsHandshakeCorsResponseFilter.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\ChatTypingEvent.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\MarketListingUpsertRequest.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\ChatThread.java

@@ -30,9 +30,9 @@ public class PawhubProperties {
     private String corsAdditionalAllowedPatterns = "";
 
     /**
-     * When true, adds {@code *} to CORS and SockJS allowed origin patterns (any browser origin).
-     * Use only for narrow debugging; prefer {@link #frontendBaseUrl} or {@link #corsAdditionalAllowedPatterns} in
-     * production.
+     * When true, adds broad patterns {@code http://*} and {@code https://*} so Spring can echo the request
+     * {@code Origin} (never the literal {@code *} header value, which breaks credentialed CORS). Prefer
+     * {@link #frontendBaseUrl} or {@link #corsAdditionalAllowedPatterns} for tighter production allow lists.
      */
     private boolean corsAllowAllOrigins = false;
 

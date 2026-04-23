@@ -40,7 +40,8 @@ public class SecurityConfig {
         cors.setAllowedOriginPatterns(patterns);
         cors.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("*"));
-        cors.setAllowCredentials(false);
+        // SockJS may use credentialed XHR (credentials mode "include"); that forbids ACAO "*". Patterns echo Origin.
+        cors.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cors);
         return source;

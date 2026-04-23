@@ -21,8 +21,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOriginPatterns(patterns.toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD")
                 .allowedHeaders("*")
-                // Match Security CORS (JWT in Authorization, not cookies)
-                .allowCredentials(false);
+                // Match Security CORS — must stay true if any client uses fetch/SockJS credentials "include".
+                .allowCredentials(true);
     }
 
     @Override

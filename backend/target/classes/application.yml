@@ -69,7 +69,7 @@ pawhub:
   frontend-base-url: ${PAWHUB_FRONTEND_BASE_URL:http://localhost:5173}
   # Comma-separated; use for custom domains or hosts not covered by built-in patterns (Vercel/Railway/etc.).
   cors-additional-allowed-patterns: ${PAWHUB_CORS_ADDITIONAL:}
-  # Emergency only: allow any Origin for CORS + SockJS (set true to verify WS/CORS; do not leave on in production).
+  # Adds http://* and https://* patterns (Spring echoes Origin; not literal ACAO *). Prefer explicit frontend URL.
   cors-allow-all-origins: ${PAWHUB_CORS_ALLOW_ALL_ORIGINS:false}
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-long-random-secret-key-for-production-use-only}
