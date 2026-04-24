@@ -1922,6 +1922,37 @@ a:hover {
   flex: 1;
 }
 
+.ph-msg-thread-li {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ph-msg-thread-li .ph-msg-thread-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.ph-msg-thread-profile-btn {
+  flex-shrink: 0;
+  align-self: center;
+  margin: 0 0.4rem 0 0;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--color-primary-dark);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 38%, transparent);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ph-msg-thread-profile-btn:hover {
+  background: color-mix(in srgb, var(--color-accent-soft) 80%, transparent);
+}
+
 .ph-msg-thread-row {
   display: flex;
   align-items: center;
@@ -2393,6 +2424,52 @@ a:hover {
   opacity: 0.8;
 }
 
+/* ── Message request strip (DM gate) ───────────────────────────────────── */
+.ph-msg-request-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 1rem;
+  background: linear-gradient(105deg, rgba(61, 139, 122, 0.1), rgba(61, 139, 122, 0.04));
+  border-bottom: 1px solid rgba(61, 139, 122, 0.18);
+  font-size: 0.86rem;
+  color: var(--color-text);
+  line-height: 1.45;
+}
+
+.ph-msg-request-bar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ph-msg-request-bar-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.ph-msg-request-bar--pending,
+.ph-msg-request-bar--declined,
+.ph-msg-request-bar--paused {
+  justify-content: flex-start;
+  background: #f6f6f6;
+  border-bottom-color: #ebebeb;
+  color: var(--color-muted);
+}
+
+.ph-msg-request-bar--declined {
+  background: rgba(180, 35, 24, 0.06);
+  border-bottom-color: rgba(180, 35, 24, 0.12);
+  color: var(--color-text);
+}
+
+.ph-msg-request-bar--paused {
+  background: rgba(0, 0, 0, 0.04);
+}
+
 /* ── Composer ────────────────────────────────────────────────────────── */
 .ph-msg-compose {
   border-top: 1px solid #ebebeb;
@@ -2460,6 +2537,12 @@ a:hover {
   color: var(--color-primary-dark);
 }
 
+.ph-msg-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .ph-msg-input {
   flex: 1;
   resize: none;
@@ -2476,6 +2559,11 @@ a:hover {
 
 .ph-msg-input::placeholder {
   color: #aaa;
+}
+
+.ph-msg-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .ph-msg-send {
@@ -2502,6 +2590,14 @@ a:hover {
 
 .ph-msg-send:active {
   transform: scale(0.96);
+}
+
+.ph-msg-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  pointer-events: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

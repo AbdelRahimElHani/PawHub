@@ -10,6 +10,8 @@ export type PawvetTriageChatMessageDto = {
 export type PawvetTriageCaseDto = {
   id: number;
   ownerUserId: number;
+  ownerDisplayName?: string;
+  ownerAvatarUrl?: string | null;
   catId: number | null;
   catName: string;
   catSnapshot: Record<string, unknown> | null;
@@ -57,6 +59,8 @@ export function triageDtoToMedicalCase(d: PawvetTriageCaseDto): MedicalCase {
   return {
     id: String(d.id),
     ownerUserId: d.ownerUserId,
+    ownerDisplayName: d.ownerDisplayName ?? "Pet parent",
+    ownerAvatarUrl: d.ownerAvatarUrl ?? undefined,
     catId: d.catId ?? null,
     catName: d.catName,
     catSnapshot: snap && typeof snap === "object" ? snap : undefined,

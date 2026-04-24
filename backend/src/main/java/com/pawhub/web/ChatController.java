@@ -10,7 +10,9 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -59,5 +61,19 @@ public class ChatController {
             @AuthenticationPrincipal SecurityUser user)
             throws Exception {
         return chatService.sendMessageWithOptionalAttachment(threadId, body, file, user.getId());
+    }
+
+    @PostMapping("/threads/{threadId}/message-request/accept")
+    public ResponseEntity<Void> acceptMessageRequest(
+            @PathVariable Long threadId, @AuthenticationPrincipal SecurityUser user) {
+        chatService.acceptMessageRequest(threadId, user);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @PostMapping("/threads/{threadId}/message-request/decline")
+    public ResponseEntity<Void> declineMessageRequest(
+            @PathVariable Long threadId, @AuthenticationPrincipal SecurityUser user) {
+        chatService.declineMessageRequest(threadId, user);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }

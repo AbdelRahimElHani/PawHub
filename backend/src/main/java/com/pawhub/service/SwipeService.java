@@ -96,7 +96,8 @@ public class SwipeService {
                                         .min(java.util.Comparator.comparingInt(CatPhoto::getSortOrder))
                                         .map(CatPhoto::getUrl)
                                         .orElse(null),
-                        c.getUser().getDisplayName()))
+                        c.getUser().getDisplayName(),
+                        c.getUser().getId()))
                 .orElse(null);
     }
 

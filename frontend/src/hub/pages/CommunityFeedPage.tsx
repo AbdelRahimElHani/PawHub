@@ -6,6 +6,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
+import { UserChip } from "../../components/social/UserChip";
 import type { ForumPostJson, ForumRoomJson } from "../api/hubApiTypes";
 import { HubConfirmDialog } from "../components/HubConfirmDialog";
 import type { ForumSort } from "../types";
@@ -284,9 +285,9 @@ export function CommunityFeedPage() {
                   {p.body.slice(0, 180)}
                   {p.body.length > 180 ? "…" : ""}
                 </p>
-                <div style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>
-                  <span style={{ fontWeight: 600, color: "var(--color-text)" }}>{p.authorDisplayName}</span> · {p.commentCount} comments ·{" "}
-                  {new Date(p.createdAt).toLocaleDateString()}
+                <div style={{ fontSize: "0.8rem", color: "var(--color-muted)", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem" }}>
+                  <UserChip userId={p.authorUserId} displayName={p.authorDisplayName} avatarUrl={null} size="sm" />
+                  <span>· {p.commentCount} comments · {new Date(p.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
             </motion.article>

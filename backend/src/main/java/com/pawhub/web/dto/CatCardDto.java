@@ -9,4 +9,5 @@ public record CatCardDto(
         String bio,
         String behavior,
         String coverPhotoUrl,
-        String ownerDisplayName) {}
+        String ownerDisplayName,
+        Long ownerUserId) {}

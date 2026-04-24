@@ -32,6 +32,7 @@ public class MatchQueryService {
                 myCat.getId(),
                 myCat.getName(),
                 otherCat.getName(),
-                otherCat.getUser().getDisplayName());
+                otherCat.getUser().getDisplayName(),
+                otherCat.getUser().getId());
     }
 }

@@ -55,6 +55,8 @@ export type CaseAttachment = {
 export type MedicalCase = {
   id: string;
   ownerUserId: number;
+  ownerDisplayName?: string;
+  ownerAvatarUrl?: string | null;
   catId: number | null;
   catName: string;
   catSnapshot?: CatCaseSnapshot;

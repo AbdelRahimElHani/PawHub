@@ -139,7 +139,7 @@ public class AppNotificationService {
                     ADOPTION_LISTING_PUBLISHED,
                     ADOPTION_INQUIRY_SUBMITTED,
                     SHELTER_APPLICATION_REJECTED -> "shelter";
-            case NEW_MESSAGE -> "message";
+            case NEW_MESSAGE, MESSAGE_REQUEST_RECEIVED -> "message";
             case ADMIN_VET_LICENSE_SUBMITTED,
                     VET_LICENSE_VERIFIED,
                     VET_NEW_REVIEW,
@@ -149,6 +149,7 @@ public class AppNotificationService {
             case FORUM_SCORE_MILESTONE -> "forum";
             case SYSTEM_ANNOUNCEMENT -> "system";
             case HEALTH_REMINDER -> "health";
+            case FRIEND_REQUEST_RECEIVED, FRIEND_REQUEST_SENT, FRIEND_REQUEST_ACCEPTED -> "friend";
         };
     }
 

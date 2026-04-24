@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { Heart } from "lucide-react";
+import { UsersRound } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { BrandLogo } from "../components/BrandLogo";
-import { useAdoptStore } from "../adopt/useAdoptStore";
 import { useAuth } from "../auth/AuthContext";
 import { isAdminAccount } from "../auth/vetAccess";
 import { ChatWidget } from "../components/chat/ChatWidget";
@@ -19,31 +18,6 @@ const linkStyle = ({ isActive }: { isActive: boolean }) => ({
   background: isActive ? "var(--color-accent-soft)" : "transparent",
   color: isActive ? "#3a2f12" : "var(--color-primary-dark)",
 });
-
-function AdoptLoveCounter() {
-  const n = useAdoptStore((s) => s.favorites.length);
-  return (
-    <Link
-      to="/adopt#love-list"
-      title="Love List — saved cats"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.25rem",
-        padding: "0.2rem 0.5rem",
-        borderRadius: 999,
-        fontSize: "0.78rem",
-        fontWeight: 700,
-        textDecoration: "none",
-        color: n > 0 ? "#9a1f2e" : "var(--color-muted)",
-        background: n > 0 ? "color-mix(in srgb, #ffd6dc 55%, transparent)" : "transparent",
-      }}
-    >
-      <Heart size={15} fill={n > 0 ? "currentColor" : "none"} aria-hidden />
-      <span>{n}</span>
-    </Link>
-  );
-}
 
 function PawMarketNavLink() {
   const { listingUnreadCount } = useThreadNotifications();
@@ -113,6 +87,12 @@ export function Layout({ children }: { children?: ReactNode }) {
             <NavLink to="/matches" style={linkStyle}>
               Matches
             </NavLink>
+            <NavLink to="/people" style={linkStyle}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                <UsersRound size={16} strokeWidth={2} aria-hidden />
+                People
+              </span>
+            </NavLink>
             <PawMarketNavLink />
             <NavLink to="/hub" style={linkStyle}>
               Learn
@@ -120,12 +100,9 @@ export function Layout({ children }: { children?: ReactNode }) {
             <NavLink to={isAdminAccount(user) ? "/pawvet/admin" : "/pawvet"} style={linkStyle}>
               PawVet
             </NavLink>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.15rem" }}>
-              <NavLink to="/adopt" style={linkStyle}>
-                PawAdopt
-              </NavLink>
-              <AdoptLoveCounter />
-            </span>
+            <NavLink to="/adopt" style={linkStyle}>
+              PawAdopt
+            </NavLink>
             {isAdminAccount(user) && (
               <NavLink to="/admin" style={linkStyle}>
                 Admin

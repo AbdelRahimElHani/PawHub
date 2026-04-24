@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { UserChip } from "../components/social/UserChip";
 import { api } from "../api/client";
 import type { CatCardDto, CatDto, SwipeResponse } from "../types";
 
@@ -149,8 +150,13 @@ export function PawMatchPage() {
               {card.ageMonths != null && ` · ${card.ageMonths} mo`}
             </div>
             {card.bio && <p style={{ textAlign: "left", margin: "0.5rem 0" }}>{card.bio}</p>}
-            <div style={{ color: "var(--color-muted)", fontSize: "0.85rem" }}>
-              Owner: {card.ownerDisplayName}
+            <div style={{ color: "var(--color-muted)", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+              <span>Owner:</span>
+              {typeof card.ownerUserId === "number" ? (
+                <UserChip userId={card.ownerUserId} displayName={card.ownerDisplayName} avatarUrl={null} size="sm" />
+              ) : (
+                <span>{card.ownerDisplayName}</span>
+              )}
             </div>
           </div>
           <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", marginTop: "1rem" }}>

@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import type { ForumCommentJson, ForumPostDetailJson } from "../api/hubApiTypes";
+import { UserChip } from "../../components/social/UserChip";
 import { HubConfirmDialog } from "../components/HubConfirmDialog";
 
 export function ThreadPage() {
@@ -168,7 +169,7 @@ export function ThreadPage() {
           <div style={{ flex: 1 }}>
             <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.45rem", margin: "0 0 0.75rem", lineHeight: 1.25 }}>{p.title}</h1>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
-              <strong>{p.authorDisplayName}</strong>
+              <UserChip userId={p.authorUserId} displayName={p.authorDisplayName} avatarUrl={null} size="sm" />
               <time dateTime={p.createdAt} style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginLeft: "auto" }}>
                 {new Date(p.createdAt).toLocaleString()}
               </time>
@@ -285,7 +286,7 @@ function CommentBranch({
         style={{ ["--indent-color" as string]: indent, borderLeft: depth ? "3px solid var(--indent-color, #ccc)" : undefined, paddingLeft: depth ? "0.65rem" : 0 }}
       >
         <header style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.35rem" }}>
-          <strong style={{ fontSize: "0.9rem" }}>{node.authorDisplayName}</strong>
+          <UserChip userId={node.authorUserId} displayName={node.authorDisplayName} avatarUrl={null} size="sm" />
           {isOp && <span className="hub-room-pill">OP</span>}
           {isHelpful && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem", fontSize: "0.78rem", color: "var(--color-primary-dark)" }}>

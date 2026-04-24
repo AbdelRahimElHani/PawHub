@@ -25,6 +25,8 @@ import { AdminSheltersPage } from "./pages/AdminSheltersPage";
 import { AdminVetReviewsPage } from "./pages/AdminVetReviewsPage";
 import { AdminShelterReviewPage } from "./pages/AdminShelterReviewPage";
 import { AccountPage } from "./pages/AccountPage";
+import { PeopleDirectoryPage } from "./pages/PeopleDirectoryPage";
+import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { MessagesPage } from "./pages/MessagesPage";
 import { HubLayout } from "./hub/HubLayout";
 import { HubIndexPage } from "./hub/pages/HubIndexPage";
@@ -132,6 +134,8 @@ export default function App() {
         <Route path="/inbox" element={<Navigate to="/messages" replace />} />
         <Route path="/messages/:threadId?" element={<MessagesPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/people" element={<PeopleDirectoryPage />} />
+        <Route path="/users/:userId" element={<PublicProfilePage />} />
         <Route path="/hub" element={<HubLayout />}>
           <Route index element={<HubIndexPage />} />
           <Route path="faq" element={<FaqPage />} />

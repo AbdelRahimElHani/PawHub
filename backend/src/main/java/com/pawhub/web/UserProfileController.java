@@ -1,8 +1,10 @@
 package com.pawhub.web;
 
 import com.pawhub.service.AuthService;
+import com.pawhub.service.FriendshipService;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.AuthResponse;
+import com.pawhub.web.dto.PublicUserProfileDto;
 import com.pawhub.web.dto.UpdateProfileRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,13 @@ import org.springframework.web.multipart.MultipartFile;
 public class UserProfileController {
 
     private final AuthService authService;
+    private final FriendshipService friendshipService;
+
+    @GetMapping("/{userId}/public")
+    public PublicUserProfileDto publicProfile(
+            @PathVariable long userId, @AuthenticationPrincipal SecurityUser user) {
+        return friendshipService.publicProfile(userId, user);
+    }
 
     @PatchMapping("/me")
     public AuthResponse updateMe(@Valid @RequestBody UpdateProfileRequest req, @AuthenticationPrincipal SecurityUser user) {

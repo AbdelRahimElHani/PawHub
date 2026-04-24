@@ -87,8 +87,8 @@ export function AccountPage() {
 
         <div className="ph-account-body">
           <p className="ph-account-meta">
-            Your user ID: <strong>{user.userId}</strong> — others can start a DM with you from{" "}
-            <Link to="/messages">Messages</Link> using this number.
+            Account ID (for support): <strong>{user.userId}</strong> — messaging starts from{" "}
+            <Link to="/people">People</Link> after you&apos;re friends, or from Paw Market / PawMatch threads.
           </p>
 
           {user.accountType === "VET" && user.vetVerificationStatus ? (

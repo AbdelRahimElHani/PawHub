@@ -7,6 +7,8 @@ import java.util.Map;
 public record PawvetTriageCaseDto(
         long id,
         long ownerUserId,
+        String ownerDisplayName,
+        String ownerAvatarUrl,
         Long catId,
         String catName,
         Map<String, Object> catSnapshot,

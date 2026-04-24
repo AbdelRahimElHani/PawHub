@@ -40,7 +40,7 @@ const TYPE_INTRO: Record<string, string> = {
 };
 
 const DASH_TILES: { to: string; emoji: string; title: string; desc: string; shelterOnly?: boolean }[] = [
-  { to: "/pawmatch", emoji: "💞", title: "PawMatch", desc: "Swipe and match with cats." },
+  { to: "/pawmatch", emoji: "🐾", title: "PawMatch", desc: "Swipe and match with cats." },
   { to: "/matches", emoji: "✨", title: "Matches", desc: "People who liked your cats." },
   { to: "/messages", emoji: "💬", title: "Messages", desc: "Chats and threads." },
   { to: "/market", emoji: "🛒", title: "PawMarket", desc: "Listings and supplies." },

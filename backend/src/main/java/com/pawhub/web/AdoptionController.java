@@ -83,6 +83,6 @@ public class AdoptionController {
 
     @PostMapping("/listings/{id}/inquire")
     public ThreadIdResponse inquire(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
-        return new ThreadIdResponse(adoptionService.inquire(id, user));
+        return new ThreadIdResponse(adoptionService.inquire(id, user), false);
     }
 }

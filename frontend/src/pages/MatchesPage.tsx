@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { UserChip } from "../components/social/UserChip";
 import { api } from "../api/client";
 import type { CatDto, MatchSummaryDto } from "../types";
 
@@ -127,7 +128,14 @@ export function MatchesPage() {
               <strong>
                 {m.catAName} ❤️ {m.catBName}
               </strong>
-              <div style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>With {m.otherOwnerName}</div>
+              <div style={{ color: "var(--color-muted)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+                <span>With</span>
+                {typeof m.otherOwnerUserId === "number" ? (
+                  <UserChip userId={m.otherOwnerUserId} displayName={m.otherOwnerName} avatarUrl={null} size="sm" />
+                ) : (
+                  <span>{m.otherOwnerName}</span>
+                )}
+              </div>
             </div>
             <Link className="ph-btn ph-btn-primary" style={{ flexShrink: 0 }} to={`/messages/${m.threadId}`}>
               Open chat

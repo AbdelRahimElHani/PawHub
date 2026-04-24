@@ -11,4 +11,9 @@ public record ThreadSummaryDto(
         Long marketListingId,
         String lastMessagePreview,
         Instant lastMessageAt,
-        boolean unread) {}
+        boolean unread,
+        boolean messageRequestIncoming,
+        boolean messageRequestOutgoing,
+        boolean messageRequestDeclined,
+        /** When true, the composer should stay disabled until the gate clears (accept request or become friends). */
+        boolean directMessagingLocked) {}

@@ -240,6 +240,8 @@ public class PawvetTriageCaseService {
         return new PawvetTriageCaseDto(
                 row.getId(),
                 row.getOwner().getId(),
+                row.getOwner().getDisplayName(),
+                row.getOwner().getAvatarUrl(),
                 row.getCatId(),
                 row.getCatName(),
                 snap,

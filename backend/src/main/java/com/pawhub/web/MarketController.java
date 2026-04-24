@@ -58,6 +58,6 @@ public class MarketController {
 
     @PostMapping("/listings/{id}/thread")
     public ThreadIdResponse openThread(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
-        return new ThreadIdResponse(marketService.openOrGetListingThread(id, user));
+        return new ThreadIdResponse(marketService.openOrGetListingThread(id, user), false);
     }
 }

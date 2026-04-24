@@ -1,7 +1,7 @@
 import { ImagePlus, MessagesSquare, MessageSquarePlus, Send, X } from "lucide-react";
 import { CopyMessageButton } from "../components/CopyMessageButton";
 import { type ReactNode, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
@@ -97,12 +97,13 @@ export function MessengerWorkspace({
   activeThreadId: tid,
   onSelectThread,
   variant,
-  onNewDmThread,
+  onNewDmThread: _onNewDmThread,
   showFullPageLink,
   onCloseDockChat,
   dockTab,
 }: MessengerWorkspaceProps) {
   const { token, user } = useAuth();
+  const navigate = useNavigate();
   const { refresh: refreshGlobalThreads } = useThreadNotifications();
   const { setActiveThread, sendTyping, registerInbox } = useChatStomp();
 
@@ -111,9 +112,7 @@ export function MessengerWorkspace({
   const [compose, setCompose] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
-  const [newDmUserId, setNewDmUserId] = useState("");
   const [newChatOpen, setNewChatOpen] = useState(false);
-  const [newDmErr, setNewDmErr] = useState<string | null>(null);
   const [listErr, setListErr] = useState<string | null>(null);
   const [sendErr, setSendErr] = useState<string | null>(null);
 
@@ -133,6 +132,21 @@ export function MessengerWorkspace({
 
   const layoutClass = "ph-msg-layout";
   const validTid = Number.isFinite(tid) && tid > 0;
+
+  const activeThread = useMemo(
+    () => (validTid ? threads.find((x) => x.id === tid) : undefined),
+    [threads, tid, validTid],
+  );
+  const dmLocked = Boolean(activeThread?.directMessagingLocked);
+  const showIncomingRequest =
+    activeThread?.type === "DIRECT" && activeThread?.messageRequestIncoming === true;
+  const showOutgoingPending =
+    activeThread?.type === "DIRECT" && activeThread?.messageRequestOutgoing === true;
+  const showDeclined =
+    activeThread?.type === "DIRECT" && activeThread?.messageRequestDeclined === true;
+  /** e.g. recipient after declining, or either side when declined until friends — server sets locked without the other flags. */
+  const showConversationPaused =
+    dmLocked && !showIncomingRequest && !showOutgoingPending && !showDeclined;
 
   const loadThreads = useCallback(() => {
     void api<ThreadSummaryDto[]>("/api/chat/threads")
@@ -297,26 +311,13 @@ export function MessengerWorkspace({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [newChatOpen]);
 
-  async function openNewDm() {
-    const id = Number(newDmUserId);
-    if (!Number.isFinite(id) || id <= 0) return;
-    setNewDmErr(null);
-    try {
-      const r = await api<{ threadId: number }>(`/api/chat/dm/${id}`, { method: "POST" });
-      setNewDmUserId("");
-      setNewChatOpen(false);
-      loadThreads();
-      refreshGlobalThreads();
-      const cb = onNewDmThread ?? onSelectThread;
-      cb(r.threadId);
-    } catch (e: unknown) {
-      setNewDmErr(e instanceof Error ? e.message : "Could not open chat");
-    }
-  }
-
   async function onSend(e: FormEvent) {
     e.preventDefault();
     setSendErr(null);
+    if (dmLocked) {
+      setSendErr("This chat isn't open for sending yet.");
+      return;
+    }
     if (!Number.isFinite(tid) || tid <= 0) return;
     const text = compose.trim();
     if (!text && !pendingFile) return;
@@ -360,7 +361,33 @@ export function MessengerWorkspace({
     }
   }
 
+  async function acceptMessageRequest() {
+    if (!validTid) return;
+    setSendErr(null);
+    try {
+      await api(`/api/chat/threads/${tid}/message-request/accept`, { method: "POST" });
+      await loadThreads();
+    } catch (ex: unknown) {
+      setSendErr(ex instanceof Error ? ex.message : "Could not accept.");
+    }
+  }
+
+  async function declineMessageRequest() {
+    if (!validTid) return;
+    setSendErr(null);
+    try {
+      await api(`/api/chat/threads/${tid}/message-request/decline`, { method: "POST" });
+      await loadThreads();
+    } catch (ex: unknown) {
+      setSendErr(ex instanceof Error ? ex.message : "Could not decline.");
+    }
+  }
+
   function onPickImage() {
+    if (dmLocked) {
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     const f = fileRef.current?.files?.[0];
     if (!f) {
       setPendingFile(null);
@@ -395,13 +422,10 @@ export function MessengerWorkspace({
                   ref={composeBtnRef}
                   type="button"
                   className="ph-msg-compose-btn"
-                  title="New message"
+                  title="Start a conversation from People"
                   aria-expanded={newChatOpen}
                   aria-haspopup="dialog"
-                  onClick={() => {
-                    setNewDmErr(null);
-                    setNewChatOpen((o) => !o);
-                  }}
+                  onClick={() => setNewChatOpen((o) => !o)}
                 >
                   <MessageSquarePlus size={22} strokeWidth={2} />
                 </button>
@@ -411,33 +435,29 @@ export function MessengerWorkspace({
           </div>
 
           {newChatOpen ? (
-            <div ref={newChatPopRef} className="ph-msg-new-pop" role="dialog" aria-label="New message">
+            <div ref={newChatPopRef} className="ph-msg-new-pop" role="dialog" aria-label="Start a conversation">
               <div className="ph-msg-new-pop-head">
-                <span className="ph-msg-new-pop-title">New message</span>
+                <span className="ph-msg-new-pop-title">New conversation</span>
                 <button type="button" className="ph-msg-new-pop-close" onClick={() => setNewChatOpen(false)} aria-label="Close">
                   <X size={14} strokeWidth={2.5} />
                 </button>
               </div>
               <div className="ph-msg-new-pop-body">
-                <label className="ph-label" htmlFor="ph-new-dm-user">
-                  To (member ID)
-                </label>
-                <div className="ph-msg-new-dm-row">
-                  <input
-                    id="ph-new-dm-user"
-                    className="ph-input"
-                    type="number"
-                    min={1}
-                    placeholder="User ID"
-                    value={newDmUserId}
-                    onChange={(e) => setNewDmUserId(e.target.value)}
-                  />
-                  <button type="button" className="ph-btn ph-btn-primary" onClick={() => void openNewDm()}>
-                    Chat
-                  </button>
-                </div>
-                <p className="ph-msg-hint">Use the ID shown on your Account page.</p>
-                {newDmErr ? <p className="ph-msg-err" style={{ margin: "0.5rem 0 0" }}>{newDmErr}</p> : null}
+                <p className="ph-msg-hint" style={{ marginTop: 0 }}>
+                  Start a chat from your <strong>People</strong> list: open <strong>Friends</strong> and tap Message, or use{" "}
+                  <strong>Discover</strong> to find people to connect with first.
+                </p>
+                <p className="ph-msg-hint" style={{ marginBottom: "0.75rem" }}>
+                  Existing threads (Paw Market, PawMatch, etc.) stay here — you don&apos;t need a numeric user ID.
+                </p>
+                <Link
+                  to="/people"
+                  className="ph-btn ph-btn-primary"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  onClick={() => setNewChatOpen(false)}
+                >
+                  Open People
+                </Link>
               </div>
             </div>
           ) : null}
@@ -447,7 +467,7 @@ export function MessengerWorkspace({
 
         <ul className="ph-msg-thread-list">
           {threads.map((t) => (
-            <li key={t.id}>
+            <li key={t.id} className="ph-msg-thread-li">
               <button
                 type="button"
                 className={
@@ -480,6 +500,14 @@ export function MessengerWorkspace({
                   <div className="ph-msg-preview">{t.lastMessagePreview || "No messages yet"}</div>
                 </div>
               </button>
+              <button
+                type="button"
+                className="ph-msg-thread-profile-btn"
+                title="View profile"
+                onClick={() => navigate(`/users/${t.otherUserId}`)}
+              >
+                Profile
+              </button>
             </li>
           ))}
         </ul>
@@ -491,20 +519,26 @@ export function MessengerWorkspace({
           <>
             <header className="ph-msg-main-head">
               <div className="ph-msg-main-head-left">
-              {(() => {
-                const active = threads.find((x) => x.id === tid);
-                return active ? (
+              {activeThread ? (
                   <>
                     <div className="ph-msg-avatar ph-msg-avatar--lg">
-                      {active.otherAvatarUrl ? (
-                        <img src={active.otherAvatarUrl} alt="" />
+                      {activeThread.otherAvatarUrl ? (
+                        <img src={activeThread.otherAvatarUrl} alt="" />
                       ) : (
-                        <span>{active.otherDisplayName.slice(0, 1).toUpperCase()}</span>
+                        <span>{activeThread.otherDisplayName.slice(0, 1).toUpperCase()}</span>
                       )}
                     </div>
                     <div>
-                      <h3 className="ph-msg-title" style={{ margin: 0 }}>
-                        {active.otherDisplayName}
+                      <h3 className="ph-msg-title" style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                        {activeThread.otherDisplayName}
+                        <button
+                          type="button"
+                          className="ph-btn ph-btn-ghost"
+                          style={{ fontSize: "0.78rem", padding: "0.15rem 0.5rem" }}
+                          onClick={() => navigate(`/users/${activeThread.otherUserId}`)}
+                        >
+                          View profile
+                        </button>
                       </h3>
                       {peerTyping ? (
                         <PeerTypingIndicator layout="header" displayName={peerTyping} />
@@ -520,8 +554,7 @@ export function MessengerWorkspace({
                     </h3>
                     {peerTyping ? <PeerTypingIndicator layout="header" displayName={peerTyping} /> : null}
                   </div>
-                );
-              })()}
+                )}
               </div>
               {variant === "dock" && onCloseDockChat ? (
                 <button
@@ -535,6 +568,50 @@ export function MessengerWorkspace({
                 </button>
               ) : null}
             </header>
+
+            {showIncomingRequest ? (
+              <div className="ph-msg-request-bar" role="region" aria-label="Message request">
+                <span className="ph-msg-request-bar-text">
+                  <strong>Message request</strong> — reply here, tap Accept for full chat without messaging first, or
+                  Decline.
+                </span>
+                <div className="ph-msg-request-bar-actions">
+                  <button
+                    type="button"
+                    className="ph-btn ph-btn-primary"
+                    style={{ fontSize: "0.82rem", padding: "0.28rem 0.75rem" }}
+                    onClick={() => void acceptMessageRequest()}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    type="button"
+                    className="ph-btn ph-btn-ghost"
+                    style={{ fontSize: "0.82rem", padding: "0.28rem 0.75rem" }}
+                    onClick={() => void declineMessageRequest()}
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {showOutgoingPending ? (
+              <div className="ph-msg-request-bar ph-msg-request-bar--pending" role="status">
+                {dmLocked
+                  ? "You've sent your one allowed intro. Wait for them to reply or accept to keep messaging."
+                  : "Message request: you can send one intro. After they reply or accept, chat is unlimited."}
+              </div>
+            ) : null}
+            {showDeclined ? (
+              <div className="ph-msg-request-bar ph-msg-request-bar--declined" role="status">
+                They declined your message request. You can chat again once you&apos;re friends.
+              </div>
+            ) : null}
+            {showConversationPaused ? (
+              <div className="ph-msg-request-bar ph-msg-request-bar--paused" role="status">
+                This conversation is on hold until you&apos;re friends.
+              </div>
+            ) : null}
 
             <div className="ph-msg-scroll">
               {sorted.map((m) => {
@@ -600,6 +677,7 @@ export function MessengerWorkspace({
                 <button
                   type="button"
                   className="ph-msg-icon-btn"
+                  disabled={dmLocked}
                   onClick={() => fileRef.current?.click()}
                   title="Attach image"
                 >
@@ -609,6 +687,7 @@ export function MessengerWorkspace({
                   className="ph-msg-input"
                   rows={1}
                   value={compose}
+                  disabled={dmLocked}
                   onChange={(e) => {
                     const v = e.target.value;
                     setCompose(v);
@@ -624,9 +703,9 @@ export function MessengerWorkspace({
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void onSend(e as unknown as FormEvent); }
                   }}
-                  placeholder="Write a message…"
+                  placeholder={dmLocked ? "Messaging locked until they accept or you're friends…" : "Write a message…"}
                 />
-                <button className="ph-msg-send" type="submit" title="Send">
+                <button className="ph-msg-send" type="submit" title="Send" disabled={dmLocked}>
                   <Send size={16} strokeWidth={2} />
                 </button>
               </div>

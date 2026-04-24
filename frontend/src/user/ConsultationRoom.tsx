@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, Flag, Send } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { UserChip } from "../components/social/UserChip";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
@@ -124,33 +125,15 @@ export function ConsultationRoom() {
         <Link className="ph-btn ph-btn-ghost" to="/pawvet" style={{ fontSize: "0.85rem" }}>
           ← PawVet
         </Link>
-        {c.vetName ? (
+        {c.vetName && c.vetUserId ? (
           <>
-            {c.vetAvatarUrl ? (
-              <img
-                src={c.vetAvatarUrl}
-                alt=""
-                style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--color-border)" }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: "50%",
-                  background: "var(--hub-sage-soft)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "1.1rem",
-                }}
-              >
-                🐾
-              </div>
-            )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
-                <strong style={{ color: "var(--color-primary-dark)" }}>{c.vetName}</strong>
+                <UserChip
+                  userId={c.vetUserId}
+                  displayName={c.vetName}
+                  avatarUrl={c.vetAvatarUrl ?? null}
+                />
                 <span
                   style={{
                     display: "inline-flex",
@@ -186,6 +169,29 @@ export function ConsultationRoom() {
           </button>
         ) : null}
       </header>
+
+      {isVet ? (
+        <div
+          className="pawvet-glass-card"
+          style={{
+            padding: "0.65rem 1rem",
+            marginBottom: "0.75rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--color-muted)", textTransform: "uppercase" }}>
+            Guardian
+          </span>
+          <UserChip
+            userId={c.ownerUserId}
+            displayName={c.ownerDisplayName ?? "Pet parent"}
+            avatarUrl={c.ownerAvatarUrl ?? null}
+          />
+        </div>
+      ) : null}
 
       {c.catSnapshot ? (
         <div className="pawvet-glass-card" style={{ padding: "0.85rem 1rem", marginBottom: "0.75rem", display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-start" }}>

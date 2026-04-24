@@ -15,6 +15,8 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     long countByThreadId(Long threadId);
 
+    long countByThread_IdAndSender_Id(Long threadId, Long senderId);
+
     /** Messages from {@code senderId} in the thread strictly after {@code createdAfter} (for notification coalescing). */
     long countByThread_IdAndSender_IdAndCreatedAtAfter(Long threadId, Long senderId, Instant createdAfter);
 }

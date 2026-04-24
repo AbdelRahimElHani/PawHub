@@ -44,6 +44,7 @@ export type CatCardDto = {
   behavior: string | null;
   coverPhotoUrl: string | null;
   ownerDisplayName: string;
+  ownerUserId?: number;
 } | null;
 
 export type SwipeResponse = { matched: boolean; threadId: number | null };
@@ -56,6 +57,13 @@ export type MatchSummaryDto = {
   catAName: string;
   catBName: string;
   otherOwnerName: string;
+  otherOwnerUserId?: number;
+};
+
+export type ThreadIdResponse = {
+  threadId: number;
+  /** True when the other person must accept your message request before replying. */
+  messageRequestPending?: boolean;
 };
 
 export type ThreadSummaryDto = {
@@ -69,6 +77,10 @@ export type ThreadSummaryDto = {
   lastMessageAt: string | null;
   /** From API; absent on older servers — treat as false. */
   unread?: boolean;
+  messageRequestIncoming?: boolean;
+  messageRequestOutgoing?: boolean;
+  messageRequestDeclined?: boolean;
+  directMessagingLocked?: boolean;
 };
 
 export type MessageDto = {
@@ -136,6 +148,45 @@ export type PawReviewDto = {
   rating: number;
   comment: string | null;
   createdAt: string | null;
+};
+
+export type PublicProfileRelationship =
+  | "SELF"
+  | "NONE"
+  | "OUTGOING_PENDING"
+  | "INCOMING_PENDING"
+  | "FRIENDS";
+
+export type PublicUserProfileDto = {
+  userId: number;
+  displayName: string;
+  avatarUrl: string | null;
+  profileCity: string | null;
+  profileRegion: string | null;
+  profileBio: string | null;
+  accountType: string | null;
+  relationship: PublicProfileRelationship;
+};
+
+export type FriendDirectoryUserDto = {
+  userId: number;
+  displayName: string;
+  avatarUrl: string | null;
+  profileCity: string | null;
+  profileRegion: string | null;
+  accountType: string | null;
+};
+
+export type DiscoverUserDto = {
+  userId: number;
+  displayName: string;
+  avatarUrl: string | null;
+  profileCity: string | null;
+  profileRegion: string | null;
+  accountType: string | null;
+  score: number;
+  mutualFriendsCount: number;
+  relationship: PublicProfileRelationship;
 };
 
 export type PlaceOrderResponse = {

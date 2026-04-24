@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ClipboardList, Star, UserCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { UserChip } from "../components/social/UserChip";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { canWorkAsVerifiedVet, isVeterinarianAccount } from "../auth/vetAccess";
@@ -217,6 +218,15 @@ export function VetDashboard() {
                           {c.symptoms.slice(0, 120)}
                           {c.symptoms.length > 120 ? "…" : ""}
                         </div>
+                        <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "0.72rem", color: "var(--color-muted)", fontWeight: 600 }}>Guardian</span>
+                          <UserChip
+                            userId={c.ownerUserId}
+                            displayName={c.ownerDisplayName ?? "Pet parent"}
+                            avatarUrl={c.ownerAvatarUrl ?? null}
+                            size="sm"
+                          />
+                        </div>
                       </div>
                       <span className={`pawvet-urgent pawvet-urgent--${c.urgency}`}>{urgencyLabel(c.urgency)}</span>
                       <button type="button" className="ph-btn ph-btn-primary" onClick={() => void claim(c.id)}>
@@ -243,6 +253,15 @@ export function VetDashboard() {
                       <div style={{ flex: 1, minWidth: 200 }}>
                         <strong style={{ color: "var(--color-primary-dark)" }}>{c.catName}</strong>
                         <div style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>Case ID: {c.id}</div>
+                        <div style={{ marginTop: "0.45rem", display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "0.72rem", color: "var(--color-muted)", fontWeight: 600 }}>Guardian</span>
+                          <UserChip
+                            userId={c.ownerUserId}
+                            displayName={c.ownerDisplayName ?? "Pet parent"}
+                            avatarUrl={c.ownerAvatarUrl ?? null}
+                            size="sm"
+                          />
+                        </div>
                       </div>
                       <Link className="ph-btn ph-btn-accent" to={`/pawvet/case/${c.id}`}>
                         Open chat
@@ -306,7 +325,10 @@ export function VetDashboard() {
             {apiReviews.map((r) => (
               <li key={r.id} className="ph-surface" style={{ padding: "0.65rem 0.85rem", fontSize: "0.9rem" }}>
                 <div style={{ fontWeight: 700, color: "var(--color-primary-dark)" }}>{r.stars}★</div>
-                <div style={{ fontSize: "0.82rem", color: "var(--color-muted)", marginTop: 2 }}>From {r.ownerDisplayName}</div>
+                <div style={{ fontSize: "0.82rem", color: "var(--color-muted)", marginTop: 2, display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+                  <span>From</span>
+                  <UserChip userId={r.ownerUserId} displayName={r.ownerDisplayName} avatarUrl={null} size="sm" />
+                </div>
                 <div style={{ color: "var(--color-primary-dark)", marginTop: 4 }}>{r.comment || "No written comment."}</div>
                 <div style={{ fontSize: "0.75rem", color: "var(--color-muted)", marginTop: 4 }}>
                   {new Date(r.createdAt).toLocaleString()}

@@ -10,6 +10,7 @@ import {
   Sparkles,
   Stethoscope,
   Star,
+  UserPlus,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, type SyntheticEvent } from "react";
@@ -49,6 +50,7 @@ function resolveIconKey(n: AppNotificationDto): string {
   if (raw.includes("market") || raw.includes("order") || raw.includes("package") || raw.includes("listing_removed"))
     return "package";
   if (raw.includes("health")) return "health";
+  if (raw.includes("friend")) return "friend";
   if (raw.includes("forum") || raw.includes("score") || raw === "forum_comment_reply") return "forum";
   if (raw.includes("star") || raw.includes("review")) return "star";
   if (raw.includes("system")) return "system";
@@ -79,6 +81,8 @@ function KindIcon({ iconKey, className }: { iconKey: string; className?: string 
       return <Star className={cn} size={20} strokeWidth={2} aria-hidden />;
     case "system":
       return <Sparkles className={cn} size={20} strokeWidth={2} aria-hidden />;
+    case "friend":
+      return <UserPlus className={cn} size={20} strokeWidth={2} aria-hidden />;
     default:
       return <Bell className={cn} size={20} strokeWidth={2} aria-hidden />;
   }

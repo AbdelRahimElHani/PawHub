@@ -50,6 +50,16 @@ public class ChatThread {
     @Column(name = "participant_two_last_read_at")
     private Instant participantTwoLastReadAt;
 
+    /** When set on {@link ThreadType#DIRECT}, messaging is gated until accepted or declined. */
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "dm_request_status", length = 32)
+    private DmRequestStatus dmRequestStatus;
+
+    /** User who sent the message request (only they may send while {@link #dmRequestStatus} is {@link DmRequestStatus#PENDING}). */
+    @Column(name = "dm_request_initiator_id")
+    private Long dmRequestInitiatorId;
+
     @PrePersist
     void prePersist() {
         if (createdAt == null) {

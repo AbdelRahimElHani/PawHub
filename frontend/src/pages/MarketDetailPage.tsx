@@ -12,6 +12,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { HubConfirmDialog } from "../hub/components/HubConfirmDialog";
+import { UserChip } from "../components/social/UserChip";
 import { ProductLocationMap } from "../market/ProductLocationMap";
 import { formatDistance, haversineKm } from "../market/haversine";
 import { useGeolocation } from "../market/useGeolocation";
@@ -52,18 +53,13 @@ function ReviewCard({ review }: { review: PawReviewDto }) {
       className="ph-surface"
       style={{ padding: "0.9rem 1rem", display: "flex", flexDirection: "column", gap: "0.35rem" }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        {review.reviewerAvatarUrl ? (
-          <img src={review.reviewerAvatarUrl} alt="" className="pm-seller__avatar" style={{ width: 28, height: 28 }} />
-        ) : (
-          <div
-            className="pm-seller__avatar"
-            style={{ width: 28, height: 28, background: "#eef6f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem" }}
-          >
-            🐱
-          </div>
-        )}
-        <strong style={{ fontSize: "0.88rem" }}>{review.reviewerDisplayName}</strong>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+        <UserChip
+          userId={review.reviewerUserId}
+          displayName={review.reviewerDisplayName}
+          avatarUrl={review.reviewerAvatarUrl}
+          size="sm"
+        />
         <span className="pm-stars" style={{ marginLeft: "auto" }}>
           {[1, 2, 3, 4, 5].map((s) => (
             <span key={s}>{s <= review.rating ? "★" : "☆"}</span>
@@ -413,39 +409,24 @@ export function MarketDetailPage() {
             display: "flex",
             alignItems: "center",
             gap: "0.75rem",
+            flexWrap: "wrap",
           }}
         >
-          {listing.sellerAvatarUrl ? (
-            <img src={listing.sellerAvatarUrl} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
-          ) : (
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                background: "#eef6f4",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1.2rem",
-              }}
-            >
-              🐱
-            </div>
-          )}
-          <div>
-            <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.35rem" }}>
-              {listing.sellerDisplayName}
-              {listing.sellerVerifiedMeow && (
-                <span
-                  className="pm-badge pm-badge--verified"
-                  title="Verified Meow — 5+ completed sales with 4.5★+"
-                >
-                  🐾 Verified Meow
-                </span>
-              )}
-            </div>
-            <div style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1, minWidth: 0 }}>
+            <UserChip
+              userId={listing.sellerUserId}
+              displayName={listing.sellerDisplayName}
+              avatarUrl={listing.sellerAvatarUrl}
+            />
+            {listing.sellerVerifiedMeow && (
+              <span
+                className="pm-badge pm-badge--verified"
+                title="Verified Meow — 5+ completed sales with 4.5★+"
+              >
+                🐾 Verified Meow
+              </span>
+            )}
+            <div style={{ fontSize: "0.8rem", color: "var(--color-muted)", width: "100%" }}>
               {listing.sellerCompletedSales} completed sale{listing.sellerCompletedSales !== 1 ? "s" : ""}
             </div>
           </div>
