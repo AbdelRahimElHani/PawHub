@@ -1,5 +1,6 @@
 package com.pawhub.service;
 
+import com.pawhub.domain.AppNotificationKind;
 import com.pawhub.domain.Cat;
 import com.pawhub.domain.CatPhoto;
 import com.pawhub.domain.MatchBehaviorPreference;
@@ -28,6 +29,7 @@ public class CatService {
     private final CatPhotoRepository catPhotoRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final AppNotificationService appNotificationService;
 
     @Transactional(readOnly = true)
     public List<CatDto> mine(SecurityUser principal) {
@@ -66,6 +68,16 @@ public class CatService {
                 .prefBreed(normalizeBreedPref(req.prefBreed()))
                 .build();
         catRepository.save(cat);
+        appNotificationService.publish(
+                principal.getId(),
+                AppNotificationKind.HEALTH_REMINDER,
+                "Health reminder",
+                String.format(
+                        "%s is due for a Rabies vaccination check-in soon — confirm the date with your veterinarian.",
+                        cat.getName()),
+                "/cats/" + cat.getId(),
+                "health",
+                null);
         return toDto(cat);
     }
 

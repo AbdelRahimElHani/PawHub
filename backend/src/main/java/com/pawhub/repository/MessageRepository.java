@@ -1,6 +1,7 @@
 package com.pawhub.repository;
 
 import com.pawhub.domain.Message;
+import java.time.Instant;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,4 +14,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     Optional<Message> findFirstByThread_IdOrderByCreatedAtDesc(Long threadId);
 
     long countByThreadId(Long threadId);
+
+    /** Messages from {@code senderId} in the thread strictly after {@code createdAfter} (for notification coalescing). */
+    long countByThread_IdAndSender_IdAndCreatedAtAfter(Long threadId, Long senderId, Instant createdAfter);
 }

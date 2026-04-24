@@ -1,5 +1,6 @@
 package com.pawhub.service;
 
+import com.pawhub.domain.AppNotificationKind;
 import com.pawhub.domain.ChatThread;
 import com.pawhub.domain.Message;
 import com.pawhub.domain.ThreadType;
@@ -35,6 +36,7 @@ public class ChatService {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final AppNotificationService appNotificationService;
 
     @Transactional(readOnly = true)
     public List<ThreadSummaryDto> listThreads(SecurityUser principal) {
@@ -124,6 +126,33 @@ public class ChatService {
         MessageDto dto = toMessageDto(msg);
         messagingTemplate.convertAndSend("/topic/threads." + threadId, dto);
         pushInboxToParticipants(t, ChatInboxEvent.message(threadId, dto));
+        Long recipientId =
+                t.getParticipantOne().getId().equals(senderId)
+                        ? t.getParticipantTwo().getId()
+                        : t.getParticipantOne().getId();
+        // One app notification per "burst": only if recipient has no earlier unread messages from this sender
+        // since their last read cursor (avoids a row for every line in a chat).
+        Instant recipientLastRead = getReadAt(t, recipientId);
+        Instant since = recipientLastRead != null ? recipientLastRead : Instant.EPOCH;
+        long priorFromSenderSinceRead =
+                messageRepository.countByThread_IdAndSender_IdAndCreatedAtAfter(threadId, senderId, since);
+        // Count includes the message just saved; == 1 means first from this sender since recipient's read cursor.
+        if (priorFromSenderSinceRead == 1L) {
+            String preview = body == null ? "" : body;
+            if (preview.length() > 160) {
+                preview = preview.substring(0, 157) + "…";
+            }
+            appNotificationService.publish(
+                    recipientId,
+                    AppNotificationKind.NEW_MESSAGE,
+                    "New message",
+                    String.format(
+                            "You have a new message from %s.%s",
+                            sender.getDisplayName(), preview.isEmpty() ? "" : " " + preview),
+                    "/messages/" + threadId,
+                    "message",
+                    sender.getAvatarUrl());
+        }
         return dto;
     }
 

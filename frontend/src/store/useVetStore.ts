@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
+import { triageDtoToMedicalCase } from "../types/pawvetTriage";
 
 export type VetVerificationStatus = "pending" | "verified" | "rejected";
 
@@ -46,6 +48,8 @@ export type CaseAttachment = {
   mimeType: string;
   /** Base64 data URL — present in memory; omitted when persisted to localStorage to avoid quota errors. */
   dataUrl?: string;
+  /** Public URL after upload to the API (used for cross-session / vet triage board). */
+  publicUrl?: string;
 };
 
 export type MedicalCase = {
@@ -123,6 +127,9 @@ type VetState = {
 
   isVetVerified: (userId: number) => boolean;
   getVetRating: (vetUserId: number) => { average: number; count: number };
+
+  /** Merge server-backed PawVet triage cases (same id replaces any local-only row). */
+  mergeCasesFromApi: (rows: PawvetTriageCaseDto[]) => void;
 };
 
 function uid(prefix: string) {
@@ -282,6 +289,18 @@ export const useVetStore = create<VetState>()(
         if (!list.length) return { average: 0, count: 0 };
         const sum = list.reduce((a, r) => a + r.stars, 0);
         return { average: sum / list.length, count: list.length };
+      },
+
+      mergeCasesFromApi: (rows) => {
+        if (!rows.length) return;
+        const incoming = rows.map(triageDtoToMedicalCase);
+        set((s) => {
+          const byId = new Map(s.cases.map((c) => [c.id, c]));
+          for (const c of incoming) {
+            byId.set(c.id, c);
+          }
+          return { cases: Array.from(byId.values()) };
+        });
       },
     }),
     {

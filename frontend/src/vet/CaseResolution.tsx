@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
 import { FileText } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
 import { useVetStore } from "../store/useVetStore";
 import "../pawvet/pawvet.css";
 
@@ -13,17 +15,26 @@ export function CaseClosePanel({
   caseId: string;
   onClosed?: () => void;
 }) {
-  const closeCaseWithSummary = useVetStore((s) => s.closeCaseWithSummary);
+  const mergeCasesFromApi = useVetStore((s) => s.mergeCasesFromApi);
   const [summary, setSummary] = useState("");
   const [busy, setBusy] = useState(false);
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     if (!summary.trim()) return;
+    const id = Number(caseId);
+    if (!Number.isFinite(id)) return;
     setBusy(true);
-    closeCaseWithSummary(caseId, summary.trim());
-    onClosed?.();
-    setBusy(false);
+    try {
+      const dto = await api<PawvetTriageCaseDto>(`/api/pawvet/triage-cases/${id}/resolve`, {
+        method: "POST",
+        body: JSON.stringify({ summary: summary.trim() }),
+      });
+      mergeCasesFromApi([dto]);
+      onClosed?.();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -62,7 +73,24 @@ export default function CaseResolution() {
   const nav = useNavigate();
   const { user } = useAuth();
   const cases = useVetStore((s) => s.cases);
+  const mergeCasesFromApi = useVetStore((s) => s.mergeCasesFromApi);
   const c = useMemo(() => (caseId ? cases.find((x) => x.id === caseId) : undefined), [cases, caseId]);
+
+  useEffect(() => {
+    if (!caseId || !Number.isFinite(Number(caseId))) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const dto = await api<PawvetTriageCaseDto>(`/api/pawvet/triage-cases/${caseId}`);
+        if (!cancelled) mergeCasesFromApi([dto]);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [caseId, mergeCasesFromApi]);
 
   if (!caseId) {
     return <p className="pawvet-shell">Invalid case.</p>;

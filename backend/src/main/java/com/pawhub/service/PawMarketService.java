@@ -33,6 +33,7 @@ public class PawMarketService {
     private final AiCatCheckService aiCatCheckService;
     private final SimpMessagingTemplate messagingTemplate;
     private final PawhubProperties pawhubProperties;
+    private final AppNotificationService appNotificationService;
 
     // ── Browse ────────────────────────────────────────────────────────────
 
@@ -342,7 +343,18 @@ public class PawMarketService {
         MarketListing l = listingRepository
                 .findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Listing not found"));
+        Long sellerId = l.getUser().getId();
+        String title = l.getTitle() != null ? l.getTitle().trim() : "your listing";
+        String titleShort = title.length() > 120 ? title.substring(0, 117) + "…" : title;
         listingRepository.delete(l);
+        appNotificationService.publishWithInboxNudge(
+                sellerId,
+                AppNotificationKind.MARKET_LISTING_REMOVED_ADMIN,
+                "Listing removed by admin",
+                "An administrator removed your Paw Market listing \"" + titleShort.replace("\"", "'") + "\".",
+                "/market/selling",
+                "package",
+                null);
     }
 
     /** Removes a listing owned by the caller when it has no orders yet. */
@@ -459,6 +471,25 @@ public class PawMarketService {
         MessageDto dto =
                 new MessageDto(msg.getId(), buyer.getId(), msg.getBody(), msg.getCreatedAt(), msg.getAttachmentUrl());
         messagingTemplate.convertAndSend("/topic/threads." + thread.getId(), dto);
+
+        appNotificationService.publish(
+                seller.getId(),
+                AppNotificationKind.MARKET_ORDER_SELLER,
+                "New Paw Market order",
+                String.format("%s placed an order for \"%s\".", buyer.getDisplayName(), listing.getTitle()),
+                "/messages/" + thread.getId(),
+                "package",
+                buyer.getAvatarUrl());
+        appNotificationService.publish(
+                buyer.getId(),
+                AppNotificationKind.MARKET_ORDER_BUYER,
+                "Order placed",
+                String.format(
+                        "Your order for \"%s\" is in motion — message the seller in your thread for shipping updates.",
+                        listing.getTitle()),
+                "/messages/" + thread.getId(),
+                "package",
+                null);
 
         return new PlaceOrderResponse(order.getId(), thread.getId());
     }

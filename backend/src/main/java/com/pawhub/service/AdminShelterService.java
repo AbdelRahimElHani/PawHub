@@ -1,5 +1,6 @@
 package com.pawhub.service;
 
+import com.pawhub.domain.AppNotificationKind;
 import com.pawhub.domain.Shelter;
 import com.pawhub.domain.ShelterStatus;
 import com.pawhub.repository.ShelterRepository;
@@ -18,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class AdminShelterService {
 
     private final ShelterRepository shelterRepository;
+    private final AppNotificationService appNotificationService;
 
     /**
      * Admin queue: pending shelters with a submitted dossier first (oldest submission first), then any other pending
@@ -45,6 +47,15 @@ public class AdminShelterService {
         Shelter s = shelterRepository.findById(shelterId).orElseThrow(() -> notFound(shelterId));
         requirePending(s);
         s.setStatus(ShelterStatus.APPROVED);
+        shelterRepository.save(s);
+        appNotificationService.publish(
+                s.getUser().getId(),
+                AppNotificationKind.SHELTER_VERIFIED,
+                "Shelter verified",
+                "Your shelter profile has been verified by PawHub Admin.",
+                "/adopt/shelter",
+                "shelter",
+                null);
         return ShelterDtoMapper.fromEntity(s);
     }
 
@@ -53,6 +64,17 @@ public class AdminShelterService {
         Shelter s = shelterRepository.findById(shelterId).orElseThrow(() -> notFound(shelterId));
         requirePending(s);
         s.setStatus(ShelterStatus.REJECTED);
+        shelterRepository.save(s);
+        appNotificationService.publish(
+                s.getUser().getId(),
+                AppNotificationKind.SHELTER_APPLICATION_REJECTED,
+                "Shelter application not approved",
+                "Your shelter partner application for \""
+                        + s.getName().replace("\"", "'")
+                        + "\" was not approved. You can reach out to support if you have questions.",
+                "/adopt/shelter",
+                "shelter",
+                null);
         return ShelterDtoMapper.fromEntity(s);
     }
 

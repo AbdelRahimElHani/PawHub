@@ -5,18 +5,36 @@ import { api } from "../api/client";
 import { RatingSystem } from "../shared/RatingSystem";
 import { useVetStore } from "../store/useVetStore";
 import type { PawVetConsultationReviewDto } from "../types/pawvetConsultationReview";
+import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
 import "../pawvet/pawvet.css";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export function RatingScreen() {
   const { caseId } = useParams();
   const nav = useNavigate();
   const { user } = useAuth();
   const cases = useVetStore((s) => s.cases);
+  const mergeCasesFromApi = useVetStore((s) => s.mergeCasesFromApi);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const c = useMemo(() => (caseId ? cases.find((x) => x.id === caseId) : undefined), [cases, caseId]);
+
+  useEffect(() => {
+    if (!caseId || !Number.isFinite(Number(caseId))) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const dto = await api<PawvetTriageCaseDto>(`/api/pawvet/triage-cases/${caseId}`);
+        if (!cancelled) mergeCasesFromApi([dto]);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [caseId, mergeCasesFromApi]);
 
   if (!caseId) {
     return <p className="pawvet-shell">Invalid case.</p>;

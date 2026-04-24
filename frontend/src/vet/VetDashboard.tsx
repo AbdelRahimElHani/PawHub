@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { canWorkAsVerifiedVet, isVeterinarianAccount } from "../auth/vetAccess";
 import type { PawVetConsultationReviewDto } from "../types/pawvetConsultationReview";
+import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
 import { useVetStore } from "../store/useVetStore";
 import { CaseClosePanel } from "./CaseResolution";
 import "../pawvet/pawvet.css";
@@ -19,7 +20,7 @@ function urgencyLabel(u: string) {
 export function VetDashboard() {
   const { user, refreshMe } = useAuth();
   const cases = useVetStore((s) => s.cases);
-  const claimCase = useVetStore((s) => s.claimCase);
+  const mergeCasesFromApi = useVetStore((s) => s.mergeCasesFromApi);
 
   const [resolveId, setResolveId] = useState<string | null>(null);
   const [apiReviews, setApiReviews] = useState<PawVetConsultationReviewDto[] | null>(null);
@@ -65,14 +66,39 @@ export function VetDashboard() {
     };
   }, [user?.accountType, user?.userId]);
 
-  function claim(caseId: string) {
+  useEffect(() => {
+    if (!verified) return;
+    let cancelled = false;
+    async function loadBoard() {
+      try {
+        const [open, claims] = await Promise.all([
+          api<PawvetTriageCaseDto[]>("/api/pawvet/triage-cases/open"),
+          api<PawvetTriageCaseDto[]>("/api/pawvet/triage-cases/my-claims"),
+        ]);
+        if (cancelled) return;
+        mergeCasesFromApi([...(open ?? []), ...(claims ?? [])]);
+      } catch {
+        /* offline / not logged in as vet */
+      }
+    }
+    void loadBoard();
+    const t = window.setInterval(() => void loadBoard(), 12000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [verified, mergeCasesFromApi]);
+
+  async function claim(caseId: string) {
     if (!user || !verified) return;
-    claimCase({
-      caseId,
-      vetUserId: user.userId,
-      vetName: user.displayName.startsWith("Dr.") ? user.displayName : `Dr. ${user.displayName}`,
-      vetAvatarUrl: user.avatarUrl,
-    });
+    const id = Number(caseId);
+    if (!Number.isFinite(id)) return;
+    try {
+      const dto = await api<PawvetTriageCaseDto>(`/api/pawvet/triage-cases/${id}/claim`, { method: "POST" });
+      mergeCasesFromApi([dto]);
+    } catch {
+      /* surface minimal feedback — could add toast */
+    }
   }
 
   if (!user) {
@@ -193,7 +219,7 @@ export function VetDashboard() {
                         </div>
                       </div>
                       <span className={`pawvet-urgent pawvet-urgent--${c.urgency}`}>{urgencyLabel(c.urgency)}</span>
-                      <button type="button" className="ph-btn ph-btn-primary" onClick={() => claim(c.id)}>
+                      <button type="button" className="ph-btn ph-btn-primary" onClick={() => void claim(c.id)}>
                         Claim case
                       </button>
                     </motion.div>

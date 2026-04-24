@@ -44,6 +44,7 @@ public class AuthService {
     private final EmailVerificationNotifier emailVerificationNotifier;
     private final PawhubProperties pawhubProperties;
     private final ObjectMapper objectMapper;
+    private final AppNotificationService appNotificationService;
 
     @Transactional
     public RegistrationResponse register(RegisterRequest req) {
@@ -137,6 +138,13 @@ public class AuthService {
                     .status(ShelterStatus.PENDING)
                     .build();
             shelterRepository.save(shelter);
+            appNotificationService.publishToAdmins(
+                    AppNotificationKind.ADMIN_SHELTER_REGISTERED,
+                    "New shelter application",
+                    String.format(
+                            "%s (%s) registered as a shelter organization and is pending review.",
+                            shelter.getName(), user.getDisplayName()),
+                    "/admin/shelters");
         }
 
         if (req.accountType() == UserAccountType.VET) {
@@ -168,6 +176,13 @@ public class AuthService {
                     .supportingDocumentUrls(jsonUrls)
                     .build();
             vetLicenseApplicationRepository.save(vapp);
+            appNotificationService.publishToAdmins(
+                    AppNotificationKind.ADMIN_VET_LICENSE_SUBMITTED,
+                    "New veterinarian verification request",
+                    String.format(
+                            "%s applied for a veterinarian account (license %s). Review documents in the admin queue.",
+                            user.getDisplayName(), vapp.getLicenseNumber()),
+                    "/admin/vet-verification");
         }
 
         if (!autoVerify) {

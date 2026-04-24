@@ -1,11 +1,13 @@
 import { motion } from "framer-motion";
 import { ClipboardList, HeartPulse, ShieldCheck, Stethoscope } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Link, Navigate } from "react-router-dom";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { isAdminAccount, isVeterinarianAccount } from "../auth/vetAccess";
 import type { CaseUrgency, MedicalCase } from "../store/useVetStore";
 import { useVetStore } from "../store/useVetStore";
+import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
 import "../pawvet/pawvet.css";
 
 function urgencyLabel(u: CaseUrgency) {
@@ -30,7 +32,24 @@ function caseStatusMeta(c: MedicalCase): { label: string; sub: string } {
 export function PawVetHome() {
   const { user } = useAuth();
   const cases = useVetStore((s) => s.cases);
+  const mergeCasesFromApi = useVetStore((s) => s.mergeCasesFromApi);
   const isVet = isVeterinarianAccount(user);
+
+  useEffect(() => {
+    if (!user || isVet || isAdminAccount(user)) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await api<PawvetTriageCaseDto[]>("/api/pawvet/triage-cases/mine");
+        if (!cancelled) mergeCasesFromApi(rows ?? []);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isVet, mergeCasesFromApi]);
 
   const { waiting, finished } = useMemo(() => {
     if (!user || isVet || isAdminAccount(user)) return { waiting: [] as MedicalCase[], finished: [] as MedicalCase[] };

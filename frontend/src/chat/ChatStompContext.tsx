@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useAuth } from "../auth/AuthContext";
 import type { MessageDto } from "../types";
+import { useNotificationStore } from "../store/useNotificationStore";
 import { createStompClient, sendChatTyping } from "./stomp";
 
 export type ChatInboxPayload = { type: "MESSAGE"; threadId: number; message: MessageDto };
@@ -38,6 +39,7 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
   const clientRef = useRef<Client | null>(null);
   const inboxSubRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const appNotifSubRef = useRef<{ unsubscribe: () => void } | null>(null);
   const threadSubRef = useRef<{ unsubscribe: () => void } | null>(null);
   const typingSubRef = useRef<{ unsubscribe: () => void } | null>(null);
   const activeThreadIdRef = useRef<number | null>(null);
@@ -97,6 +99,8 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
       clearThreadSubscriptions();
       inboxSubRef.current?.unsubscribe();
       inboxSubRef.current = null;
+      appNotifSubRef.current?.unsubscribe();
+      appNotifSubRef.current = null;
       clientRef.current?.deactivate();
       clientRef.current = null;
       return;
@@ -123,11 +127,15 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
             console.error("PawHub inbox event parse", e);
           }
         });
+        appNotifSubRef.current = c.subscribe("/user/queue/pawhub-app-notifications", () => {
+          void useNotificationStore.getState().refreshItemsSilent();
+        });
         attachThreadSubscriptions(c);
       },
       () => {
         setConnected(false);
         inboxSubRef.current = null;
+        appNotifSubRef.current = null;
         threadSubRef.current = null;
         typingSubRef.current = null;
       },
@@ -139,6 +147,8 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
       clearThreadSubscriptions();
       inboxSubRef.current?.unsubscribe();
       inboxSubRef.current = null;
+      appNotifSubRef.current?.unsubscribe();
+      appNotifSubRef.current = null;
       client.deactivate();
       clientRef.current = null;
     };

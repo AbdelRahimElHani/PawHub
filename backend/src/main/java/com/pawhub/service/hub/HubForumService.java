@@ -1,6 +1,8 @@
 package com.pawhub.service.hub;
 
+import com.pawhub.domain.AppNotificationKind;
 import com.pawhub.domain.User;
+import com.pawhub.service.AppNotificationService;
 import com.pawhub.domain.hub.*;
 import com.pawhub.repository.UserRepository;
 import com.pawhub.repository.hub.*;
@@ -23,6 +25,7 @@ public class HubForumService {
     private final HubForumCommentRepository commentRepository;
     private final HubForumPostVoteRepository voteRepository;
     private final UserRepository userRepository;
+    private final AppNotificationService appNotificationService;
 
     @Transactional(readOnly = true)
     public List<ForumRoomDto> listRooms() {
@@ -113,6 +116,33 @@ public class HubForumService {
                 .build();
         commentRepository.save(c);
         post.setCommentCount(commentRepository.countByPost(post));
+        String titleShort = post.getTitle().length() > 80 ? post.getTitle().substring(0, 77) + "…" : post.getTitle();
+        String titleSafe = titleShort.replace("\"", "'");
+        String threadPath = "/hub/community/" + post.getRoom().getSlug() + "/p/" + post.getId();
+        if (parent == null) {
+            if (!post.getAuthor().getId().equals(author.getId())) {
+                appNotificationService.publish(
+                        post.getAuthor().getId(),
+                        AppNotificationKind.FORUM_REPLY,
+                        "New comment on your thread",
+                        String.format("%s commented on \"%s\".", author.getDisplayName(), titleSafe),
+                        threadPath,
+                        "forum",
+                        author.getAvatarUrl());
+            }
+        } else {
+            User parentAuthor = parent.getAuthor();
+            if (!parentAuthor.getId().equals(author.getId())) {
+                appNotificationService.publish(
+                        parentAuthor.getId(),
+                        AppNotificationKind.FORUM_COMMENT_REPLY,
+                        "Reply to your comment",
+                        String.format("%s replied to your comment in \"%s\".", author.getDisplayName(), titleSafe),
+                        threadPath,
+                        "forum",
+                        author.getAvatarUrl());
+            }
+        }
         return toLeafCommentDto(c);
     }
 
@@ -128,7 +158,8 @@ public class HubForumService {
                 .findByPostIdAndUserId(postId, userId)
                 .map(HubForumPostVote::getVoteValue)
                 .orElse(0);
-        post.setScore(post.getScore() - oldVal + newVal);
+        int scoreBefore = post.getScore();
+        post.setScore(scoreBefore - oldVal + newVal);
         if (newVal == 0) {
             voteRepository.findByPostIdAndUserId(postId, userId).ifPresent(voteRepository::delete);
         } else {
@@ -140,6 +171,21 @@ public class HubForumService {
             voteRepository.save(v);
         }
         postRepository.save(post);
+        int scoreAfter = post.getScore();
+        if (scoreAfter >= 10
+                && scoreBefore < 10
+                && !post.getAuthor().getId().equals(userId)) {
+            String titleShort = post.getTitle().length() > 70 ? post.getTitle().substring(0, 67) + "…" : post.getTitle();
+            appNotificationService.publish(
+                    post.getAuthor().getId(),
+                    AppNotificationKind.FORUM_SCORE_MILESTONE,
+                    "Community milestone",
+                    String.format(
+                            "Your thread \"%s\" reached %d upvotes.", titleShort.replace("\"", "'"), scoreAfter),
+                    "/hub/community/" + post.getRoom().getSlug() + "/p/" + post.getId(),
+                    "forum",
+                    null);
+        }
         return getPostDetail(postId, userId);
     }
 

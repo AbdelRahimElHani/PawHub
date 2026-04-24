@@ -2,7 +2,9 @@ package com.pawhub.web;
 
 import com.pawhub.service.AdminShelterService;
 import com.pawhub.service.AdminVetLicenseService;
+import com.pawhub.service.AppNotificationService;
 import com.pawhub.service.PawvetConsultationReviewService;
+import com.pawhub.web.dto.BroadcastNotificationRequest;
 import com.pawhub.web.dto.RejectVetApplicationRequest;
 import com.pawhub.web.dto.ShelterDto;
 import com.pawhub.web.dto.VetAccountReviewsAdminDto;
@@ -23,6 +25,7 @@ public class AdminController {
     private final AdminShelterService adminShelterService;
     private final AdminVetLicenseService adminVetLicenseService;
     private final PawvetConsultationReviewService pawvetConsultationReviewService;
+    private final AppNotificationService appNotificationService;
 
     @GetMapping("/shelters/pending")
     public List<ShelterDto> pendingSubmissions() {
@@ -69,4 +72,12 @@ public class AdminController {
     public List<VetAccountReviewsAdminDto> vetAccountsWithReviews() {
         return pawvetConsultationReviewService.listAllVetAccountsWithReviewsForAdmin();
     }
+
+    @PostMapping("/notifications/broadcast")
+    public BroadcastResult broadcastNotification(@Valid @RequestBody BroadcastNotificationRequest req) {
+        int n = appNotificationService.broadcastSystemAnnouncement(req.title(), req.body(), req.deepLink());
+        return new BroadcastResult(n);
+    }
+
+    public record BroadcastResult(int recipients) {}
 }

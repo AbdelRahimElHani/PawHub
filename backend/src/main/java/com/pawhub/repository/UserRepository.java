@@ -2,6 +2,7 @@ package com.pawhub.repository;
 
 import com.pawhub.domain.User;
 import com.pawhub.domain.UserAccountType;
+import com.pawhub.domain.UserRole;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmailIgnoreCase(String email);
 
     List<User> findByAccountTypeOrderByIdAsc(UserAccountType accountType);
+
+    List<User> findByRole(UserRole role);
 }

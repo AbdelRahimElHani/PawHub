@@ -30,6 +30,7 @@ public class AdoptionService {
     private final ChatThreadRepository chatThreadRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final AppNotificationService appNotificationService;
 
     @Transactional
     public ShelterDto applyShelter(ShelterUpsertRequest req, SecurityUser principal) {
@@ -48,6 +49,11 @@ public class AdoptionService {
                 .status(ShelterStatus.PENDING)
                 .build();
         shelterRepository.save(s);
+        appNotificationService.publishToAdmins(
+                AppNotificationKind.ADMIN_SHELTER_REGISTERED,
+                "New shelter application",
+                String.format("%s registered a shelter profile (pending review).", s.getName()),
+                "/admin/shelters");
         return ShelterDtoMapper.fromEntity(s);
     }
 
@@ -61,9 +67,19 @@ public class AdoptionService {
         Shelter s = shelterRepository.findByUserId(principal.getId()).orElseThrow();
         applyProfileRequest(s, req);
         s.setProfileLastSavedAt(Instant.now());
+        Instant priorCompleted = s.getProfileCompletedAt();
         if (Boolean.TRUE.equals(req.markComplete())) {
             validateProfileComplete(s);
             s.setProfileCompletedAt(Instant.now());
+            if (priorCompleted == null) {
+                appNotificationService.publishToAdmins(
+                        AppNotificationKind.ADMIN_SHELTER_DOSSIER_SUBMITTED,
+                        "Shelter ready for verification",
+                        String.format(
+                                "%s submitted a complete shelter dossier. It is ready for admin verification.",
+                                s.getName()),
+                        "/admin/shelters/" + s.getId());
+            }
         }
         return ShelterDtoMapper.fromEntity(s);
     }
@@ -128,6 +144,15 @@ public class AdoptionService {
                 .status(ListingStatus.ACTIVE)
                 .build();
         adoptionListingRepository.save(l);
+        String petLabel = l.getPetName() != null && !l.getPetName().isBlank() ? l.getPetName().trim() : l.getTitle().trim();
+        appNotificationService.publish(
+                principal.getId(),
+                AppNotificationKind.ADOPTION_LISTING_PUBLISHED,
+                "Adoption listing is live",
+                String.format("Your listing for %s is now visible to adopters on PawHub.", petLabel.replace("\"", "'")),
+                "/adopt/" + l.getId(),
+                "shelter",
+                null);
         return toAdoptionDto(l);
     }
 
@@ -157,30 +182,50 @@ public class AdoptionService {
         if (shelterOwner.getId().equals(principal.getId())) {
             throw new IllegalArgumentException("Cannot inquire on own listing");
         }
-        return adoptionInquiryRepository
-                .findByAdoptionListingIdAndUserId(listingId, principal.getId())
-                .map(i -> i.getThread().getId())
-                .orElseGet(
-                        () -> {
-                            User inquirer = userRepository.getReferenceById(principal.getId());
-                            User p1 = inquirer.getId() < shelterOwner.getId() ? inquirer : shelterOwner;
-                            User p2 = inquirer.getId() < shelterOwner.getId() ? shelterOwner : inquirer;
-                            ChatThread thread = ChatThread.builder()
-                                    .type(ThreadType.ADOPTION)
-                                    .participantOne(p1)
-                                    .participantTwo(p2)
-                                    .build();
-                            chatThreadRepository.save(thread);
-                            AdoptionInquiry inq = AdoptionInquiry.builder()
-                                    .adoptionListing(listing)
-                                    .user(inquirer)
-                                    .thread(thread)
-                                    .build();
-                            adoptionInquiryRepository.save(inq);
-                            thread.setAdoptionInquiryId(inq.getId());
-                            chatThreadRepository.save(thread);
-                            return inq.getThread().getId();
-                        });
+        Optional<AdoptionInquiry> existing =
+                adoptionInquiryRepository.findByAdoptionListingIdAndUserId(listingId, principal.getId());
+        if (existing.isPresent()) {
+            return existing.get().getThread().getId();
+        }
+        User inquirer = userRepository.getReferenceById(principal.getId());
+        User p1 = inquirer.getId() < shelterOwner.getId() ? inquirer : shelterOwner;
+        User p2 = inquirer.getId() < shelterOwner.getId() ? shelterOwner : inquirer;
+        ChatThread thread = ChatThread.builder()
+                .type(ThreadType.ADOPTION)
+                .participantOne(p1)
+                .participantTwo(p2)
+                .build();
+        chatThreadRepository.save(thread);
+        AdoptionInquiry inq = AdoptionInquiry.builder()
+                .adoptionListing(listing)
+                .user(inquirer)
+                .thread(thread)
+                .build();
+        adoptionInquiryRepository.save(inq);
+        thread.setAdoptionInquiryId(inq.getId());
+        chatThreadRepository.save(thread);
+        String petLabel = listing.getPetName() != null && !listing.getPetName().isBlank()
+                ? "'" + listing.getPetName().trim() + "'"
+                : "\"" + listing.getTitle().trim() + "\"";
+        appNotificationService.publish(
+                shelterOwner.getId(),
+                AppNotificationKind.ADOPTION_INQUIRY,
+                "New adoption inquiry",
+                String.format("New inquiry for %s from %s.", petLabel, inquirer.getDisplayName()),
+                "/messages/" + thread.getId(),
+                "message",
+                inquirer.getAvatarUrl());
+        appNotificationService.publish(
+                inquirer.getId(),
+                AppNotificationKind.ADOPTION_INQUIRY_SUBMITTED,
+                "Inquiry sent",
+                String.format(
+                        "Your inquiry about %s was sent to %s. You can follow up in Messages.",
+                        petLabel, listing.getShelter().getName()),
+                "/messages/" + thread.getId(),
+                "shelter",
+                null);
+        return inq.getThread().getId();
     }
 
     private static void applyProfileRequest(Shelter s, ShelterProfileUpdateRequest req) {

@@ -2,6 +2,7 @@ package com.pawhub.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pawhub.domain.AppNotificationKind;
 import com.pawhub.domain.VetLicenseApplication;
 import com.pawhub.domain.VetVerificationStatus;
 import com.pawhub.repository.VetLicenseApplicationRepository;
@@ -22,6 +23,7 @@ public class AdminVetLicenseService {
 
     private final VetLicenseApplicationRepository vetLicenseApplicationRepository;
     private final ObjectMapper objectMapper;
+    private final AppNotificationService appNotificationService;
 
     @Transactional(readOnly = true)
     public VetApplicationMetricsDto metrics() {
@@ -47,7 +49,17 @@ public class AdminVetLicenseService {
         requirePending(a);
         a.setStatus(VetVerificationStatus.APPROVED);
         a.setRejectionReason(null);
-        return toDto(vetLicenseApplicationRepository.save(a));
+        vetLicenseApplicationRepository.save(a);
+        String lic = a.getLicenseNumber() != null ? a.getLicenseNumber() : "your license";
+        appNotificationService.publish(
+                a.getUser().getId(),
+                AppNotificationKind.VET_LICENSE_VERIFIED,
+                "License verified",
+                String.format("License #%s verified. You can now claim health cases.", lic),
+                "/vet",
+                "vet",
+                null);
+        return toDto(a);
     }
 
     @Transactional

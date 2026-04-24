@@ -1,5 +1,6 @@
 package com.pawhub.service;
 
+import com.pawhub.domain.AppNotificationKind;
 import com.pawhub.domain.PawvetConsultationReview;
 import com.pawhub.domain.User;
 import com.pawhub.domain.UserAccountType;
@@ -32,6 +33,7 @@ public class PawvetConsultationReviewService {
     private final PawvetConsultationReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final VetLicenseApplicationRepository vetLicenseApplicationRepository;
+    private final AppNotificationService appNotificationService;
 
     @Transactional
     public PawVetConsultationReviewDto submit(SecurityUser principal, SubmitPawVetConsultationReviewRequest req) {
@@ -64,6 +66,18 @@ public class PawvetConsultationReviewService {
                 .comment(comment)
                 .build();
         reviewRepository.save(row);
+        String excerpt = comment == null ? "Thanks for the great care!" : comment;
+        if (excerpt.length() > 140) {
+            excerpt = excerpt.substring(0, 137) + "…";
+        }
+        appNotificationService.publish(
+                vet.getId(),
+                AppNotificationKind.VET_NEW_REVIEW,
+                "New consultation review",
+                String.format("A user left you a %d-star review: \"%s\"", req.stars(), excerpt.replace("\"", "'")),
+                "/vet",
+                "star",
+                owner.getAvatarUrl());
         return toDto(row);
     }
 

@@ -2,7 +2,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, Flag, Send } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
 import { useVetStore } from "../store/useVetStore";
 import "../pawvet/pawvet.css";
 
@@ -19,7 +21,7 @@ export function ConsultationRoom() {
   const nav = useNavigate();
   const { user } = useAuth();
   const cases = useVetStore((s) => s.cases);
-  const appendMessage = useVetStore((s) => s.appendMessage);
+  const mergeCasesFromApi = useVetStore((s) => s.mergeCasesFromApi);
   const reportVet = useVetStore((s) => s.reportVet);
 
   const c = useMemo(() => (caseId ? cases.find((x) => x.id === caseId) : undefined), [cases, caseId]);
@@ -36,6 +38,25 @@ export function ConsultationRoom() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [c?.messages.length]);
+
+  useEffect(() => {
+    if (!caseId || !Number.isFinite(Number(caseId))) return;
+    let cancelled = false;
+    async function pull() {
+      try {
+        const dto = await api<PawvetTriageCaseDto>(`/api/pawvet/triage-cases/${caseId}`);
+        if (!cancelled) mergeCasesFromApi([dto]);
+      } catch {
+        /* 403/404 — room still shows last local state if any */
+      }
+    }
+    void pull();
+    const t = window.setInterval(() => void pull(), 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [caseId, mergeCasesFromApi]);
 
   useEffect(() => {
     if (!closed || !isOwner || !caseId) return;
@@ -58,11 +79,21 @@ export function ConsultationRoom() {
     );
   }
 
-  function send(e: FormEvent) {
+  async function send(e: FormEvent) {
     e.preventDefault();
     if (!body.trim() || !canChat || !caseId) return;
-    appendMessage(caseId, isVet ? "vet" : "user", body.trim());
-    setBody("");
+    const id = Number(caseId);
+    if (!Number.isFinite(id)) return;
+    try {
+      const dto = await api<PawvetTriageCaseDto>(`/api/pawvet/triage-cases/${id}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ body: body.trim() }),
+      });
+      mergeCasesFromApi([dto]);
+      setBody("");
+    } catch {
+      /* keep draft */
+    }
   }
 
   function submitReport() {
@@ -194,10 +225,17 @@ export function ConsultationRoom() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
             {c.attachments.map((a) =>
               a.kind === "image" ? (
-                a.dataUrl ? (
-                  <a key={a.id} href={a.dataUrl} download={a.fileName} style={{ display: "block" }}>
+                a.publicUrl || a.dataUrl ? (
+                  <a
+                    key={a.id}
+                    href={a.publicUrl ?? a.dataUrl}
+                    download={a.fileName}
+                    target={a.publicUrl ? "_blank" : undefined}
+                    rel={a.publicUrl ? "noreferrer" : undefined}
+                    style={{ display: "block" }}
+                  >
                     <img
-                      src={a.dataUrl}
+                      src={a.publicUrl ?? a.dataUrl}
                       alt={a.fileName}
                       style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 10, border: "1px solid var(--color-border)" }}
                     />
@@ -223,9 +261,14 @@ export function ConsultationRoom() {
                     Image (preview unavailable after page reload)
                   </div>
                 )
-              ) : a.dataUrl ? (
+              ) : a.publicUrl || a.dataUrl ? (
                 <div key={a.id} style={{ width: 160, maxWidth: "100%" }}>
-                  <video src={a.dataUrl} controls style={{ width: "100%", borderRadius: 10, border: "1px solid var(--color-border)" }} playsInline />
+                  <video
+                    src={a.publicUrl ?? a.dataUrl}
+                    controls
+                    style={{ width: "100%", borderRadius: 10, border: "1px solid var(--color-border)" }}
+                    playsInline
+                  />
                   <div style={{ fontSize: "0.72rem", color: "var(--color-muted)", marginTop: 4 }}>{a.fileName}</div>
                 </div>
               ) : (

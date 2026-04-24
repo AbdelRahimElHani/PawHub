@@ -2,12 +2,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, Camera, Cat, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { type ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { apiUrl } from "../api/client";
+import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { isAdminAccount, isVeterinarianAccount } from "../auth/vetAccess";
 import { useCatSanctuaryStore } from "../cats/useCatSanctuaryStore";
 import type { CaseAttachment, CatCaseSnapshot } from "../store/useVetStore";
 import { useVetStore } from "../store/useVetStore";
+import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
 import "../pawvet/pawvet.css";
 
 type Step = 1 | 2 | 3 | 4;
@@ -62,7 +63,7 @@ export function FileCase() {
   const { user } = useAuth();
   const cats = useCatSanctuaryStore((s) => s.cats);
   const fetchCats = useCatSanctuaryStore((s) => s.fetchCats);
-  const fileCase = useVetStore((s) => s.fileCase);
+  const mergeCasesFromApi = useVetStore((s) => s.mergeCasesFromApi);
   const cases = useVetStore((s) => s.cases);
 
   const [step, setStep] = useState<Step>(1);
@@ -226,7 +227,31 @@ export function FileCase() {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
-  function submit(e: FormEvent) {
+  async function uploadAttachmentToServer(a: CaseAttachment): Promise<string | null> {
+    if (!a.dataUrl) return null;
+    const blob = await (await fetch(a.dataUrl)).blob();
+    const file = new File([blob], a.fileName, { type: a.mimeType || "application/octet-stream" });
+    const fd = new FormData();
+    fd.append("file", file);
+    const headers = new Headers();
+    const token = getToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(apiUrl("/api/pawvet/triage-cases/media"), { method: "POST", body: fd, headers });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try {
+        const j = (await res.json()) as { error?: string };
+        if (j.error) msg = j.error;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(msg || "Upload failed");
+    }
+    const j = (await res.json()) as { url?: string };
+    return j.url ?? null;
+  }
+
+  async function submit(e: FormEvent) {
     e.preventDefault();
     if (!user) {
       nav("/login", { state: { from: "/pawvet/file-case" } });
@@ -237,22 +262,32 @@ export function FileCase() {
     setSubmitError(null);
     try {
       const snap = buildCatSnapshot();
-      const c = fileCase({
-        ownerUserId: user.userId,
+      const urls: string[] = [];
+      for (const a of attachments) {
+        const url = await uploadAttachmentToServer(a);
+        if (url) urls.push(url);
+      }
+      const mediaDescription = [
+        mediaNote.trim(),
+        attachments.length && `Uploaded files: ${attachments.map((x) => x.fileName).join(", ")}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const payload = {
         catId,
         catName: snap.name,
-        catSnapshot: snap,
+        catSnapshot: snap as unknown as Record<string, unknown>,
         symptoms: symptoms.trim(),
-        mediaDescription: [
-          mediaNote.trim(),
-          attachments.length && `Uploaded files: ${attachments.map((a) => a.fileName).join(", ")}`,
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        attachments: attachments.length ? attachments : undefined,
+        mediaDescription,
         urgency,
+        attachmentUrls: urls,
+      };
+      const dto = await api<PawvetTriageCaseDto>("/api/pawvet/triage-cases", {
+        method: "POST",
+        body: JSON.stringify(payload),
       });
-      setAwaitClaimCaseId(c.id);
+      mergeCasesFromApi([dto]);
+      setAwaitClaimCaseId(String(dto.id));
       setStep(4);
     } catch (err) {
       const msg =
@@ -534,9 +569,8 @@ export function FileCase() {
                 </h2>
                 <p style={{ fontSize: "0.88rem", color: "var(--color-muted)", marginBottom: "0.75rem" }}>
                   Choose photos or short clips (up to {MAX_CASE_ATTACHMENTS} files, up to {MAX_CASE_ATTACHMENT_MB} MB each).
-                  Submitting a case does <strong>not</strong> call the Messages API — it saves in this browser and opens your
-                  PawVet chat. The GET you may see to <code style={{ fontSize: "0.8em" }}>/api/chat/threads</code> is the
-                  inbox refreshing in the background, not PawVet.
+                  When you submit, media is uploaded to PawHub and the case is stored on the server so verified veterinarians
+                  can see it on the triage board from any device.
                 </p>
                 <div style={{ marginBottom: "0.85rem" }}>
                   <input
