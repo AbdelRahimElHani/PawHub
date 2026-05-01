@@ -14,6 +14,8 @@ public enum AppNotificationKind {
     /** Non-friend sent a direct message request (first message in a gated thread). */
     MESSAGE_REQUEST_RECEIVED,
     VET_LICENSE_VERIFIED,
+    /** Veterinarian license application was not approved. */
+    VET_LICENSE_APPLICATION_REJECTED,
     VET_NEW_REVIEW,
     MARKET_ORDER_BUYER,
     MARKET_ORDER_SELLER,
@@ -27,12 +29,20 @@ public enum AppNotificationKind {
     ADOPTION_LISTING_PUBLISHED,
     /** An adoption listing was removed by an administrator. */
     ADOPTION_LISTING_REMOVED_ADMIN,
+    /** Moderator issued a formal warning related to Paw Adopt / shelter listings. */
+    ADMIN_PAW_ADOPT_SHELTER_WARNED,
+    /** Shelter account cannot publish adoption listings on Paw Adopt. */
+    ADMIN_PAW_ADOPT_SHELTER_BANNED,
     /** Shelter verification was revoked by an administrator. */
     SHELTER_VERIFICATION_REVOKED,
     /** Admin queue: shelter submitted an appeal after rejection. */
     ADMIN_SHELTER_APPEAL_PENDING,
     /** Guardian’s inquiry was delivered to the shelter (confirmation). */
     ADOPTION_INQUIRY_SUBMITTED,
+    /** Shelter recorded that this adopter is taking the pet. */
+    ADOPTION_INQUIRY_OUTCOME_ADOPTED,
+    /** Shelter recorded that this specific inquiry is not going ahead. */
+    ADOPTION_INQUIRY_OUTCOME_DECLINED,
     /** Shelter application was not approved. */
     SHELTER_APPLICATION_REJECTED,
     /** New PawVet triage case open for claim (notified to approved veterinarians). */
@@ -49,6 +59,8 @@ public enum AppNotificationKind {
     /** Someone replied directly to your forum comment. */
     FORUM_COMMENT_REPLY,
     FORUM_SCORE_MILESTONE,
+    /** Author's forum thread was removed by a moderator (soft-delete); author can open by link for full text. */
+    FORUM_POST_REMOVED_ADMIN,
     SYSTEM_ANNOUNCEMENT,
     HEALTH_REMINDER,
     /** Another user sent you a friend request. */

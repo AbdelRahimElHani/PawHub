@@ -1,23 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  AlertTriangle,
-  Bell,
-  Building2,
-  Cat,
-  HeartPulse,
-  MessagesSquare,
-  Package,
-  Sparkles,
-  Stethoscope,
-  Star,
-  UserPlus,
-  X,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, type SyntheticEvent } from "react";
+import { Cat, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { type AppNotificationDto, useNotificationStore } from "../../store/useNotificationStore";
 import { useThreadNotifications } from "../../notifications/ThreadNotificationContext";
+import { NotificationKindIcon, resolveNotificationIconKey } from "./notificationKindIcon";
+import { isModerationDetailKind, moderationNoticeLabel } from "./moderationKinds";
+import { useModerationNotice } from "./ModerationNoticeContext";
 
 function timeAgo(iso: string): string {
   if (!iso) return "—";
@@ -33,70 +23,20 @@ function timeAgo(iso: string): string {
   return `${d}d ago`;
 }
 
-function resolveIconKey(n: AppNotificationDto): string {
-  const raw = (n.iconKind || n.kind || "system").toLowerCase();
-  if (raw.includes("vet") || raw === "vet_license_verified" || raw === "vet_new_review" || raw === "pawvet_new_triage_case")
-    return "vet";
-  if (
-    raw.includes("shelter") ||
-    raw === "shelter_verified" ||
-    raw === "adoption_inquiry" ||
-    raw === "adoption_listing_published" ||
-    raw === "adoption_inquiry_submitted" ||
-    raw === "shelter_application_rejected"
-  )
-    return "shelter";
-  if (raw.includes("message") || raw === "new_message") return "message";
-  if (raw.includes("market") || raw.includes("order") || raw.includes("package") || raw.includes("listing_removed"))
-    return "package";
-  if (raw.includes("health")) return "health";
-  if (raw.includes("friend")) return "friend";
-  if (raw.includes("forum") || raw.includes("score") || raw === "forum_comment_reply") return "forum";
-  if (raw.includes("star") || raw.includes("review")) return "star";
-  if (raw.includes("system")) return "system";
-  if (raw.includes("urgent")) return "urgent";
-  return raw;
-}
-
-function KindIcon({ iconKey, className }: { iconKey: string; className?: string }) {
-  const cn = className ?? "";
-  const kind = iconKey.toLowerCase();
-  switch (kind) {
-    case "urgent":
-      return <AlertTriangle className={cn} size={20} strokeWidth={2} aria-hidden />;
-    case "vet":
-      return <Stethoscope className={cn} size={20} strokeWidth={2} aria-hidden />;
-    case "shelter":
-      return <Building2 className={cn} size={20} strokeWidth={2} aria-hidden />;
-    case "message":
-      return <MessagesSquare className={cn} size={20} strokeWidth={2} aria-hidden />;
-    case "market":
-    case "package":
-      return <Package className={cn} size={20} strokeWidth={2} aria-hidden />;
-    case "health":
-      return <HeartPulse className={cn} size={20} strokeWidth={2} aria-hidden />;
-    case "forum":
-      return <MessagesSquare className={cn} size={20} strokeWidth={2} aria-hidden />;
-    case "star":
-      return <Star className={cn} size={20} strokeWidth={2} aria-hidden />;
-    case "system":
-      return <Sparkles className={cn} size={20} strokeWidth={2} aria-hidden />;
-    case "friend":
-      return <UserPlus className={cn} size={20} strokeWidth={2} aria-hidden />;
-    default:
-      return <Bell className={cn} size={20} strokeWidth={2} aria-hidden />;
-  }
-}
-
 function NotificationRow({
   n,
   onNavigate,
+  onCloseDrawer,
 }: {
   n: AppNotificationDto;
   onNavigate: (path: string) => void;
+  /** Close the notifications panel (e.g. before opening moderation dialog so it is not covered). */
+  onCloseDrawer: () => void;
 }) {
   const markAsRead = useNotificationStore((s) => s.markAsRead);
   const removeNotification = useNotificationStore((s) => s.removeNotification);
+  const { openModerationNotice } = useModerationNotice();
+  const mod = isModerationDetailKind(n.kind);
 
   const go = () => {
     void (async () => {
@@ -104,6 +44,11 @@ function NotificationRow({
         await markAsRead(n.id);
       } catch {
         /* still navigate */
+      }
+      if (mod) {
+        onCloseDrawer();
+        queueMicrotask(() => openModerationNotice(n));
+        return;
       }
       onNavigate(n.deepLink.startsWith("/") ? n.deepLink : `/${n.deepLink}`);
     })();
@@ -144,14 +89,39 @@ function NotificationRow({
               <img src={n.avatarUrl} alt="" className="ph-notif-drawer-avatar" />
             ) : (
               <span className="ph-notif-drawer-icon-ring">
-                <KindIcon iconKey={resolveIconKey(n)} className="ph-notif-drawer-icon" />
+                <NotificationKindIcon iconKey={resolveNotificationIconKey(n)} className="ph-notif-drawer-icon" />
               </span>
             )}
             {!n.read ? <span className="ph-notif-drawer-unread-dot" aria-hidden /> : null}
           </div>
           <div className="ph-notif-drawer-item-body">
             <div className="ph-notif-drawer-item-top">
-              <span className="ph-notif-drawer-item-title">{n.title}</span>
+              <span
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "baseline",
+                  gap: "0.35rem",
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                <span className="ph-notif-drawer-item-title">{n.title}</span>
+                {mod ? (
+                  <span
+                    style={{
+                      fontSize: "0.65rem",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      color: "#b42318",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {moderationNoticeLabel(n.kind)}
+                  </span>
+                ) : null}
+              </span>
               <time className="ph-notif-drawer-item-time" dateTime={n.createdAt}>
                 {timeAgo(n.createdAt)}
               </time>
@@ -180,11 +150,13 @@ export type NotificationDrawerProps = {
 
 export function NotificationDrawer({ open, onClose }: NotificationDrawerProps) {
   const navigate = useNavigate();
+  const [clearBusy, setClearBusy] = useState(false);
   const items = useNotificationStore((s) => s.items);
   const loading = useNotificationStore((s) => s.loading);
   const error = useNotificationStore((s) => s.error);
   const refreshItems = useNotificationStore((s) => s.refreshItems);
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
+  const clearAllNotifications = useNotificationStore((s) => s.clearAllNotifications);
   const { threads } = useThreadNotifications();
 
   useEffect(() => {
@@ -260,14 +232,39 @@ export function NotificationDrawer({ open, onClose }: NotificationDrawerProps) {
                 </h2>
                 <p className="ph-notif-drawer-sub">Updates for your PawHub activity</p>
               </div>
-              <button
-                type="button"
-                className="ph-notif-drawer-markall"
-                disabled={sorted.length === 0 || sorted.every((n) => n.read)}
-                onClick={() => void markAllAsRead()}
-              >
-                Mark all read
-              </button>
+              <div className="ph-notif-drawer-actions">
+                <button
+                  type="button"
+                  className="ph-notif-drawer-markall"
+                  disabled={sorted.length === 0 || sorted.every((n) => n.read)}
+                  onClick={() => void markAllAsRead()}
+                >
+                  Mark all read
+                </button>
+                <button
+                  type="button"
+                  className="ph-notif-drawer-clearall"
+                  disabled={sorted.length === 0 || clearBusy}
+                  onClick={() => {
+                    if (sorted.length === 0) return;
+                    if (
+                      !window.confirm(
+                        "Remove all activity notifications from this list? This cannot be undone. Your messages are not deleted.",
+                      )
+                    ) {
+                      return;
+                    }
+                    setClearBusy(true);
+                    void clearAllNotifications()
+                      .catch(() => {
+                        /* ignore */
+                      })
+                      .finally(() => setClearBusy(false));
+                  }}
+                >
+                  {clearBusy ? "Clearing…" : "Clear all"}
+                </button>
+              </div>
             </header>
 
             <div className="ph-notif-drawer-scroll">
@@ -292,7 +289,12 @@ export function NotificationDrawer({ open, onClose }: NotificationDrawerProps) {
                       <h3 className="ph-notif-drawer-section-label">Activity</h3>
                       <div className="ph-notif-drawer-list">
                         {sorted.map((n) => (
-                          <NotificationRow key={n.id} n={n} onNavigate={onNavigate} />
+                          <NotificationRow
+                            key={n.id}
+                            n={n}
+                            onNavigate={onNavigate}
+                            onCloseDrawer={onClose}
+                          />
                         ))}
                       </div>
                     </div>

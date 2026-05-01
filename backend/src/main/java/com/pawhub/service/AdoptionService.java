@@ -6,6 +6,7 @@ import com.pawhub.repository.*;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.AdoptionListingDto;
 import com.pawhub.web.dto.AdoptionListingUpsertRequest;
+import com.pawhub.web.dto.AdminRemoveAdoptionListingRequest;
 import com.pawhub.web.dto.MessageDto;
 import com.pawhub.web.dto.ShelterDocumentKind;
 import com.pawhub.web.dto.ShelterDto;
@@ -14,9 +15,12 @@ import com.pawhub.web.dto.ShelterProfileUpdateRequest;
 import com.pawhub.web.dto.ShelterUpsertRequest;
 import com.pawhub.web.dto.SubmitShelterAppealRequest;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -39,6 +43,7 @@ public class AdoptionService {
     private final SimpMessagingTemplate messagingTemplate;
     private final PawhubProperties pawhubProperties;
     private final AiCatCheckService aiCatCheckService;
+    private final ChatService chatService;
 
     @Transactional
     public ShelterDto applyShelter(ShelterUpsertRequest req, SecurityUser principal) {
@@ -65,8 +70,39 @@ public class AdoptionService {
         return ShelterDtoMapper.fromEntity(s);
     }
 
+    /**
+     * Returns the signed-in user's shelter row. Shelter organization accounts automatically get a pending shelter
+     * stub on first access if none exists (legacy data or failed signup linkage), so they can complete the dossier.
+     */
+    @Transactional
     public Optional<ShelterDto> myShelter(SecurityUser principal) {
-        return shelterRepository.findByUserId(principal.getId()).map(ShelterDtoMapper::fromEntity);
+        Optional<Shelter> existing = shelterRepository.findByUserId(principal.getId());
+        if (existing.isPresent()) {
+            return Optional.of(ShelterDtoMapper.fromEntity(existing.get()));
+        }
+        if (principal.getUser().getAccountType() != UserAccountType.SHELTER) {
+            return Optional.empty();
+        }
+        try {
+            User user = userRepository.findById(principal.getId()).orElseThrow();
+            Shelter s = Shelter.builder()
+                    .user(user)
+                    .name(defaultShelterNameForUser(user))
+                    .status(ShelterStatus.PENDING)
+                    .build();
+            shelterRepository.saveAndFlush(s);
+            return Optional.of(ShelterDtoMapper.fromEntity(s));
+        } catch (DataIntegrityViolationException ex) {
+            return shelterRepository.findByUserId(principal.getId()).map(ShelterDtoMapper::fromEntity);
+        }
+    }
+
+    private static String defaultShelterNameForUser(User user) {
+        String n = user.getDisplayName();
+        if (n != null && !n.isBlank()) {
+            return n.trim();
+        }
+        return "Shelter organization";
     }
 
     @Transactional
@@ -136,8 +172,7 @@ public class AdoptionService {
     public List<AdoptionListingDto> mineListings(SecurityUser principal) {
         requireVerifiedShelterPublisher(principal);
         Shelter s = shelterRepository.findByUserId(principal.getId()).orElseThrow();
-        return adoptionListingRepository.findByShelterIdAndStatusOrderByCreatedAtDesc(s.getId(), ListingStatus.ACTIVE)
-                .stream()
+        return adoptionListingRepository.findByShelter_IdOrderByCreatedAtDesc(s.getId()).stream()
                 .map(this::toAdoptionDto)
                 .toList();
     }
@@ -155,6 +190,10 @@ public class AdoptionService {
     @Transactional
     public AdoptionListingDto createListing(AdoptionListingUpsertRequest req, SecurityUser principal) {
         requireVerifiedShelterPublisher(principal);
+        AdoptionListingTextValidator.rejectReason(req.title(), req.petName(), req.description(), req.breed())
+                .ifPresent(msg -> {
+                    throw new IllegalArgumentException(msg);
+                });
         Shelter s = shelterRepository.findByUserId(principal.getId()).orElseThrow();
         AdoptionListing l = AdoptionListing.builder()
                 .shelter(s)
@@ -193,8 +232,14 @@ public class AdoptionService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot update a listing that is no longer active.");
         }
         if (aiCatCheckService.isCatCheckEnabled()) {
-            com.pawhub.web.dto.CatCheckResponse cat =
-                    aiCatCheckService.verifyAdoptionListingCatPhoto(photo.getBytes(), photo.getContentType());
+            com.pawhub.web.dto.CatCheckResponse cat = aiCatCheckService.verifyAdoptionListingPhotoMatchesText(
+                    photo.getBytes(),
+                    photo.getContentType(),
+                    l.getTitle(),
+                    l.getPetName(),
+                    l.getDescription(),
+                    l.getBreed(),
+                    l.getAgeMonths());
             if (!cat.isCatRelated()) {
                 throw new AiCatCheckService.CatCheckFailedException(cat.reason());
             }
@@ -289,6 +334,87 @@ public class AdoptionService {
         return toAdoptionDto(l);
     }
 
+    /**
+     * From an adoption message thread, the listing shelter records whether this adopter is taking the pet (confirms
+     * listing) or the adoption is not going ahead (listing stays open unless already placed elsewhere).
+     */
+    @Transactional
+    public void shelterSetInquiryOutcome(long threadId, String decision, SecurityUser principal) {
+        requireVerifiedShelterPublisher(principal);
+        if (!"CONFIRM".equalsIgnoreCase(decision) && !"DECLINE".equalsIgnoreCase(decision)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "decision must be CONFIRM or DECLINE");
+        }
+        boolean confirm = "CONFIRM".equalsIgnoreCase(decision);
+        ChatThread thread =
+                chatThreadRepository.findById(threadId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (thread.getType() != ThreadType.ADOPTION) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "This action only applies to adoption message threads.");
+        }
+        AdoptionInquiry inq = adoptionInquiryRepository
+                .findByThread_Id(threadId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Adoption inquiry not found."));
+        if (inq.getOutcome() != AdoptionInquiryOutcome.PENDING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This inquiry was already updated.");
+        }
+        Shelter shelter = shelterRepository.findByUserId(principal.getId()).orElseThrow();
+        AdoptionListing listing = inq.getAdoptionListing();
+        if (!listing.getShelter().getId().equals(shelter.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Only the listing shelter can record an adoption outcome here.");
+        }
+        User shelterUser = userRepository
+                .findById(shelter.getUser().getId())
+                .orElseThrow();
+        User inquirer = inq.getUser();
+        String petLabel = listing.getPetName() != null && !listing.getPetName().isBlank()
+                ? listing.getPetName().trim()
+                : listing.getTitle().trim();
+        if (confirm) {
+            if (listing.getStatus() != ListingStatus.ACTIVE) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "This pet is not listed as available — it may already be adopted. You can use Decline to close this inquiry for records.");
+            }
+            inq.setOutcome(AdoptionInquiryOutcome.CONFIRMED);
+            listing.setStatus(ListingStatus.SOLD);
+            adoptionInquiryRepository.save(inq);
+            adoptionListingRepository.save(listing);
+            String line = "Paw Adopt: "
+                    + petLabel
+                    + " is marked as adopted. Thank you for completing this placement.";
+            chatService.postAdoptionStatusLine(threadId, shelterUser.getId(), line);
+            appNotificationService.publishWithInboxNudge(
+                    inquirer.getId(),
+                    AppNotificationKind.ADOPTION_INQUIRY_OUTCOME_ADOPTED,
+                    "Adoption complete",
+                    String.format(
+                            "%s marked %s as adopted — the listing is closed. Open Messages to celebrate.",
+                            shelter.getName() != null ? shelter.getName() : "The shelter", petLabel),
+                    "/messages/" + threadId,
+                    "shelter",
+                    shelterUser.getAvatarUrl());
+        } else {
+            inq.setOutcome(AdoptionInquiryOutcome.DECLINED);
+            adoptionInquiryRepository.save(inq);
+            String line =
+                    "Paw Adopt: the shelter has noted that this placement is not going ahead with this inquiry. The adoption"
+                            + " did not go through; the pet may still be available for a different home (check the"
+                            + " listing).";
+            chatService.postAdoptionStatusLine(threadId, shelterUser.getId(), line);
+            appNotificationService.publishWithInboxNudge(
+                    inquirer.getId(),
+                    AppNotificationKind.ADOPTION_INQUIRY_OUTCOME_DECLINED,
+                    "Inquiry update",
+                    String.format(
+                            "%s updated the adoption for %s — the shelter indicated this home did not go ahead.",
+                            shelter.getName() != null ? shelter.getName() : "The shelter", petLabel),
+                    "/messages/" + threadId,
+                    "shelter",
+                    shelterUser.getAvatarUrl());
+        }
+    }
+
     @Transactional
     public void deleteAdoptedListing(long listingId, SecurityUser principal) {
         requireVerifiedShelterPublisher(principal);
@@ -342,23 +468,88 @@ public class AdoptionService {
     }
 
     @Transactional
-    public void adminRemoveAdoptionListing(long listingId) {
-        AdoptionListing l = adoptionListingRepository.findById(listingId).orElseThrow();
-        User shelterUser = l.getShelter().getUser();
-        String petLabel = l.getPetName() != null && !l.getPetName().isBlank()
-                ? "'" + l.getPetName().trim().replace("\"", "'") + "'"
-                : "\"" + l.getTitle().trim().replace("\"", "'") + "\"";
+    public void adminRemoveAdoptionListing(
+            long listingId, AdminRemoveAdoptionListingRequest req, SecurityUser admin) {
+        AdminRemoveAdoptionListingRequest body = req != null ? req : AdminRemoveAdoptionListingRequest.defaults();
+        AdoptionListing l = adoptionListingRepository
+                .findById(listingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found"));
+        User shelterUser = userRepository.findById(l.getShelter().getUser().getId()).orElseThrow();
+        Long shelterOwnerId = shelterUser.getId();
+
+        String petTitle = l.getPetName() != null && !l.getPetName().isBlank()
+                ? l.getPetName().trim()
+                : l.getTitle().trim();
+        String titleShort = petTitle.length() > 120 ? petTitle.substring(0, 117) + "…" : petTitle;
+
+        String reason = body.reason() != null && !body.reason().isBlank()
+                ? body.reason().trim()
+                : "No reason was provided.";
+        String reasonShort = reason.length() > 800 ? reason.substring(0, 797) + "…" : reason;
+
+        User adminUser = userRepository.findById(admin.getId()).orElseThrow();
+        List<AdoptionInquiry> inquiries = adoptionInquiryRepository.findByAdoptionListing_Id(listingId);
+        String adminMsg = "⚠️ Moderation: The adoption listing \""
+                + titleShort.replace("\"", "'")
+                + "\" was removed.\nReason: "
+                + reasonShort;
+        Set<Long> postedThreads = new HashSet<>();
+        for (AdoptionInquiry inq : inquiries) {
+            ChatThread t = inq.getThread();
+            if (!postedThreads.add(t.getId())) {
+                continue;
+            }
+            Message m = messageRepository.save(Message.builder()
+                    .thread(t)
+                    .sender(adminUser)
+                    .body(adminMsg)
+                    .build());
+            MessageDto dto = new MessageDto(
+                    m.getId(),
+                    adminUser.getId(),
+                    m.getBody(),
+                    m.getCreatedAt(),
+                    m.getAttachmentUrl());
+            messagingTemplate.convertAndSend("/topic/threads." + t.getId(), dto);
+        }
+
         adoptionListingRepository.delete(l);
-        appNotificationService.publish(
-                shelterUser.getId(),
+
+        String notifBody = "Your adoption listing \""
+                + titleShort.replace("\"", "'")
+                + "\" was removed by an administrator. Reason: "
+                + reasonShort;
+        appNotificationService.publishWithInboxNudge(
+                shelterOwnerId,
                 AppNotificationKind.ADOPTION_LISTING_REMOVED_ADMIN,
-                "Adoption listing removed",
-                String.format(
-                        "An administrator removed your adoption listing for %s from Paw Adopt.",
-                        petLabel),
+                "Adoption listing removed by admin",
+                notifBody,
                 "/adopt/shelter",
                 "shelter",
                 null);
+
+        if (body.warnShelter()) {
+            appNotificationService.publishWithInboxNudge(
+                    shelterOwnerId,
+                    AppNotificationKind.ADMIN_PAW_ADOPT_SHELTER_WARNED,
+                    "Paw Adopt warning",
+                    "A moderator issued a warning related to your Paw Adopt listings. Reason: " + reasonShort,
+                    "/adopt/shelter",
+                    "urgent",
+                    null);
+        }
+        if (body.banShelter()) {
+            shelterUser.setPawAdoptBanned(true);
+            userRepository.save(shelterUser);
+            appNotificationService.publishWithInboxNudge(
+                    shelterOwnerId,
+                    AppNotificationKind.ADMIN_PAW_ADOPT_SHELTER_BANNED,
+                    "Banned from Paw Adopt listings",
+                    "Your account can no longer publish or manage adoption listings on Paw Adopt. Reason: " + reasonShort,
+                    "/adopt/shelter",
+                    "urgent",
+                    null);
+        }
     }
 
     private void ensureAdoptionIntroMessage(
@@ -371,7 +562,7 @@ public class AdoptionService {
                 ? listing.getPetName().trim()
                 : listing.getTitle().trim();
         String intro = String.format(
-                "\uD83D\uDC3E %s is asking about adopting %s and wants to learn more.\n\nView this cat: %s",
+                "\uD83D\uDC3E %s is asking about adopting %s and wants to learn more.\n\nView adoption listing: %s",
                 inquirer.getDisplayName(), petTitle, listingUrl);
         Message msg = Message.builder()
                 .thread(thread)
@@ -521,6 +712,14 @@ public class AdoptionService {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Your shelter is pending admin verification. You can publish listings after you are verified.");
+        }
+        if (principal.getUser().getRole() != UserRole.ADMIN) {
+            User publisher = userRepository.findById(principal.getId()).orElseThrow();
+            if (publisher.isPawAdoptBanned()) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Your account cannot publish or manage adoption listings on Paw Adopt.");
+            }
         }
     }
 }

@@ -10,4 +10,5 @@ public record ForumPostDto(
         String createdAt,
         int score,
         int commentCount,
-        Long helpfulCommentId) {}
+        Long helpfulCommentId,
+        boolean removedByAdmin) {}

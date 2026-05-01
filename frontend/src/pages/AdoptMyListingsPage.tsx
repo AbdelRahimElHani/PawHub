@@ -6,12 +6,17 @@ import { useAuth } from "../auth/AuthContext";
 import type { AdoptionListingDto, ShelterDto } from "../types";
 import "../adopt/adopt.css";
 
+function statusLabel(status: string): string {
+  if (status === "SOLD") return "Adopted";
+  if (status === "ARCHIVED") return "Archived";
+  return "Live";
+}
+
 export function AdoptMyListingsPage() {
   const { user, loading: authLoading } = useAuth();
   const [shelter, setShelter] = useState<ShelterDto | null | undefined>(undefined);
-  const [active, setActive] = useState<AdoptionListingDto[]>([]);
-  const [archive, setArchive] = useState<AdoptionListingDto[]>([]);
-  const [tab, setTab] = useState<"active" | "archive">("active");
+  const [listings, setListings] = useState<AdoptionListingDto[]>([]);
+  const [tab, setTab] = useState<"all" | "active" | "adopted">("all");
   const [err, setErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -29,18 +34,19 @@ export function AdoptMyListingsPage() {
 
   const load = useCallback(async () => {
     if (!canView) return;
+    if (user?.pawAdoptBanned) {
+      setListings([]);
+      setErr(null);
+      return;
+    }
     setErr(null);
     try {
-      const [a, z] = await Promise.all([
-        api<AdoptionListingDto[]>("/api/adopt/listings/mine"),
-        api<AdoptionListingDto[]>("/api/adopt/listings/mine/archive"),
-      ]);
-      setActive(a);
-      setArchive(z);
+      const all = await api<AdoptionListingDto[]>("/api/adopt/listings/mine");
+      setListings(all);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Could not load listings.");
     }
-  }, [canView]);
+  }, [canView, user?.pawAdoptBanned]);
 
   useEffect(() => {
     void load();
@@ -72,6 +78,15 @@ export function AdoptMyListingsPage() {
       setBusyId(null);
     }
   }
+
+  const activeCount = listings.filter((l) => l.status === "ACTIVE").length;
+  const adoptedCount = listings.filter((l) => l.status === "SOLD").length;
+  const rows =
+    tab === "active"
+      ? listings.filter((l) => l.status === "ACTIVE")
+      : tab === "adopted"
+        ? listings.filter((l) => l.status === "SOLD")
+        : listings;
 
   if (authLoading || (user && shelter === undefined)) {
     return (
@@ -124,8 +139,6 @@ export function AdoptMyListingsPage() {
     );
   }
 
-  const rows = tab === "active" ? active : archive;
-
   return (
     <div className="ph-surface adopt-form-shell" style={{ borderRadius: 24 }}>
       <p style={{ marginBottom: "0.75rem" }}>
@@ -137,13 +150,39 @@ export function AdoptMyListingsPage() {
           New listing
         </Link>
       </p>
-      <h1 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>My listings & archive</h1>
+      <h1 style={{ fontFamily: "var(--font-display)", marginTop: 0 }}>My listings</h1>
+      {user?.pawAdoptBanned ? (
+        <p
+          role="alert"
+          style={{
+            marginBottom: "1rem",
+            padding: "0.75rem 1rem",
+            borderRadius: 12,
+            background: "color-mix(in srgb, #b42318 12%, transparent)",
+            border: "1px solid color-mix(in srgb, #b42318 35%, transparent)",
+            fontSize: "0.92rem",
+            lineHeight: 1.5,
+            color: "var(--color-text)",
+          }}
+        >
+          Your account cannot publish or manage adoption listings on Paw Adopt until a moderator lifts this restriction.
+        </p>
+      ) : null}
       <p style={{ color: "var(--color-muted)", lineHeight: 1.6, marginBottom: "1.25rem" }}>
-        <strong>Active</strong> cats appear in the public gallery. After you mark a cat adopted, they move to your{" "}
-        <strong>archive</strong> until you delete the record.
+        Every listing for your shelter is listed below. <strong>Live</strong> cats appear in the public gallery; after you mark a cat{" "}
+        <strong>adopted</strong>, use the filters to focus on active or adopted rows—or delete adopted records when you no longer need them.
       </p>
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+        <button
+          type="button"
+          className="ph-btn ph-btn-ghost"
+          data-active={tab === "all"}
+          style={{ fontWeight: tab === "all" ? 700 : 500 }}
+          onClick={() => setTab("all")}
+        >
+          All ({listings.length})
+        </button>
         <button
           type="button"
           className="ph-btn ph-btn-ghost"
@@ -151,16 +190,16 @@ export function AdoptMyListingsPage() {
           style={{ fontWeight: tab === "active" ? 700 : 500 }}
           onClick={() => setTab("active")}
         >
-          Active ({active.length})
+          Active ({activeCount})
         </button>
         <button
           type="button"
           className="ph-btn ph-btn-ghost"
-          data-active={tab === "archive"}
-          style={{ fontWeight: tab === "archive" ? 700 : 500 }}
-          onClick={() => setTab("archive")}
+          data-active={tab === "adopted"}
+          style={{ fontWeight: tab === "adopted" ? 700 : 500 }}
+          onClick={() => setTab("adopted")}
         >
-          Adopted archive ({archive.length})
+          Adopted ({adoptedCount})
         </button>
       </div>
 
@@ -172,7 +211,13 @@ export function AdoptMyListingsPage() {
 
       {rows.length === 0 ? (
         <p style={{ color: "var(--color-muted)" }}>
-          {tab === "active" ? "No active listings right now." : "No adopted listings in your archive."}
+          {user?.pawAdoptBanned
+            ? "Listing management is unavailable while your account is restricted from Paw Adopt."
+            : tab === "all"
+              ? "No listings yet."
+              : tab === "active"
+                ? "No active listings right now."
+                : "No adopted listings yet."}
         </p>
       ) : (
         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
@@ -193,14 +238,14 @@ export function AdoptMyListingsPage() {
               <div style={{ minWidth: 0, flex: "1 1 200px" }}>
                 <strong style={{ color: "var(--color-primary-dark)" }}>{row.petName ?? row.title}</strong>
                 <span style={{ color: "var(--color-muted)", fontSize: "0.82rem", marginLeft: "0.5rem" }}>
-                  {row.status === "SOLD" ? "Adopted" : "Live"}
+                  {statusLabel(row.status)}
                 </span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
                 <Link className="ph-btn ph-btn-ghost" style={{ fontSize: "0.82rem" }} to={`/adopt/${row.id}`}>
                   Open
                 </Link>
-                {tab === "active" ? (
+                {row.status === "ACTIVE" ? (
                   <button
                     type="button"
                     className="ph-btn ph-btn-primary"
@@ -210,7 +255,7 @@ export function AdoptMyListingsPage() {
                   >
                     Mark adopted
                   </button>
-                ) : (
+                ) : row.status === "SOLD" ? (
                   <button
                     type="button"
                     className="ph-btn ph-btn-ghost"
@@ -221,7 +266,7 @@ export function AdoptMyListingsPage() {
                     <Trash2 size={14} aria-hidden style={{ marginRight: 4, verticalAlign: "middle" }} />
                     Delete
                   </button>
-                )}
+                ) : null}
               </div>
             </li>
           ))}

@@ -65,8 +65,8 @@ export function AdminVetReviewsPage() {
       </div>
 
       <p style={{ marginBottom: "1rem" }}>
-        <Link className="ph-btn ph-btn-ghost" to="/adopt/admin">
-          ← PawVet admin
+        <Link className="ph-btn ph-btn-ghost" to="/pawvet">
+          ← PawVet
         </Link>
       </p>
 

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ExternalLink, FileText, MessageCircle, X } from "lucide-react";
+import { Check, ExternalLink, FileText, Image as ImageIcon, MessageCircle, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
@@ -24,6 +24,111 @@ function looksLikePdfUrl(url: string): boolean {
   } catch {
     return /\.pdf(\?|$)/i.test(url.toLowerCase());
   }
+}
+
+function verificationStatusLabel(status: string): string {
+  if (status === "PENDING") return "Pending verification";
+  if (status === "APPROVED") return "Verified";
+  if (status === "REJECTED") return "Rejected";
+  return status;
+}
+
+function verificationStatusShort(status: string): string {
+  if (status === "PENDING") return "Pending";
+  if (status === "APPROVED") return "Verified";
+  if (status === "REJECTED") return "Rejected";
+  return status;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const label = verificationStatusShort(status);
+  const bg =
+    status === "APPROVED"
+      ? "rgba(22, 163, 74, 0.14)"
+      : status === "REJECTED"
+        ? "rgba(180, 35, 24, 0.12)"
+        : "rgba(217, 119, 6, 0.14)";
+  const color =
+    status === "APPROVED" ? "#15803d" : status === "REJECTED" ? "#b42318" : "#b45309";
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        fontSize: "0.65rem",
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: "0.04em",
+        padding: "0.15rem 0.45rem",
+        borderRadius: 999,
+        background: bg,
+        color,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function appealSummaryCompact(app: VetLicenseApplicationAdminDto) {
+  if (app.appealState === "PENDING" && (app.appealMessage || app.appealSubmittedAt)) {
+    return (
+      <span
+        style={{ fontSize: "0.72rem", fontWeight: 700, color: "#b45309", textTransform: "uppercase", letterSpacing: "0.02em" }}
+        title={[app.appealSubmittedAt ? new Date(app.appealSubmittedAt).toLocaleString() : "", app.appealMessage ?? ""].filter(Boolean).join("\n")}
+      >
+        Appeal
+      </span>
+    );
+  }
+  if (app.appealState === "REJECTED_FINAL") {
+    return (
+      <span style={{ fontSize: "0.72rem", color: "var(--color-muted)" }} title="Appeal closed">
+        Closed
+      </span>
+    );
+  }
+  return <span style={{ color: "var(--color-muted)" }}>—</span>;
+}
+
+function DocIconLinks({ urls }: { urls: string[] }) {
+  const list = urls ?? [];
+  if (list.length === 0) {
+    return <span style={{ color: "var(--color-muted)", fontSize: "0.75rem" }}>—</span>;
+  }
+  const max = 6;
+  const shown = list.slice(0, max);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+      {shown.map((url, i) => {
+        const img = looksLikeImageUrl(url);
+        const pdf = looksLikePdfUrl(url);
+        return (
+          <a
+            key={`${url}-${i}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`Open document ${i + 1}`}
+            className="ph-btn ph-btn-ghost"
+            style={{
+              padding: "0.2rem 0.35rem",
+              minWidth: "auto",
+              borderRadius: 8,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {img ? <ImageIcon size={15} aria-hidden /> : pdf ? <FileText size={15} aria-hidden /> : <ExternalLink size={15} aria-hidden />}
+          </a>
+        );
+      })}
+      {list.length > max ? (
+        <span style={{ fontSize: "0.68rem", color: "var(--color-muted)", fontWeight: 600 }}>+{list.length - max}</span>
+      ) : null}
+    </div>
+  );
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -124,7 +229,7 @@ function FullApplicationDialog({
             <DetailRow label="University" value={app.university} />
             <DetailRow label="Years experience" value={app.yearsExperience != null ? String(app.yearsExperience) : "—"} />
             <DetailRow label="Phone" value={app.phone ?? "—"} />
-            <DetailRow label="Status" value={app.status} />
+            <DetailRow label="Status" value={verificationStatusLabel(app.status)} />
             <DetailRow label="Submitted" value={new Date(app.createdAt).toLocaleString()} />
             {app.rejectionReason ? <DetailRow label="Rejection reason" value={app.rejectionReason} /> : null}
             {app.appealState === "PENDING" && app.appealMessage ? <DetailRow label="Appeal" value={app.appealMessage} /> : null}
@@ -145,12 +250,14 @@ function FullApplicationDialog({
           <div
             className="ph-surface"
             style={{
-              padding: "0.75rem",
-              marginBottom: "1.25rem",
-              fontSize: "0.9rem",
-              lineHeight: 1.55,
+              padding: "0.65rem",
+              marginBottom: "1rem",
+              fontSize: "0.85rem",
+              lineHeight: 1.45,
               whiteSpace: "pre-wrap",
               color: "var(--color-primary-dark)",
+              maxHeight: 140,
+              overflowY: "auto",
             }}
           >
             {app.professionalBio?.trim() ? app.professionalBio : "—"}
@@ -171,51 +278,10 @@ function FullApplicationDialog({
           {docs.length === 0 ? (
             <p style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>No files were uploaded with this application.</p>
           ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "1rem" }}>
-              {docs.map((url, i) => (
-                <li
-                  key={`${url}-${i}`}
-                  className="pawvet-glass-card"
-                  style={{
-                    padding: "0.9rem 1rem",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 10,
-                    background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(245,250,248,0.9))",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
-                    <div style={{ fontWeight: 700, color: "var(--color-primary-dark)" }}>Document {i + 1}</div>
-                    <a
-                      className="ph-btn ph-btn-primary"
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: "0.85rem", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
-                    >
-                      <ExternalLink size={16} aria-hidden />
-                      Open in new tab
-                    </a>
-                  </div>
-                  {looksLikePdfUrl(url) ? (
-                    <p style={{ margin: "0.5rem 0 0", fontSize: "0.82rem", color: "var(--color-muted)" }}>PDF — opens in your browser or viewer.</p>
-                  ) : null}
-                  {looksLikeImageUrl(url) ? (
-                    <div
-                      style={{
-                        marginTop: "0.75rem",
-                        borderRadius: 10,
-                        overflow: "hidden",
-                        border: "1px solid var(--color-border)",
-                        maxHeight: 280,
-                        background: "#f4f4f4",
-                      }}
-                    >
-                      <img src={url} alt={`Supporting document ${i + 1}`} style={{ width: "100%", height: "auto", display: "block", objectFit: "contain", maxHeight: 280 }} />
-                    </div>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <DocIconLinks urls={docs} />
+              <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "var(--color-muted)" }}>Icons open each file in a new tab (no inline preview).</p>
+            </div>
           )}
         </div>
 
@@ -235,14 +301,25 @@ function FullApplicationDialog({
   );
 }
 
-type QueueTab = "PENDING" | "APPROVED" | "REJECTED" | "APPEALS";
+type QueueTab = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "APPEALS";
+
+const TAB_ORDER: QueueTab[] = ["ALL", "PENDING", "APPROVED", "REJECTED", "APPEALS"];
+
+function tabButtonLabel(t: QueueTab): string {
+  if (t === "ALL") return "All";
+  if (t === "PENDING") return "Pending";
+  if (t === "APPROVED") return "Accepted";
+  if (t === "REJECTED") return "Rejected";
+  return "Appeals";
+}
 
 export function VetVerificationQueue() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const [tab, setTab] = useState<QueueTab>("PENDING");
+  const [tab, setTab] = useState<QueueTab>("ALL");
   const [rows, setRows] = useState<VetLicenseApplicationAdminDto[]>([]);
   const [metrics, setMetrics] = useState<VetApplicationMetricsDto | null>(null);
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [rejectFor, setRejectFor] = useState<VetLicenseApplicationAdminDto | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -252,11 +329,14 @@ export function VetVerificationQueue() {
 
   const load = useCallback(async () => {
     setErr(null);
+    setLoading(true);
     try {
       const m = await api<VetApplicationMetricsDto>("/api/admin/vet-applications/metrics");
       setMetrics(m);
-      let path = "/api/admin/vet-applications/pending";
-      if (tab === "APPROVED" || tab === "REJECTED") {
+      let path = "/api/admin/vet-applications/all";
+      if (tab === "PENDING") {
+        path = "/api/admin/vet-applications/pending";
+      } else if (tab === "APPROVED" || tab === "REJECTED") {
         path = `/api/admin/vet-applications/by-status?status=${tab}`;
       } else if (tab === "APPEALS") {
         path = "/api/admin/vet-applications/appeals-pending";
@@ -265,6 +345,8 @@ export function VetVerificationQueue() {
       setRows(list);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Failed to load queue");
+    } finally {
+      setLoading(false);
     }
   }, [tab]);
 
@@ -347,10 +429,7 @@ export function VetVerificationQueue() {
 
   const total = metrics?.total ?? 0;
   const verifiedCount = metrics?.approved ?? 0;
-  const pawvetBack = "/adopt/admin";
-
-  const showApproveRejectInTable = tab === "PENDING";
-  const showApproveRejectInDialog = tab === "PENDING" && detailApp?.status === "PENDING";
+  const pawvetBack = "/pawvet";
 
   return (
     <div className="pawvet-shell">
@@ -385,155 +464,174 @@ export function VetVerificationQueue() {
         </motion.div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
-        {(["PENDING", "APPROVED", "REJECTED", "APPEALS"] as const).map((t) => (
-          <button
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem", alignItems: "center" }}>
+        {TAB_ORDER.map((t) => (
+          <motion.button
             key={t}
             type="button"
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 520, damping: 28 }}
             className={tab === t ? "ph-btn ph-btn-primary" : "ph-btn ph-btn-ghost"}
             style={{ fontSize: "0.85rem" }}
-            onClick={() => setTab(t)}
+            onClick={() => {
+              setRows([]);
+              setTab(t);
+            }}
           >
-            {t === "PENDING" ? "Pending" : t === "APPROVED" ? "Accepted" : t === "REJECTED" ? "Rejected" : "Appeals"}
-          </button>
+            {tabButtonLabel(t)}
+          </motion.button>
         ))}
-        <Link className="ph-btn ph-btn-ghost" style={{ fontSize: "0.85rem", marginLeft: "auto" }} to="/adopt/admin/pawvet-reports">
+        <Link className="ph-btn ph-btn-ghost" style={{ fontSize: "0.85rem", marginLeft: "auto" }} to="/pawvet/admin/pawvet-reports">
           Vet reports
         </Link>
       </div>
 
-      <div className="pawvet-glass-card" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table className="pawvet-table">
-            <thead>
-              <tr>
-                <th>Applicant</th>
-                <th>License</th>
-                <th>University</th>
-                <th>Documents</th>
-                <th>Submitted</th>
-                {tab === "APPEALS" ? <th>Appeal</th> : null}
-                <th style={{ textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <AnimatePresence>
+      <div className="pawvet-glass-card" style={{ padding: 0, overflow: "hidden", minHeight: 160 }}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            role="region"
+            aria-busy={loading}
+            aria-label={`${tabButtonLabel(tab)} applications`}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: loading ? 0.5 : 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            style={{ overflowX: "auto" }}
+          >
+            <table className="pawvet-table pawvet-table--compact">
+              <thead>
+                <tr>
+                  <th>Applicant</th>
+                  <th>Status</th>
+                  <th>License #</th>
+                  <th>Files</th>
+                  <th>Submitted</th>
+                  <th>Appeal</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={tab === "APPEALS" ? 7 : 6} style={{ padding: "1.5rem", color: "var(--color-muted)", textAlign: "center" }}>
-                      No rows in this view.
+                    <td colSpan={7} style={{ padding: "1.25rem", color: "var(--color-muted)", textAlign: "center" }}>
+                      {loading ? "Loading…" : "No rows in this view."}
                     </td>
                   </tr>
                 ) : (
-                  rows.map((app) => (
-                    <motion.tr key={app.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-                          <Link to={`/users/${app.userId}`} title="Public profile" style={{ flexShrink: 0 }}>
-                            {app.avatarUrl ? (
-                              <img
-                                src={app.avatarUrl}
-                                alt=""
-                                width={40}
-                                height={40}
-                                style={{ borderRadius: "50%", objectFit: "cover", border: "1px solid var(--color-border)" }}
-                              />
-                            ) : (
-                              <span
-                                style={{
-                                  width: 40,
-                                  height: 40,
-                                  borderRadius: "50%",
-                                  background: "#eef6f4",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: "0.75rem",
-                                  fontWeight: 700,
-                                  color: "var(--color-primary-dark)",
+                  rows.map((app) => {
+                    const showAppealActions = tab === "APPEALS" || (tab === "ALL" && app.appealState === "PENDING");
+                    const showPendingActions = app.status === "PENDING" && (tab === "PENDING" || tab === "ALL");
+                    return (
+                      <tr key={app.id}>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                            <Link to={`/users/${app.userId}`} title="Public profile" style={{ flexShrink: 0 }}>
+                              {app.avatarUrl ? (
+                                <img
+                                  src={app.avatarUrl}
+                                  alt=""
+                                  width={32}
+                                  height={32}
+                                  style={{ borderRadius: "50%", objectFit: "cover", border: "1px solid var(--color-border)" }}
+                                />
+                              ) : (
+                                <span
+                                  style={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: "50%",
+                                    background: "#eef6f4",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "0.68rem",
+                                    fontWeight: 700,
+                                    color: "var(--color-primary-dark)",
+                                  }}
+                                >
+                                  {app.displayName.slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                            </Link>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: "0.82rem", lineHeight: 1.2 }}>{app.displayName}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <StatusBadge status={app.status} />
+                        </td>
+                        <td style={{ fontSize: "0.78rem", color: "var(--color-primary-dark)", maxWidth: 120 }} title={app.licenseNumber}>
+                          <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {app.licenseNumber}
+                          </span>
+                        </td>
+                        <td>
+                          <DocIconLinks urls={app.supportingDocumentUrls ?? []} />
+                        </td>
+                        <td style={{ fontSize: "0.75rem", color: "var(--color-muted)", whiteSpace: "nowrap" }}>
+                          {new Date(app.createdAt).toLocaleDateString()}
+                        </td>
+                        <td>{appealSummaryCompact(app)}</td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <button
+                            type="button"
+                            className="ph-btn ph-btn-ghost"
+                            style={{ fontSize: "0.82rem", padding: "0.25rem 0.45rem" }}
+                            title="Message applicant"
+                            onClick={() => void openDm(app.userId)}
+                          >
+                            <MessageCircle size={14} aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            className="ph-btn ph-btn-primary"
+                            style={{ fontSize: "0.82rem", padding: "0.25rem 0.55rem", marginLeft: 4 }}
+                            onClick={() => setDetailApp(app)}
+                          >
+                            <FileText size={14} style={{ marginRight: 4, verticalAlign: "middle" }} aria-hidden />
+                            View
+                          </button>
+                          {showAppealActions ? (
+                            <>
+                              <button type="button" className="ph-btn ph-btn-accent" style={{ fontSize: "0.82rem", marginLeft: 6 }} onClick={() => void acceptAppeal(app.id)}>
+                                Accept appeal
+                              </button>
+                              <button
+                                type="button"
+                                className="ph-btn ph-btn-ghost"
+                                style={{ fontSize: "0.82rem", marginLeft: 6, color: "#b42318" }}
+                                onClick={() => {
+                                  setRejectAppealFor(app);
+                                  setRejectAppealNote("");
                                 }}
                               >
-                                {app.displayName.slice(0, 2).toUpperCase()}
-                              </span>
-                            )}
-                          </Link>
-                          <div>
-                            <div style={{ fontWeight: 600 }}>{app.displayName}</div>
-                            <div style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}>{app.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>{app.licenseNumber}</td>
-                      <td>{app.university}</td>
-                      <td style={{ fontSize: "0.85rem", color: "var(--color-muted)" }}>
-                        {(app.supportingDocumentUrls ?? []).length} file{(app.supportingDocumentUrls ?? []).length === 1 ? "" : "s"}
-                      </td>
-                      <td style={{ fontSize: "0.85rem", color: "var(--color-muted)" }}>{new Date(app.createdAt).toLocaleDateString()}</td>
-                      {tab === "APPEALS" ? (
-                        <td style={{ fontSize: "0.82rem", color: "var(--color-primary-dark)", maxWidth: 220 }}>
-                          {app.appealSubmittedAt ? new Date(app.appealSubmittedAt).toLocaleString() : "—"}
-                          {app.appealMessage ? (
-                            <div style={{ marginTop: 4, color: "var(--color-muted)", whiteSpace: "pre-wrap" }}>{app.appealMessage}</div>
+                                Reject appeal
+                              </button>
+                            </>
+                          ) : null}
+                          {showPendingActions ? (
+                            <>
+                              <button type="button" className="ph-btn ph-btn-accent" style={{ fontSize: "0.82rem", marginLeft: 6 }} onClick={() => void approve(app.id)}>
+                                <Check size={14} style={{ marginRight: 4, verticalAlign: "middle" }} aria-hidden />
+                                Approve
+                              </button>
+                              <button type="button" className="ph-btn ph-btn-ghost" style={{ fontSize: "0.82rem", marginLeft: 6, color: "#b42318" }} onClick={() => openReject(app)}>
+                                <X size={14} style={{ marginRight: 4, verticalAlign: "middle" }} aria-hidden />
+                                Reject
+                              </button>
+                            </>
                           ) : null}
                         </td>
-                      ) : null}
-                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                        <button
-                          type="button"
-                          className="ph-btn ph-btn-ghost"
-                          style={{ fontSize: "0.82rem", padding: "0.25rem 0.45rem" }}
-                          title="Message applicant"
-                          onClick={() => void openDm(app.userId)}
-                        >
-                          <MessageCircle size={14} aria-hidden />
-                        </button>
-                        <button
-                          type="button"
-                          className="ph-btn ph-btn-primary"
-                          style={{ fontSize: "0.82rem", padding: "0.25rem 0.55rem", marginLeft: 4 }}
-                          onClick={() => setDetailApp(app)}
-                        >
-                          <FileText size={14} style={{ marginRight: 4, verticalAlign: "middle" }} aria-hidden />
-                          View
-                        </button>
-                        {tab === "APPEALS" ? (
-                          <>
-                            <button type="button" className="ph-btn ph-btn-accent" style={{ fontSize: "0.82rem", marginLeft: 6 }} onClick={() => void acceptAppeal(app.id)}>
-                              Accept appeal
-                            </button>
-                            <button
-                              type="button"
-                              className="ph-btn ph-btn-ghost"
-                              style={{ fontSize: "0.82rem", marginLeft: 6, color: "#b42318" }}
-                              onClick={() => {
-                                setRejectAppealFor(app);
-                                setRejectAppealNote("");
-                              }}
-                            >
-                              Reject appeal
-                            </button>
-                          </>
-                        ) : null}
-                        {showApproveRejectInTable ? (
-                          <>
-                            <button type="button" className="ph-btn ph-btn-accent" style={{ fontSize: "0.82rem", marginLeft: 6 }} onClick={() => void approve(app.id)}>
-                              <Check size={14} style={{ marginRight: 4, verticalAlign: "middle" }} aria-hidden />
-                              Approve
-                            </button>
-                            <button type="button" className="ph-btn ph-btn-ghost" style={{ fontSize: "0.82rem", marginLeft: 6, color: "#b42318" }} onClick={() => openReject(app)}>
-                              <X size={14} style={{ marginRight: 4, verticalAlign: "middle" }} aria-hidden />
-                              Reject
-                            </button>
-                          </>
-                        ) : null}
-                      </td>
-                    </motion.tr>
-                  ))
+                      </tr>
+                    );
+                  })
                 )}
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {detailApp ? (
@@ -542,7 +640,7 @@ export function VetVerificationQueue() {
           onClose={() => setDetailApp(null)}
           onApprove={(id) => void approve(id)}
           onReject={(a) => openReject(a)}
-          showApproveReject={showApproveRejectInDialog}
+          showApproveReject={detailApp.status === "PENDING"}
         />
       ) : null}
 

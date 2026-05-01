@@ -43,7 +43,13 @@ export function MarketHubLayout() {
           <Link className="ph-btn ph-btn-accent" to="/market/new">
             + List an item
           </Link>
-        ) : null}
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+            <Link className="ph-btn ph-btn-ghost" to="/adopt/admin/banned-accounts" style={{ fontSize: "0.88rem" }}>
+              Banned sellers &amp; shelters
+            </Link>
+          </div>
+        )}
       </div>
 
       <nav className="pm-hub-tabs" aria-label="Paw Market sections">

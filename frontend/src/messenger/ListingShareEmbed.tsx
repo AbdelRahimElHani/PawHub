@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { useMediaLightbox } from "../components/media/MediaLightboxContext";
 import type { PawListingDto } from "../types";
 
 const cache = new Map<number, PawListingDto>();
@@ -14,6 +15,7 @@ type Props = {
  * Rich preview for a shared Paw Market listing (no raw URL — tap card to open listing).
  */
 export function ListingShareEmbed({ listingId, mine }: Props) {
+  const { openMedia } = useMediaLightbox();
   const [listing, setListing] = useState<PawListingDto | null>(() => cache.get(listingId) ?? null);
   const [failed, setFailed] = useState(false);
 
@@ -60,19 +62,25 @@ export function ListingShareEmbed({ listingId, mine }: Props) {
   const priceLabel = listing.isFree ? "FREE" : `$${(listing.priceCents / 100).toFixed(2)}`;
 
   return (
-    <Link
-      to={`/market/${listing.id}`}
-      className={"ph-listing-embed" + (mine ? " ph-listing-embed--mine" : "")}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="ph-listing-embed__thumb">
+    <div className={"ph-listing-embed" + (mine ? " ph-listing-embed--mine" : "")}>
+      <button
+        type="button"
+        className="ph-listing-embed__thumb ph-listing-embed__thumb--open"
+        disabled={!cover}
+        onClick={() => cover && openMedia(cover, listing.title)}
+        aria-label={cover ? "View listing photo full size" : undefined}
+      >
         {cover ? <img src={cover} alt="" /> : <span className="ph-listing-embed__placeholder">🐾</span>}
-      </div>
-      <div className="ph-listing-embed__body">
+      </button>
+      <Link
+        to={`/market/${listing.id}`}
+        className="ph-listing-embed__body"
+        onClick={(e) => e.stopPropagation()}
+      >
         <span className="ph-listing-embed__label">Paw Market</span>
         <span className="ph-listing-embed__title">{listing.title}</span>
         <span className="ph-listing-embed__price">{priceLabel}</span>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

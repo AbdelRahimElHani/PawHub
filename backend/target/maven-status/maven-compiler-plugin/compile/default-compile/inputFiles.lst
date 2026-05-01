@@ -15,6 +15,7 @@ C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\Sw
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\security\JwtService.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\CatBehavior.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\repository\hub\HubFaqItemRepository.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\service\AdminUserBanService.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\MarketController.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\NotificationController.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\HubController.java
@@ -123,6 +124,7 @@ C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\config
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\DiscoverUserDto.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\repository\PawReviewRepository.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\GlobalExceptionHandler.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\AdminRemoveAdoptionListingRequest.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\hub\HubEditorialLinkDto.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\AdoptionInquiry.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\UserRole.java
@@ -184,6 +186,7 @@ C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dt
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\service\PawvetConsultationReviewService.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\PawOrder.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\VetLicenseCredentialController.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\BannedUserAdminDto.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\PawVetConsultationReviewController.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\service\AdminVetLicenseService.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\FriendshipStatus.java
@@ -208,10 +211,12 @@ C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\servic
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\DmRequestStatus.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\repository\VetLicenseApplicationRepository.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\hub\HubFaqItemDto.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\ShelterAdoptionOutcomeRequest.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\AppNotificationPushPayload.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\hub\ForumHelpfulRequest.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\MarketListing.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\security\SecurityUser.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\AdoptionInquiryOutcome.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dto\hub\HubFaqUpsertRequest.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\PawVetPublicController.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\UserFriendship.java
@@ -228,3 +233,4 @@ C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\dt
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\VetAppealState.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\domain\PawvetVetReport.java
 C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\web\AdoptableCatsController.java
+C:\Users\siraj_eduway\Desktop\New folder\backend\src\main\java\com\pawhub\service\AdoptionListingTextValidator.java

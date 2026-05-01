@@ -14,9 +14,11 @@ import java.text.Normalizer;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +50,7 @@ public class HubForumService {
                 .findBySlug(PAWHUB_HOME_ROOM_SLUG)
                 .orElseThrow(() -> new NoSuchElementException("Announcements room not found"));
         return postRepository.findByRoomOrderByCreatedAtDesc(room).stream()
+                .filter(p -> !p.isRemovedByAdmin())
                 .limit(Math.max(1, limit))
                 .map(this::toPostDto)
                 .toList();
@@ -74,15 +77,23 @@ public class HubForumService {
         HubForumRoom room =
                 roomRepository.findBySlug(roomSlug).orElseThrow(() -> new NoSuchElementException("Room not found"));
         return postRepository.findByRoomOrderByCreatedAtDesc(room).stream()
+                .filter(p -> !p.isRemovedByAdmin())
                 .map(this::toPostDto)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public ForumPostDetailDto getPostDetail(long postId, Long currentUserId) {
+    public ForumPostDetailDto getPostDetail(long postId, Long currentUserId, boolean viewerIsAdmin) {
         HubForumPost post = postRepository
                 .findById(postId)
                 .orElseThrow(() -> new NoSuchElementException("Post not found"));
+        if (post.isRemovedByAdmin()) {
+            boolean allowed =
+                    viewerIsAdmin || (currentUserId != null && post.getAuthor().getId().equals(currentUserId));
+            if (!allowed) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "This thread was removed.");
+            }
+        }
         List<HubForumComment> flat = commentRepository.findByPostOrderByIdAsc(post);
         List<ForumCommentDto> tree = buildCommentTree(flat);
         Integer myVote = null;
@@ -119,6 +130,7 @@ public class HubForumService {
     public ForumCommentDto addComment(long postId, Long userId, ForumNewCommentRequest req) {
         HubForumPost post =
                 postRepository.findById(postId).orElseThrow(() -> new NoSuchElementException("Post not found"));
+        assertPostActiveForCommunity(post);
         User author =
                 userRepository.findById(userId).orElseThrow(() -> new NoSuchElementException("User not found"));
         String body = req.body() == null ? "" : req.body().trim();
@@ -181,13 +193,14 @@ public class HubForumService {
     }
 
     @Transactional
-    public ForumPostDetailDto vote(long postId, Long userId, ForumVoteRequest req) {
+    public ForumPostDetailDto vote(long postId, Long userId, ForumVoteRequest req, boolean viewerIsAdmin) {
         int newVal = req.value();
         if (newVal != -1 && newVal != 0 && newVal != 1) {
             throw new IllegalArgumentException("Vote must be -1, 0, or 1");
         }
         HubForumPost post =
                 postRepository.findById(postId).orElseThrow(() -> new NoSuchElementException("Post not found"));
+        assertPostActiveForCommunity(post);
         int oldVal = voteRepository
                 .findByPostIdAndUserId(postId, userId)
                 .map(HubForumPostVote::getVoteValue)
@@ -220,13 +233,14 @@ public class HubForumService {
                     "forum",
                     null);
         }
-        return getPostDetail(postId, userId);
+        return getPostDetail(postId, userId, viewerIsAdmin);
     }
 
     @Transactional
-    public ForumPostDetailDto markHelpful(long postId, Long userId, long commentId) {
+    public ForumPostDetailDto markHelpful(long postId, Long userId, long commentId, boolean viewerIsAdmin) {
         HubForumPost post =
                 postRepository.findById(postId).orElseThrow(() -> new NoSuchElementException("Post not found"));
+        assertPostActiveForCommunity(post);
         if (!post.getAuthor().getId().equals(userId)) {
             throw new IllegalStateException("Only the post author can mark a helpful answer");
         }
@@ -244,11 +258,11 @@ public class HubForumService {
             post.setHelpfulCommentId(commentId);
         }
         postRepository.save(post);
-        return getPostDetail(postId, userId);
+        return getPostDetail(postId, userId, viewerIsAdmin);
     }
 
     @Transactional
-    public ForumPostDetailDto editOwnComment(long commentId, long userId, ForumCommentEditRequest req) {
+    public ForumPostDetailDto editOwnComment(long commentId, long userId, ForumCommentEditRequest req, boolean viewerIsAdmin) {
         HubForumComment c =
                 commentRepository.findById(commentId).orElseThrow(() -> new NoSuchElementException("Comment not found"));
         if (c.isDeleted()) {
@@ -257,24 +271,26 @@ public class HubForumService {
         if (!c.getAuthor().getId().equals(userId)) {
             throw new IllegalStateException("You can only edit your own comments.");
         }
+        assertPostActiveForCommunity(c.getPost());
         String body = req.body() == null ? "" : req.body().trim();
         if (body.isEmpty() && (c.getAttachmentUrl() == null || c.getAttachmentUrl().isBlank())) {
             throw new IllegalArgumentException("Comment text cannot be empty unless an image is attached.");
         }
         c.setBody(body);
         commentRepository.save(c);
-        return getPostDetail(c.getPost().getId(), userId);
+        return getPostDetail(c.getPost().getId(), userId, viewerIsAdmin);
     }
 
     @Transactional
-    public ForumPostDetailDto deleteOwnComment(long commentId, long userId) {
+    public ForumPostDetailDto deleteOwnComment(long commentId, long userId, boolean viewerIsAdmin) {
         HubForumComment c =
                 commentRepository.findById(commentId).orElseThrow(() -> new NoSuchElementException("Comment not found"));
         if (!c.getAuthor().getId().equals(userId)) {
             throw new IllegalStateException("You can only delete your own comments.");
         }
+        assertPostActiveForCommunity(c.getPost());
         if (c.isDeleted()) {
-            return getPostDetail(c.getPost().getId(), userId);
+            return getPostDetail(c.getPost().getId(), userId, viewerIsAdmin);
         }
         softDeleteComment(c, false);
         HubForumPost post = c.getPost();
@@ -283,7 +299,7 @@ public class HubForumService {
             post.setHelpfulCommentId(null);
         }
         postRepository.save(post);
-        return getPostDetail(post.getId(), userId);
+        return getPostDetail(post.getId(), userId, viewerIsAdmin);
     }
 
     @Transactional
@@ -306,7 +322,32 @@ public class HubForumService {
     public void adminDeletePost(long postId) {
         HubForumPost post =
                 postRepository.findById(postId).orElseThrow(() -> new NoSuchElementException("Post not found"));
-        postRepository.delete(post);
+        if (post.isRemovedByAdmin()) {
+            return;
+        }
+        post.setRemovedByAdmin(true);
+        postRepository.save(post);
+        User author = post.getAuthor();
+        String roomTitle = post.getRoom().getTitle();
+        String titleShort = post.getTitle().length() > 120 ? post.getTitle().substring(0, 117) + "…" : post.getTitle();
+        String titleSafe = titleShort.replace("\"", "'");
+        String excerpt = excerptForNotification(post.getBody(), 900);
+        String deepLink = "/hub/community/" + post.getRoom().getSlug() + "/p/" + post.getId();
+        String body = "A moderator removed your community thread \""
+                + titleSafe
+                + "\" from "
+                + roomTitle.replace("\"", "'")
+                + ".\n\nPreview of what you posted:\n"
+                + excerpt
+                + "\n\nOpen this notification’s link to read your full post and the reply thread.";
+        appNotificationService.publishWithInboxNudge(
+                author.getId(),
+                AppNotificationKind.FORUM_POST_REMOVED_ADMIN,
+                "Community thread removed",
+                body,
+                deepLink,
+                "forum",
+                null);
     }
 
     @Transactional
@@ -347,7 +388,25 @@ public class HubForumService {
                 ISO.format(p.getCreatedAt()),
                 p.getScore(),
                 p.getCommentCount(),
-                p.getHelpfulCommentId());
+                p.getHelpfulCommentId(),
+                p.isRemovedByAdmin());
+    }
+
+    private static void assertPostActiveForCommunity(HubForumPost post) {
+        if (post.isRemovedByAdmin()) {
+            throw new IllegalStateException("This thread was removed by a moderator.");
+        }
+    }
+
+    private static String excerptForNotification(String body, int maxLen) {
+        if (body == null) {
+            return "";
+        }
+        String s = body.replace("\r\n", "\n").trim();
+        if (s.length() <= maxLen) {
+            return s;
+        }
+        return s.substring(0, maxLen - 1) + "…";
     }
 
     private List<ForumCommentDto> buildCommentTree(List<HubForumComment> flat) {

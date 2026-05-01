@@ -25,4 +25,8 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM AppNotification n WHERE n.id = :id AND n.user.id = :userId")
     int deleteByIdAndUserId(@Param("id") long id, @Param("userId") long userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM AppNotification n WHERE n.user.id = :userId")
+    int deleteAllByUser_Id(@Param("userId") long userId);
 }

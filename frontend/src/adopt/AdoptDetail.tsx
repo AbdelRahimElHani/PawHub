@@ -1,14 +1,17 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, BadgeCheck, MessageCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, AlertTriangle, BadgeCheck, MessageCircle, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { isAdminAccount } from "../auth/vetAccess";
+import { UserChip } from "../components/social/UserChip";
 import type { AdoptionListingDto, ShelterDto } from "../types";
 import { useAdoptStore } from "./useAdoptStore";
 import { vibeLabelForListing } from "./adoptPersonality";
+import { AdminAdoptRemoveDialog } from "./AdminAdoptRemoveDialog";
 import { AdoptPlaceholderCat } from "./AdoptPlaceholderCat";
+import { useMediaLightbox } from "../components/media/MediaLightboxContext";
 import "./adopt.css";
 
 function ageLabel(months: number | null): string {
@@ -31,8 +34,11 @@ export function AdoptDetail() {
   const [inquireErr, setInquireErr] = useState<string | null>(null);
   const [manageErr, setManageErr] = useState<string | null>(null);
   const [manageBusy, setManageBusy] = useState(false);
+  const [confirmAdminRemove, setConfirmAdminRemove] = useState(false);
   const toggleFavorite = useAdoptStore((s) => s.toggleFavorite);
   const isFavorite = useAdoptStore((s) => (id ? s.isFavorite(Number(id)) : false));
+
+  const { openMedia } = useMediaLightbox();
 
   const layoutId = id ? `adopt-cat-photo-${id}` : "adopt-cat-photo";
 
@@ -175,7 +181,24 @@ export function AdoptDetail() {
             transition={{ type: "spring", stiffness: 320, damping: 34 }}
           >
             {listing.photoUrl ? (
-              <img src={listing.photoUrl} alt={listing.petName ?? listing.title} style={{ display: "block" }} />
+              <button
+                type="button"
+                onClick={() => openMedia(listing.photoUrl!, listing.petName ?? listing.title)}
+                aria-label="View photo full size"
+                style={{
+                  border: "none",
+                  padding: 0,
+                  margin: 0,
+                  display: "block",
+                  width: "100%",
+                  height: "100%",
+                  cursor: "zoom-in",
+                  background: "transparent",
+                  lineHeight: 0,
+                }}
+              >
+                <img src={listing.photoUrl} alt={listing.petName ?? listing.title} style={{ display: "block", width: "100%" }} />
+              </button>
             ) : (
               <div className="adopt-card__placeholder" style={{ minHeight: "40vh" }}>
                 <AdoptPlaceholderCat />
@@ -204,6 +227,44 @@ export function AdoptDetail() {
           >
             <ArrowLeft size={18} aria-hidden /> Gallery
           </Link>
+          {isAdminUser ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setConfirmAdminRemove(true)}
+                title="Remove listing"
+                aria-label="Remove this adoption listing"
+                style={{
+                  position: "absolute",
+                  top: "1rem",
+                  right: "1rem",
+                  zIndex: 2,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "2.6rem",
+                  height: "2.6rem",
+                  borderRadius: 999,
+                  border: "1px solid rgba(180, 35, 24, 0.4)",
+                  color: "#b42318",
+                  background: "color-mix(in srgb, var(--color-surface) 88%, transparent)",
+                  backdropFilter: "blur(15px)",
+                  cursor: "pointer",
+                }}
+              >
+                <Trash2 size={18} strokeWidth={2} aria-hidden />
+              </button>
+              <AdminAdoptRemoveDialog
+                open={confirmAdminRemove}
+                onOpenChange={setConfirmAdminRemove}
+                listingId={listing.id}
+                onRemoved={() => {
+                  if (isFavorite) toggleFavorite(listing.id);
+                  nav("/adopt", { replace: true });
+                }}
+              />
+            </>
+          ) : null}
         </div>
 
         <div className="adopt-detail__body">
@@ -212,12 +273,79 @@ export function AdoptDetail() {
           </p>
           <h1 className="adopt-detail__title">{listing.petName ?? listing.title}</h1>
           <p className="adopt-detail__subtitle">
-            {listing.breed ?? "Mixed breed"} · {ageLabel(listing.ageMonths)} · {listing.shelterName}
+            {listing.breed ?? "Mixed breed"} · {ageLabel(listing.ageMonths)}
           </p>
 
-          <div className="adopt-verified-pill" title="This listing is published by a shelter verified by PawHub">
-            <BadgeCheck size={18} strokeWidth={2} aria-hidden />
-            <span>Verified shelter partner</span>
+          {isOwnShelterListing ? (
+            <p
+              style={{
+                margin: "0 0 1rem",
+                padding: "0.55rem 0.75rem",
+                borderRadius: 10,
+                background: "rgba(212, 163, 115, 0.12)",
+                color: "var(--color-primary-dark)",
+                fontSize: "0.82rem",
+                lineHeight: 1.5,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.45rem",
+              }}
+            >
+              <AlertTriangle size={16} strokeWidth={2.25} aria-hidden style={{ flexShrink: 0, marginTop: "0.12rem" }} />
+              <span>
+                Paw Adopt moderation notices (warnings, bans, listing removals) include the admin explanation in{" "}
+                <strong>Notifications</strong> — tap the bell to read the full text.
+              </span>
+            </p>
+          ) : null}
+
+          <div
+            style={{
+              background: "#fafaf8",
+              border: "1px solid var(--color-border)",
+              borderRadius: 12,
+              padding: "0.85rem 1rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.65rem",
+              flexWrap: "wrap",
+              marginBottom: "1.75rem",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: "var(--color-muted)",
+                width: "100%",
+                flexBasis: "100%",
+              }}
+            >
+              Shelter partner
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", flex: 1, minWidth: 0 }}>
+              <UserChip
+                userId={listing.shelterOwnerUserId}
+                displayName={listing.shelterName}
+                avatarUrl={listing.shelterAvatarUrl}
+              />
+              <span
+                className="adopt-verified-pill"
+                style={{
+                  marginBottom: 0,
+                  marginTop: 0,
+                  fontSize: "0.78rem",
+                  padding: "0.28rem 0.65rem",
+                  gap: "0.3rem",
+                }}
+                title="This listing is published by a shelter verified by PawHub"
+              >
+                <BadgeCheck size={14} strokeWidth={2} aria-hidden />
+                Verified shelter
+              </span>
+            </div>
           </div>
 
           <h2 className="adopt-detail__section-title">The story</h2>
@@ -231,10 +359,6 @@ export function AdoptDetail() {
 
           {isOwnShelterListing ? (
             <div className="adopt-detail__actions" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.65rem" }}>
-              <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
-                This cat is listed under <strong>{listing.shelterName}</strong> (your shelter). Messaging is for adopters
-                contacting you—you can’t start a shelter inquiry with your own listing.
-              </p>
               {listing.status === "ACTIVE" ? (
                 <motion.button
                   type="button"
@@ -271,17 +395,7 @@ export function AdoptDetail() {
                 Add another listing
               </Link>
             </div>
-          ) : isAdminUser ? (
-            <div className="adopt-detail__actions" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.65rem" }}>
-              <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
-                Admin accounts use the shelter queue to review or remove listings. Messaging and Love List are disabled
-                here so verification stays separate from adopter tools.
-              </p>
-              <Link to="/adopt/admin/shelters" className="ph-btn ph-btn-ghost" style={{ justifyContent: "center" }}>
-                Shelter admin queue
-              </Link>
-            </div>
-          ) : (
+          ) : isAdminUser ? null : (
             <div className="adopt-detail__actions">
               <motion.button
                 type="button"
@@ -313,8 +427,7 @@ export function AdoptDetail() {
               </p>
             ) : isAdminUser ? (
               <p>
-                <strong>{listing.shelterName}</strong> is the listing shelter. Use the admin shelter tools to verify
-                partners or remove listings when needed.
+                <strong>{listing.shelterName}</strong> is the listing shelter.
               </p>
             ) : (
               <p>

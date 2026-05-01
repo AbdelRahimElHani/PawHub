@@ -81,6 +81,11 @@ export type ThreadSummaryDto = {
   messageRequestOutgoing?: boolean;
   messageRequestDeclined?: boolean;
   directMessagingLocked?: boolean;
+  /** Set when this thread is about a Paw Adopt listing (shelter messages). */
+  adoptionListingId?: number | null;
+  adoptionInquiryOutcome?: "PENDING" | "CONFIRMED" | "DECLINED" | null;
+  adoptionListingStatus?: "ACTIVE" | "SOLD" | "ARCHIVED" | null;
+  adoptionImShelter?: boolean;
 };
 
 export type MessageDto = {
@@ -308,4 +313,15 @@ export type VetApplicationMetricsDto = {
   pending: number;
   approved: number;
   rejected: number;
+};
+
+/** Admin: users banned from Paw Market and/or Paw Adopt listings. */
+export type BannedUserAdminDto = {
+  userId: number;
+  email: string;
+  displayName: string;
+  accountType: string;
+  role: string;
+  pawMarketBanned: boolean;
+  pawAdoptBanned: boolean;
 };

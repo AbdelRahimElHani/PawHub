@@ -335,10 +335,10 @@ export function FileCase() {
       <div className="pawvet-shell">
         <div className="pawvet-hero" style={{ marginBottom: "1rem" }}>
           <h1 style={{ fontSize: "1.45rem" }}>File a health case</h1>
-          <p>Administrator accounts do not file guardian triage cases. Use the PawVet admin hub to review veterinarians and programs.</p>
+          <p>Administrator accounts do not file guardian triage cases. Use PawVet admin to review veterinarian licenses and reports.</p>
         </div>
         <div className="pawvet-glass-card" style={{ padding: "1.25rem" }}>
-          <Link className="ph-btn ph-btn-primary" to="/adopt">
+          <Link className="ph-btn ph-btn-primary" to="/pawvet/admin/vet-verification">
             PawVet admin
           </Link>
           <p style={{ margin: "1rem 0 0" }}>

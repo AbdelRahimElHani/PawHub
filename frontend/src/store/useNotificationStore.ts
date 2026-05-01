@@ -30,6 +30,7 @@ type NotificationStore = {
   markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   removeNotification: (id: number) => Promise<void>;
+  clearAllNotifications: () => Promise<void>;
 };
 
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
@@ -102,6 +103,12 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const items = s.items.filter((n) => n.id !== id);
       return { items, appUnread: items.filter((n) => !n.read).length };
     });
+    await get().refreshUnread();
+  },
+
+  clearAllNotifications: async () => {
+    await api("/api/notifications", { method: "DELETE" });
+    set({ items: [], appUnread: 0 });
     await get().refreshUnread();
   },
 }));

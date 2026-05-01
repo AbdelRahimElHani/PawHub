@@ -101,11 +101,11 @@ export function PawMatchPage() {
       <div className="ph-surface" style={{ padding: "1.5rem", maxWidth: 520, margin: "0 auto" }}>
         <h2 style={{ marginTop: 0 }}>PawMatch</h2>
         <p style={{ color: "var(--color-muted)", lineHeight: 1.55 }}>
-          PawMatch is hidden for administrator accounts. Use PawAdopt for shelter and veterinarian approvals, or browse the app as a
-          non-admin test user.
+          PawMatch is hidden for administrator accounts. Use the home dashboard to open Paw Adopt or PawVet admin
+          tools, or browse the app as a non-admin test user.
         </p>
-        <Link className="ph-btn ph-btn-primary" to="/adopt/admin" style={{ marginTop: "0.75rem", display: "inline-block" }}>
-          Approvals hub
+        <Link className="ph-btn ph-btn-primary" to="/" style={{ marginTop: "0.75rem", display: "inline-block" }}>
+          Home
         </Link>
       </div>
     );

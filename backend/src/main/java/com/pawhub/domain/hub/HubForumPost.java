@@ -4,6 +4,8 @@ import com.pawhub.domain.User;
 import jakarta.persistence.*;
 import java.time.Instant;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "hub_forum_posts")
@@ -40,6 +42,12 @@ public class HubForumPost {
 
     @Column(name = "helpful_comment_id")
     private Long helpfulCommentId;
+
+    /** When true, thread is hidden from room lists; author and admins can still open it by direct link. */
+    @Column(name = "removed_by_admin", nullable = false)
+    @JdbcTypeCode(SqlTypes.TINYINT)
+    @Builder.Default
+    private boolean removedByAdmin = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

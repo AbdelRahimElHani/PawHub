@@ -7,6 +7,7 @@ import { AdminMarketRemoveDialog } from "../market/AdminMarketRemoveDialog";
 import { haversineKm, formatDistance } from "../market/haversine";
 import { useCountriesCitiesCatalog } from "../market/useCountriesCitiesCatalog";
 import { useGeolocation } from "../market/useGeolocation";
+import { useMediaLightbox } from "../components/media/MediaLightboxContext";
 import type { PawCategory, PawListingDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
 
@@ -35,6 +36,7 @@ function ListingCard({
   onAdminDeleted?: () => void;
 }) {
   const [confirmDel, setConfirmDel] = useState(false);
+  const { openMedia } = useMediaLightbox();
   const isFree = listing.isFree;
   const cover = listing.imageUrls?.[0] ?? listing.photoUrl;
 
@@ -80,7 +82,18 @@ function ListingCard({
       )}
       <Link to={`/market/${listing.id}`} className={`pm-card${isFree ? " pm-card--free" : ""}`}>
       {cover ? (
-        <img src={cover} alt={listing.title} className="pm-card__img" />
+        <button
+          type="button"
+          className="pm-card__img-hit"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openMedia(cover, listing.title);
+          }}
+          aria-label={`View ${listing.title} photo full size`}
+        >
+          <img src={cover} alt={listing.title} className="pm-card__img" />
+        </button>
       ) : (
         <div className="pm-card__img-placeholder">🐾</div>
       )}

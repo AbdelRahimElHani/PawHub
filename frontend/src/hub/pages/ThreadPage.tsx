@@ -6,6 +6,8 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import type { ForumCommentJson, ForumPostDetailJson } from "../api/hubApiTypes";
 import { UserChip } from "../../components/social/UserChip";
+import { useMediaLightbox } from "../../components/media/MediaLightboxContext";
+import { inferMediaLightboxKind } from "../../components/media/inferMediaKind";
 import { HubConfirmDialog } from "../components/HubConfirmDialog";
 
 async function uploadForumImage(file: File): Promise<string> {
@@ -44,7 +46,7 @@ export function ThreadPage() {
   }, [reload]);
 
   async function vote(value: number) {
-    if (!user || !Number.isFinite(numericId) || voteBusy) return;
+    if (!user || !Number.isFinite(numericId) || voteBusy || detail?.post.removedByAdmin) return;
     setVoteBusy(true);
     try {
       const d = await api<ForumPostDetailJson>(`/api/hub/forum/posts/${numericId}/vote`, {
@@ -58,7 +60,7 @@ export function ThreadPage() {
   }
 
   async function markHelpful(commentId: number) {
-    if (!detail || !Number.isFinite(numericId)) return;
+    if (!detail || !Number.isFinite(numericId) || detail.post.removedByAdmin) return;
     await api(`/api/hub/forum/posts/${numericId}/helpful`, {
       method: "POST",
       body: JSON.stringify({ commentId }),
@@ -121,7 +123,7 @@ export function ThreadPage() {
         <Link to={`/hub/community/${p.roomSlug}`} style={{ fontWeight: 600 }}>
           ← {p.roomSlug}
         </Link>
-        {isAdmin && (
+        {isAdmin && !p.removedByAdmin ? (
           <>
             <button type="button" className="ph-btn ph-btn-ghost" style={{ color: "#b42318", marginLeft: "auto" }} onClick={() => setDelPostOpen(true)}>
               <Trash2 size={16} style={{ marginRight: "0.35rem" }} aria-hidden />
@@ -130,15 +132,34 @@ export function ThreadPage() {
             <HubConfirmDialog
               open={delPostOpen}
               onOpenChange={setDelPostOpen}
-              title="Delete this thread?"
-              description="Removes the post and all comments permanently."
-              confirmLabel="Delete"
+              title="Remove this thread?"
+              description="Hides the thread from the forum and notifies the author with a preview. They can open the link in the notification to read the full post and replies."
+              confirmLabel="Remove thread"
               danger
               onConfirm={deletePost}
             />
           </>
-        )}
+        ) : null}
       </nav>
+
+      {p.removedByAdmin ? (
+        <div
+          role="status"
+          style={{
+            marginBottom: "1rem",
+            padding: "0.85rem 1rem",
+            borderRadius: 10,
+            borderLeft: "4px solid #b42318",
+            background: "rgba(180, 35, 24, 0.07)",
+            fontSize: "0.92rem",
+            lineHeight: 1.5,
+            color: "var(--color-text)",
+          }}
+        >
+          <strong>Removed by a moderator.</strong> This thread is hidden from the room list. Your full post and replies
+          stay visible here; you can also open it anytime from the notification in your bell.
+        </div>
+      ) : null}
 
       <article className="ph-surface" style={{ padding: "1.25rem", marginBottom: "1.25rem" }}>
         <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
@@ -147,7 +168,7 @@ export function ThreadPage() {
               type="button"
               className={clsx("ph-btn ph-btn-ghost", myVote === 1 && "hub-vote--active")}
               style={{ padding: "0.2rem", minWidth: "auto", borderRadius: "8px", opacity: user ? 1 : 0.45 }}
-              disabled={!user || voteBusy}
+              disabled={!user || voteBusy || Boolean(p.removedByAdmin)}
               onClick={() => void vote(myVote === 1 ? 0 : 1)}
               aria-label="Upvote"
             >
@@ -158,7 +179,7 @@ export function ThreadPage() {
               type="button"
               className={clsx("ph-btn ph-btn-ghost", myVote === -1 && "hub-vote--active")}
               style={{ padding: "0.2rem", minWidth: "auto", borderRadius: "8px", opacity: user ? 1 : 0.45 }}
-              disabled={!user || voteBusy}
+              disabled={!user || voteBusy || Boolean(p.removedByAdmin)}
               onClick={() => void vote(myVote === -1 ? 0 : -1)}
               aria-label="Downvote"
             >
@@ -189,7 +210,7 @@ export function ThreadPage() {
           Discussion <span style={{ color: "var(--color-muted)", fontWeight: 500 }}>({p.commentCount})</span>
         </h2>
 
-        {user && <CompactCommentBar postId={numericId} parentId={null} onDone={reload} />}
+        {user && !p.removedByAdmin ? <CompactCommentBar postId={numericId} parentId={null} onDone={reload} /> : null}
 
         <ul style={{ listStyle: "none", padding: 0, margin: "1rem 0 0" }}>
           {detail.comments.map((c) => (
@@ -203,6 +224,7 @@ export function ThreadPage() {
               currentUserId={user?.userId ?? null}
               isOpViewer={isOpViewer}
               isAdmin={isAdmin}
+              threadRemoved={Boolean(p.removedByAdmin)}
               onThreadUpdated={(d) => setDetail(d)}
               onReload={reload}
               onMarkHelpful={markHelpful}
@@ -292,6 +314,7 @@ function CommentBranch({
   currentUserId,
   isOpViewer,
   isAdmin,
+  threadRemoved,
   onThreadUpdated,
   onReload,
   onMarkHelpful,
@@ -305,6 +328,7 @@ function CommentBranch({
   currentUserId: number | null;
   isOpViewer: boolean;
   isAdmin: boolean;
+  threadRemoved: boolean;
   onThreadUpdated: (d: ForumPostDetailJson) => void;
   onReload: () => void;
   onMarkHelpful: (id: number) => void;
@@ -316,6 +340,7 @@ function CommentBranch({
   const isOp = node.authorUserId === postAuthorId;
   const isHelpful = helpfulId === node.id;
   const isOwn = currentUserId != null && currentUserId === node.authorUserId;
+  const { openMedia } = useMediaLightbox();
 
   useEffect(() => {
     if (!editing) setEditDraft(node.body);
@@ -357,6 +382,7 @@ function CommentBranch({
                 currentUserId={currentUserId}
                 isOpViewer={isOpViewer}
                 isAdmin={isAdmin}
+                threadRemoved={threadRemoved}
                 onThreadUpdated={onThreadUpdated}
                 onReload={onReload}
                 onMarkHelpful={onMarkHelpful}
@@ -389,7 +415,36 @@ function CommentBranch({
         </header>
         {node.attachmentUrl && (
           <div style={{ marginBottom: "0.5rem" }}>
-            <img src={node.attachmentUrl} alt="" style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 8, display: "block" }} loading="lazy" />
+            <button
+              type="button"
+              onClick={() => openMedia(node.attachmentUrl!)}
+              aria-label="View attachment"
+              style={{
+                border: "none",
+                padding: 0,
+                background: "transparent",
+                cursor: "pointer",
+                display: "block",
+                borderRadius: 8,
+              }}
+            >
+              {inferMediaLightboxKind(node.attachmentUrl) === "video" ? (
+                <video
+                  src={node.attachmentUrl}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 8, display: "block" }}
+                />
+              ) : (
+                <img
+                  src={node.attachmentUrl}
+                  alt=""
+                  style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 8, display: "block" }}
+                  loading="lazy"
+                />
+              )}
+            </button>
           </div>
         )}
         {editing ? (
@@ -408,12 +463,12 @@ function CommentBranch({
           <p style={{ margin: "0 0 0.5rem", lineHeight: 1.55, fontSize: "0.92rem" }}>{node.body}</p>
         )}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
-          {currentUserId && !editing && (
+          {currentUserId && !editing && !threadRemoved && (
             <button type="button" className="ph-btn ph-btn-ghost" style={{ padding: "0.2rem 0.5rem", fontSize: "0.78rem" }} onClick={() => setReplyOpen((v) => !v)}>
               {replyOpen ? "Cancel" : "Reply"}
             </button>
           )}
-          {isOwn && !editing && (
+          {isOwn && !editing && !threadRemoved && (
             <>
               <button type="button" className="ph-btn ph-btn-ghost" style={{ padding: "0.2rem 0.5rem", fontSize: "0.78rem" }} onClick={() => setEditing(true)}>
                 <Pencil size={14} style={{ marginRight: "0.25rem" }} aria-hidden />
@@ -430,12 +485,12 @@ function CommentBranch({
               </button>
             </>
           )}
-          {isOpViewer && !isHelpful && !node.deleted && node.authorUserId !== postAuthorId && (
+          {isOpViewer && !isHelpful && !node.deleted && node.authorUserId !== postAuthorId && !threadRemoved && (
             <button type="button" className="ph-btn ph-btn-primary" style={{ padding: "0.2rem 0.55rem", fontSize: "0.78rem" }} onClick={() => onMarkHelpful(node.id)}>
               Mark helpful answer
             </button>
           )}
-          {isAdmin && !isOwn && (
+          {isAdmin && !isOwn && !threadRemoved && (
             <button
               type="button"
               className="ph-btn ph-btn-ghost"
@@ -447,7 +502,7 @@ function CommentBranch({
             </button>
           )}
         </div>
-        {replyOpen && currentUserId && (
+        {replyOpen && currentUserId && !threadRemoved && (
           <div style={{ marginTop: "0.65rem" }}>
             <CompactCommentBar
               postId={postId}
@@ -473,6 +528,7 @@ function CommentBranch({
               currentUserId={currentUserId}
               isOpViewer={isOpViewer}
               isAdmin={isAdmin}
+              threadRemoved={threadRemoved}
               onThreadUpdated={onThreadUpdated}
               onReload={onReload}
               onMarkHelpful={onMarkHelpful}

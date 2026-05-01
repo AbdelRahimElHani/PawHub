@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, ExternalLink, FileText, Shield, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { motion } from "framer-motion";
+import { ArrowLeft, ExternalLink, FileText, Shield, Trash2, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { AdoptionListingDto, ShelterDto } from "../types";
+import { AdminAdoptRemoveDialog } from "../adopt/AdminAdoptRemoveDialog";
 import "../adopt/adopt.css";
 
 function Row({ label, value }: { label: string; value: string | number | boolean | null | undefined }) {
@@ -60,7 +62,14 @@ export function AdminShelterReviewPage() {
   const [listings, setListings] = useState<AdoptionListingDto[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [listingBusy, setListingBusy] = useState<number | null>(null);
+
+  type ConfirmDialog = "approve" | "acceptAppeal" | "revoke" | null;
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog>(null);
+  const [removeListingId, setRemoveListingId] = useState<number | null>(null);
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+  const [rejectAppealOpen, setRejectAppealOpen] = useState(false);
+  const [rejectAppealNote, setRejectAppealNote] = useState("");
 
   const load = useCallback(async () => {
     if (!Number.isFinite(id)) {
@@ -98,9 +107,9 @@ export function AdminShelterReviewPage() {
     };
   }, [s?.id]);
 
-  async function approve() {
+  async function confirmApprove() {
     if (!Number.isFinite(id)) return;
-    if (!window.confirm(`Approve "${s?.name}" as a verified shelter partner?`)) return;
+    setConfirmDialog(null);
     setBusy(true);
     setErr(null);
     try {
@@ -113,17 +122,18 @@ export function AdminShelterReviewPage() {
     }
   }
 
-  async function decline() {
+  async function confirmDecline() {
     if (!Number.isFinite(id)) return;
-    if (!window.confirm(`Decline "${s?.name}"? They will see a not-approved status on their shelter page.`)) return;
-    const reason = window.prompt("Optional note to the shelter (shown in-app, or leave blank):") ?? "";
+    setDeclineOpen(false);
     setBusy(true);
     setErr(null);
     try {
       await api(`/api/admin/shelters/${id}/reject`, {
         method: "POST",
-        body: reason.trim() ? JSON.stringify({ reason: reason.trim() }) : undefined,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: declineReason.trim() || null }),
       });
+      setDeclineReason("");
       nav("/adopt/admin/shelters");
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Decline failed");
@@ -132,9 +142,9 @@ export function AdminShelterReviewPage() {
     }
   }
 
-  async function acceptAppeal() {
+  async function confirmAcceptAppeal() {
     if (!Number.isFinite(id)) return;
-    if (!window.confirm("Accept this shelter’s appeal and return them to the pending review queue?")) return;
+    setConfirmDialog(null);
     setBusy(true);
     setErr(null);
     try {
@@ -147,17 +157,18 @@ export function AdminShelterReviewPage() {
     }
   }
 
-  async function rejectAppeal() {
+  async function confirmRejectAppeal() {
     if (!Number.isFinite(id)) return;
-    if (!window.confirm("Reject this appeal? The shelter cannot submit another appeal.")) return;
-    const note = window.prompt("Optional note to the shelter:") ?? "";
+    setRejectAppealOpen(false);
     setBusy(true);
     setErr(null);
     try {
       await api(`/api/admin/shelters/${id}/appeal/reject`, {
         method: "POST",
-        body: note.trim() ? JSON.stringify({ reason: note.trim() }) : undefined,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: rejectAppealNote.trim() || null }),
       });
+      setRejectAppealNote("");
       await load();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Failed");
@@ -166,14 +177,9 @@ export function AdminShelterReviewPage() {
     }
   }
 
-  async function revokeVerification() {
-    if (!Number.isFinite(id) || !s) return;
-    if (
-      !window.confirm(
-        `Revoke verified status for "${s.name}"? Their live adoption listings will disappear from the public gallery and they will be notified.`,
-      )
-    )
-      return;
+  async function confirmRevoke() {
+    if (!Number.isFinite(id)) return;
+    setConfirmDialog(null);
     setBusy(true);
     setErr(null);
     try {
@@ -183,20 +189,6 @@ export function AdminShelterReviewPage() {
       setErr(e instanceof Error ? e.message : "Failed");
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function removeListing(listingId: number) {
-    if (!window.confirm("Remove this adoption listing? The shelter will be notified.")) return;
-    setListingBusy(listingId);
-    setErr(null);
-    try {
-      await api(`/api/admin/adopt/listings/${listingId}`, { method: "DELETE" });
-      setListings((prev) => prev.filter((x) => x.id !== listingId));
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Delete failed");
-    } finally {
-      setListingBusy(null);
     }
   }
 
@@ -232,8 +224,217 @@ export function AdminShelterReviewPage() {
   const appealPending = s.status === "REJECTED" && s.appealState === "PENDING";
   const submitted = s.profileCompletedAt ? new Date(s.profileCompletedAt).toLocaleString() : null;
 
+  const overlayStyle: CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.35)",
+    backdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
+    padding: "1rem",
+  };
+
   return (
     <div className="admin-review-page">
+      {confirmDialog === "approve" && s ? (
+        <div role="dialog" aria-modal aria-labelledby="sh-confirm-approve-title" style={overlayStyle} onClick={() => setConfirmDialog(null)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="ph-surface"
+            style={{ maxWidth: 420, width: "100%", padding: "1.25rem", borderRadius: 12, border: "1px solid var(--color-border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              <h3 id="sh-confirm-approve-title" style={{ margin: 0, fontFamily: "var(--font-display)", color: "var(--color-primary-dark)" }}>
+                Approve shelter?
+              </h3>
+              <button type="button" className="ph-btn ph-btn-ghost" aria-label="Close" onClick={() => setConfirmDialog(null)}>
+                <X size={20} aria-hidden />
+              </button>
+            </div>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.92rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+              Approve <strong>{s.name}</strong> as a verified Paw Adopt partner?
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button type="button" className="ph-btn ph-btn-ghost" disabled={busy} onClick={() => setConfirmDialog(null)}>
+                Cancel
+              </button>
+              <button type="button" className="ph-btn ph-btn-primary" disabled={busy} onClick={() => void confirmApprove()}>
+                Approve shelter
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      ) : null}
+
+      {declineOpen && s ? (
+        <div role="dialog" aria-modal aria-labelledby="sh-decline-title" style={overlayStyle} onClick={() => !busy && setDeclineOpen(false)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="ph-surface"
+            style={{ maxWidth: 440, width: "100%", padding: "1.25rem", borderRadius: 12, border: "1px solid var(--color-border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.5rem" }}>
+              <h3 id="sh-decline-title" style={{ margin: 0, fontFamily: "var(--font-display)", color: "var(--color-primary-dark)" }}>
+                Decline application
+              </h3>
+              <button type="button" className="ph-btn ph-btn-ghost" aria-label="Close" disabled={busy} onClick={() => setDeclineOpen(false)}>
+                <X size={20} aria-hidden />
+              </button>
+            </div>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+              <strong>{s.name}</strong> will see a not-approved status. Optionally add a note shown in-app.
+            </p>
+            <textarea
+              className="ph-textarea"
+              rows={4}
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Optional note to the shelter…"
+              style={{ width: "100%", marginBottom: "0.75rem" }}
+              disabled={busy}
+            />
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button type="button" className="ph-btn ph-btn-ghost" disabled={busy} onClick={() => setDeclineOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ph-btn ph-btn-primary"
+                style={{ background: "#b42318", borderColor: "#b42318" }}
+                disabled={busy}
+                onClick={() => void confirmDecline()}
+              >
+                Decline application
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      ) : null}
+
+      {confirmDialog === "acceptAppeal" ? (
+        <div role="dialog" aria-modal aria-labelledby="sh-accept-appeal-title" style={overlayStyle} onClick={() => setConfirmDialog(null)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="ph-surface"
+            style={{ maxWidth: 420, width: "100%", padding: "1.25rem", borderRadius: 12, border: "1px solid var(--color-border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              <h3 id="sh-accept-appeal-title" style={{ margin: 0, fontFamily: "var(--font-display)", color: "var(--color-primary-dark)" }}>
+                Accept appeal?
+              </h3>
+              <button type="button" className="ph-btn ph-btn-ghost" aria-label="Close" onClick={() => setConfirmDialog(null)}>
+                <X size={20} aria-hidden />
+              </button>
+            </div>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.92rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+              Restore verified partner status? They can publish listings again.
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button type="button" className="ph-btn ph-btn-ghost" disabled={busy} onClick={() => setConfirmDialog(null)}>
+                Cancel
+              </button>
+              <button type="button" className="ph-btn ph-btn-primary" disabled={busy} onClick={() => void confirmAcceptAppeal()}>
+                Accept appeal
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      ) : null}
+
+      {rejectAppealOpen ? (
+        <div role="dialog" aria-modal aria-labelledby="sh-reject-appeal-title" style={overlayStyle} onClick={() => !busy && setRejectAppealOpen(false)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="ph-surface"
+            style={{ maxWidth: 440, width: "100%", padding: "1.25rem", borderRadius: 12, border: "1px solid var(--color-border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.5rem" }}>
+              <h3 id="sh-reject-appeal-title" style={{ margin: 0, fontFamily: "var(--font-display)", color: "var(--color-primary-dark)" }}>
+                Reject appeal (final)
+              </h3>
+              <button type="button" className="ph-btn ph-btn-ghost" aria-label="Close" disabled={busy} onClick={() => setRejectAppealOpen(false)}>
+                <X size={20} aria-hidden />
+              </button>
+            </div>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+              The shelter cannot submit another appeal after this decision.
+            </p>
+            <textarea
+              className="ph-textarea"
+              rows={3}
+              value={rejectAppealNote}
+              onChange={(e) => setRejectAppealNote(e.target.value)}
+              placeholder="Optional note to the shelter…"
+              style={{ width: "100%", marginBottom: "0.75rem" }}
+              disabled={busy}
+            />
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button type="button" className="ph-btn ph-btn-ghost" disabled={busy} onClick={() => setRejectAppealOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ph-btn ph-btn-primary"
+                style={{ background: "#b42318", borderColor: "#b42318" }}
+                disabled={busy}
+                onClick={() => void confirmRejectAppeal()}
+              >
+                Reject appeal
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      ) : null}
+
+      {confirmDialog === "revoke" && s ? (
+        <div role="dialog" aria-modal aria-labelledby="sh-revoke-title" style={overlayStyle} onClick={() => setConfirmDialog(null)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="ph-surface"
+            style={{ maxWidth: 440, width: "100%", padding: "1.25rem", borderRadius: 12, border: "1px solid var(--color-border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              <h3 id="sh-revoke-title" style={{ margin: 0, fontFamily: "var(--font-display)", color: "var(--color-primary-dark)" }}>
+                Revoke verification?
+              </h3>
+              <button type="button" className="ph-btn ph-btn-ghost" aria-label="Close" onClick={() => setConfirmDialog(null)}>
+                <X size={20} aria-hidden />
+              </button>
+            </div>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.92rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+              Revoke verified status for <strong>{s.name}</strong>? Live adoption listings will disappear from the public gallery and the shelter will be
+              notified.
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button type="button" className="ph-btn ph-btn-ghost" disabled={busy} onClick={() => setConfirmDialog(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ph-btn ph-btn-primary"
+                style={{ background: "#b42318", borderColor: "#b42318" }}
+                disabled={busy}
+                onClick={() => void confirmRevoke()}
+              >
+                Revoke verification
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      ) : null}
+
       <div className="admin-review-page__toolbar ph-surface">
         <Link to="/adopt/admin/shelters" className="admin-review-back">
           <ArrowLeft size={16} aria-hidden /> Back to queue
@@ -277,8 +478,8 @@ export function AdminShelterReviewPage() {
           )}
           {appealPending && (
             <p className="admin-review-banner admin-review-banner--info">
-              This shelter submitted an appeal after rejection — accept to reopen review, or reject to close appeals
-              permanently.
+              This shelter has a pending appeal — accept to restore <strong>verified</strong> partner status (listings can
+              show again), or reject the appeal permanently (no further appeals).
             </p>
           )}
           {canDecide && !s.profileCompletedAt && (
@@ -377,8 +578,8 @@ export function AdminShelterReviewPage() {
                       type="button"
                       className="ph-btn ph-btn-ghost"
                       style={{ fontSize: "0.82rem", color: "#b42318" }}
-                      disabled={listingBusy === l.id}
-                      onClick={() => void removeListing(l.id)}
+                      disabled={removeListingId !== null}
+                      onClick={() => setRemoveListingId(l.id)}
                     >
                       <Trash2 size={14} aria-hidden style={{ marginRight: 4, verticalAlign: "middle" }} />
                       Remove
@@ -397,7 +598,7 @@ export function AdminShelterReviewPage() {
             {canDecide
               ? "Verify documents open correctly before approving."
               : appealPending
-                ? "Read the appeal message above before deciding."
+                ? "Accepting an appeal verifies the shelter again; rejecting closes appeals permanently."
                 : s.status === "APPROVED"
                   ? "Revoking verification notifies the shelter and hides their public listings."
                   : "Use the queue to find other submissions."}
@@ -413,11 +614,14 @@ export function AdminShelterReviewPage() {
                   className="ph-btn ph-btn-ghost"
                   style={{ color: "#b42318", borderColor: "color-mix(in srgb, #b42318 35%, transparent)" }}
                   disabled={busy}
-                  onClick={() => void decline()}
+                  onClick={() => {
+                    setDeclineReason("");
+                    setDeclineOpen(true);
+                  }}
                 >
                   Decline
                 </button>
-                <button type="button" className="ph-btn ph-btn-primary" disabled={busy} onClick={() => void approve()}>
+                <button type="button" className="ph-btn ph-btn-primary" disabled={busy} onClick={() => setConfirmDialog("approve")}>
                   Approve shelter
                 </button>
               </>
@@ -428,11 +632,14 @@ export function AdminShelterReviewPage() {
                   className="ph-btn ph-btn-ghost"
                   style={{ color: "#b42318", borderColor: "color-mix(in srgb, #b42318 35%, transparent)" }}
                   disabled={busy}
-                  onClick={() => void rejectAppeal()}
+                  onClick={() => {
+                    setRejectAppealNote("");
+                    setRejectAppealOpen(true);
+                  }}
                 >
                   Reject appeal (final)
                 </button>
-                <button type="button" className="ph-btn ph-btn-primary" disabled={busy} onClick={() => void acceptAppeal()}>
+                <button type="button" className="ph-btn ph-btn-primary" disabled={busy} onClick={() => setConfirmDialog("acceptAppeal")}>
                   Accept appeal
                 </button>
               </>
@@ -442,7 +649,7 @@ export function AdminShelterReviewPage() {
                 className="ph-btn ph-btn-ghost"
                 style={{ color: "#b42318", borderColor: "color-mix(in srgb, #b42318 35%, transparent)" }}
                 disabled={busy}
-                onClick={() => void revokeVerification()}
+                onClick={() => setConfirmDialog("revoke")}
               >
                 Revoke shelter verification
               </button>
@@ -450,6 +657,18 @@ export function AdminShelterReviewPage() {
           </div>
         </div>
       </footer>
+
+      <AdminAdoptRemoveDialog
+        open={removeListingId !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoveListingId(null);
+        }}
+        listingId={removeListingId ?? 0}
+        onRemoved={() => {
+          const lid = removeListingId;
+          if (lid != null) setListings((prev) => prev.filter((x) => x.id !== lid));
+        }}
+      />
     </div>
   );
 }

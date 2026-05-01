@@ -44,6 +44,7 @@ export type ForumPostJson = {
   score: number;
   commentCount: number;
   helpfulCommentId: number | null;
+  removedByAdmin?: boolean;
 };
 
 export type ForumCommentJson = {

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link } from "react-router-dom";
 import { CopyMessageButton } from "../CopyMessageButton";
+import { NotificationToasts } from "../notifications/NotificationToasts";
 import { apiUrl, getToken } from "../../api/client";
+import { useMediaLightbox } from "../media/MediaLightboxContext";
+import { isPreviewableMediaUrl } from "../media/inferMediaKind";
 import "./whisker-chat.css";
 
 /** Multi-session store (localStorage). */
@@ -174,7 +177,11 @@ function truncateStatus(s: string, max: number) {
 const STARTERS = [
   { label: "New kitten tips", prompt: "What are your top tips for a new kitten at home?" },
   { label: "Litter box issues", prompt: "My cat stopped using the litter box — what should I check first?" },
-  { label: "Explain PawHub features", prompt: "Briefly explain PawHub: Learn hub, community, market, and adoption — where do I go for each?" },
+  {
+    label: "PawHub map",
+    prompt:
+      "Give me a concise tour of PawHub: home, My cats, PawMatch, Matches, Messages, People, PawMarket (browse vs my listings), PawAdopt (browse, shelter profile, new listing), Learn hub (FAQ, editorial, forum rooms), PawVet vs vet dashboard, and where admins go — use the real /routes from the app.",
+  },
 ];
 
 function PawBotCatIcon() {
@@ -206,6 +213,7 @@ export function ChatWidget() {
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const token = getToken();
+  const { openMedia } = useMediaLightbox();
   const panelVisible = open && !minimized;
   const [aiHealthPhase, setAiHealthPhase] = useState<"idle" | "loading" | "ok" | "error">("loading");
   const [aiHealthDetail, setAiHealthDetail] = useState("");
@@ -550,6 +558,13 @@ export function ChatWidget() {
             </Link>
           );
         }
+        if (href && isPreviewableMediaUrl(href)) {
+          return (
+            <button type="button" className="whisker-md-media-link" onClick={() => openMedia(href)}>
+              {children}
+            </button>
+          );
+        }
         return (
           <a href={href} target="_blank" rel="noopener noreferrer" {...rest}>
             {children}
@@ -557,7 +572,7 @@ export function ChatWidget() {
         );
       },
     }),
-    [],
+    [openMedia],
   );
 
   if (!token) {
@@ -867,6 +882,10 @@ export function ChatWidget() {
           </motion.button>
         ) : null}
       </AnimatePresence>
+
+      <div style={{ pointerEvents: "auto" }}>
+        <NotificationToasts />
+      </div>
 
       <motion.button
         type="button"

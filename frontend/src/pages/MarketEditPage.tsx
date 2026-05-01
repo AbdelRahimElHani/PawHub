@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle, Gift, Upload, XCircle } from "lucide-react";
+import { ArrowLeft, Gift, Upload } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, apiUrl, getToken } from "../api/client";
@@ -10,14 +10,13 @@ import { useCountriesCitiesCatalog } from "../market/useCountriesCitiesCatalog";
 import { useGeolocation } from "../market/useGeolocation";
 import type { PawListingDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
+import {
+  CatCheckVerificationBanners,
+  type CatCheckUiState,
+  CAT_CHECK_COPY_MARKET_IMAGE,
+} from "../components/catCheck/CatCheckVerificationBanners";
 
-type CatCheckResult =
-  | { state: "idle" }
-  | { state: "checking" }
-  | { state: "passed"; reason: string }
-  | { state: "failed"; reason: string }
-  | { state: "skipped" }
-  | { state: "unavailable"; message: string };
+type CatCheckResult = CatCheckUiState;
 
 type ListingLocationMode = "dropdown" | "map";
 
@@ -170,6 +169,7 @@ export function MarketEditPage() {
       setCatCheck({ state: "idle" });
       return;
     }
+    setCatCheck({ state: "checking" });
     setPreviewUrl(URL.createObjectURL(file));
   }
 
@@ -417,6 +417,7 @@ export function MarketEditPage() {
                 cursor: "pointer",
                 background: "#fafaf9",
                 overflow: "hidden",
+                position: "relative",
               }}
             >
               {previewUrl ? (
@@ -430,56 +431,14 @@ export function MarketEditPage() {
                 </>
               )}
               <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
+              {previewUrl ? (
+                <CatCheckVerificationBanners
+                  catCheck={catCheck}
+                  copy={CAT_CHECK_COPY_MARKET_IMAGE}
+                  variant="onImage"
+                />
+              ) : null}
             </label>
-
-            {catCheck.state === "checking" && (
-              <div className="pm-ai-banner" style={{ marginTop: "0.6rem" }}>
-                <span className="pm-paw-spin">🐾</span>
-                <div>
-                  <strong style={{ fontSize: "0.9rem" }}>Scanning new image…</strong>
-                </div>
-              </div>
-            )}
-            {catCheck.state === "passed" && (
-              <div
-                style={{
-                  marginTop: "0.6rem",
-                  background: "#f0fdf4",
-                  border: "1.5px solid #6ee7b7",
-                  borderRadius: 10,
-                  padding: "0.75rem 1rem",
-                  display: "flex",
-                  gap: "0.6rem",
-                  alignItems: "flex-start",
-                }}
-              >
-                <CheckCircle size={18} color="#059669" style={{ flexShrink: 0, marginTop: 1 }} />
-                <div>
-                  <strong style={{ color: "#065f46", fontSize: "0.88rem" }}>Cat-ness OK</strong>
-                  <p style={{ margin: "0.2rem 0 0", fontSize: "0.82rem", color: "#047857" }}>{catCheck.reason}</p>
-                </div>
-              </div>
-            )}
-            {catCheck.state === "failed" && (
-              <div
-                style={{
-                  marginTop: "0.6rem",
-                  background: "#fff1f0",
-                  border: "1.5px solid #fca5a5",
-                  borderRadius: 10,
-                  padding: "0.75rem 1rem",
-                  display: "flex",
-                  gap: "0.6rem",
-                  alignItems: "flex-start",
-                }}
-              >
-                <XCircle size={18} color="#b91c1c" style={{ flexShrink: 0, marginTop: 1 }} />
-                <div>
-                  <strong style={{ color: "#b91c1c", fontSize: "0.88rem" }}>Cat-Check failed</strong>
-                  <p style={{ margin: "0.2rem 0 0", fontSize: "0.82rem", color: "#7f1d1d" }}>{catCheck.reason}</p>
-                </div>
-              </div>
-            )}
           </div>
 
           <label>

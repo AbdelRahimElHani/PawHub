@@ -117,6 +117,12 @@ public class AppNotificationService {
         }
     }
 
+    /** Removes every in-app notification row for this user (bell list only; does not affect chat threads). */
+    @Transactional
+    public void deleteAllForUser(SecurityUser principal) {
+        appNotificationRepository.deleteAllByUser_Id(principal.getId());
+    }
+
     private static AppNotificationDto toDto(AppNotification n) {
         return new AppNotificationDto(
                 n.getId(),
@@ -141,18 +147,24 @@ public class AppNotificationService {
                     ADOPTION_LISTING_PUBLISHED,
                     ADOPTION_LISTING_REMOVED_ADMIN,
                     ADOPTION_INQUIRY_SUBMITTED,
+                    ADOPTION_INQUIRY_OUTCOME_ADOPTED,
+                    ADOPTION_INQUIRY_OUTCOME_DECLINED,
                     SHELTER_APPLICATION_REJECTED -> "shelter";
             case NEW_MESSAGE, MESSAGE_REQUEST_RECEIVED, PAWVET_TRIAGE_MESSAGE -> "message";
             case ADMIN_VET_LICENSE_SUBMITTED,
                     VET_LICENSE_VERIFIED,
+                    VET_LICENSE_APPLICATION_REJECTED,
                     VET_NEW_REVIEW,
                     PAWVET_NEW_TRIAGE_CASE,
                     PAWVET_CASE_CLAIMED,
                     ADMIN_VET_LICENSE_APPEAL_PENDING -> "vet";
             case MARKET_ORDER_BUYER, MARKET_ORDER_SELLER, MARKET_LISTING_REMOVED_ADMIN -> "package";
-            case ADMIN_PAW_MARKET_USER_WARNED, ADMIN_PAW_MARKET_USER_BANNED -> "urgent";
+            case ADMIN_PAW_MARKET_USER_WARNED,
+                    ADMIN_PAW_MARKET_USER_BANNED,
+                    ADMIN_PAW_ADOPT_SHELTER_WARNED,
+                    ADMIN_PAW_ADOPT_SHELTER_BANNED -> "urgent";
             case FORUM_REPLY, FORUM_COMMENT_REPLY -> "forum";
-            case FORUM_SCORE_MILESTONE -> "forum";
+            case FORUM_SCORE_MILESTONE, FORUM_POST_REMOVED_ADMIN -> "forum";
             case SYSTEM_ANNOUNCEMENT -> "system";
             case HEALTH_REMINDER -> "health";
             case FRIEND_REQUEST_RECEIVED, FRIEND_REQUEST_SENT, FRIEND_REQUEST_ACCEPTED -> "friend";

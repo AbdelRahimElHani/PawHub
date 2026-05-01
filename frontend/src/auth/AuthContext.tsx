@@ -23,6 +23,8 @@ export type AuthUser = {
   vetAppealState?: string | null;
   /** When true, user cannot list or buy on Paw Market. */
   pawMarketBanned?: boolean;
+  /** When true, shelter account cannot publish or manage Paw Adopt listings. */
+  pawAdoptBanned?: boolean;
 };
 
 type RegisterResult =
@@ -70,6 +72,7 @@ type AuthResponse = {
   vetApplicationId?: number | null;
   vetAppealState?: string | null;
   pawMarketBanned?: boolean;
+  pawAdoptBanned?: boolean;
 };
 
 function normalizeVetVerificationStatus(raw: string | null | undefined): "PENDING" | "APPROVED" | "REJECTED" | null {
@@ -100,6 +103,7 @@ function mapUser(r: AuthResponse): AuthUser {
     vetApplicationId: r.accountType === "VET" ? (r.vetApplicationId ?? null) : null,
     vetAppealState: r.accountType === "VET" ? (r.vetAppealState ?? null) : null,
     pawMarketBanned: Boolean(r.pawMarketBanned),
+    pawAdoptBanned: Boolean(r.pawAdoptBanned),
   };
 }
 

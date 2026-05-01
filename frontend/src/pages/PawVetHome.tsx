@@ -66,17 +66,19 @@ export function PawVetHome() {
     return (
       <div className="pawvet-shell">
         <div className="pawvet-hero">
-          <h1>PawVet</h1>
+          <h1>PawVet — administration</h1>
           <p style={{ margin: "0 0 1rem", color: "var(--color-muted)", lineHeight: 1.55, maxWidth: "56ch" }}>
-            Shelter and veterinarian account approvals are handled under{" "}
-            <Link to="/adopt/admin" style={{ fontWeight: 700 }}>
-              PawAdopt → Approvals
-            </Link>
-            . Use PawVet here for live triage cases and guardian tools.
+            Veterinarian licensing, reviews, and guardian reports on vets.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-            <Link className="ph-btn ph-btn-primary" to="/adopt/admin">
-              Open approvals hub
+            <Link className="ph-btn ph-btn-primary" to="/pawvet/admin/vet-verification">
+              Vet license queue
+            </Link>
+            <Link className="ph-btn ph-btn-ghost" to="/pawvet/admin/vet-reviews">
+              Vet reviews
+            </Link>
+            <Link className="ph-btn ph-btn-ghost" to="/pawvet/admin/pawvet-reports">
+              Guardian reports
             </Link>
             <Link className="ph-btn ph-btn-ghost" to="/">
               Home

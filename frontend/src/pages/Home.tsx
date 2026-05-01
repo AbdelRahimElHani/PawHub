@@ -160,13 +160,13 @@ export function Home() {
           </Link>
         ))}
         {isAdminAccount(user) && (
-          <Link className="ph-surface ph-dash-tile" to="/adopt/admin">
+          <Link className="ph-surface ph-dash-tile" to="/adopt/admin/shelters">
             <span className="ph-dash-tile-emoji" aria-hidden>
               🛡️
             </span>
             <div>
-              <strong>PawAdopt approvals</strong>
-              <div className="ph-dash-tile-desc">Shelter verifications, vet licenses, reviews, and reports.</div>
+              <strong>Paw Adopt admin</strong>
+              <div className="ph-dash-tile-desc">Shelter verification queue and Paw Adopt / Market bans.</div>
             </div>
           </Link>
         )}
@@ -177,7 +177,9 @@ export function Home() {
           <div>
             <strong>PawVet</strong>
             <div className="ph-dash-tile-desc">
-              {isAdminAccount(user) ? "Triage tools for live cases (not used for shelter/vet approvals)." : "Triage, chat, and vet tools."}
+              {isAdminAccount(user)
+                ? "Triage for guardians, plus vet licenses, reviews, and vet reports (admin)."
+                : "Triage, chat, and vet tools."}
             </div>
           </div>
         </Link>

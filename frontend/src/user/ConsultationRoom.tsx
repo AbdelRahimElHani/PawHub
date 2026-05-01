@@ -9,6 +9,8 @@ import { useChatStomp } from "../chat/ChatStompContext";
 import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
 import { useVetStore, type CaseChatMessage } from "../store/useVetStore";
 import { PawvetTypingIndicator } from "./PawvetTypingIndicator";
+import { useMediaLightbox } from "../components/media/MediaLightboxContext";
+import { inferMediaLightboxKind } from "../components/media/inferMediaKind";
 import "../pawvet/pawvet.css";
 
 function formatAgeMonths(m: number | null | undefined): string {
@@ -20,6 +22,7 @@ function formatAgeMonths(m: number | null | undefined): string {
 }
 
 function MessageAttachment({ m }: { m: CaseChatMessage }) {
+  const { openMedia } = useMediaLightbox();
   if (!m.attachmentUrl) return null;
   const isPdf =
     m.attachmentKind === "pdf" ||
@@ -27,21 +30,44 @@ function MessageAttachment({ m }: { m: CaseChatMessage }) {
     m.attachmentUrl.toLowerCase().includes("application/pdf");
   if (isPdf) {
     return (
-      <a
-        href={m.attachmentUrl}
-        target="_blank"
-        rel="noreferrer"
+      <button
+        type="button"
         className="pawvet-chat-attach pawvet-chat-attach--pdf"
+        onClick={() => openMedia(m.attachmentUrl!, "PDF attachment")}
       >
         <FileText size={18} strokeWidth={2} aria-hidden />
         Open PDF attachment
-      </a>
+      </button>
+    );
+  }
+  const kind = inferMediaLightboxKind(m.attachmentUrl);
+  if (kind === "video") {
+    return (
+      <button
+        type="button"
+        className="pawvet-chat-attach pawvet-chat-attach--img"
+        onClick={() => openMedia(m.attachmentUrl!)}
+        aria-label="View video attachment"
+      >
+        <video
+          src={m.attachmentUrl}
+          muted
+          playsInline
+          preload="metadata"
+          style={{ display: "block", maxWidth: "100%", maxHeight: 220, borderRadius: 10 }}
+        />
+      </button>
     );
   }
   return (
-    <a href={m.attachmentUrl} target="_blank" rel="noreferrer" className="pawvet-chat-attach pawvet-chat-attach--img">
+    <button
+      type="button"
+      className="pawvet-chat-attach pawvet-chat-attach--img"
+      onClick={() => openMedia(m.attachmentUrl!)}
+      aria-label="View image attachment"
+    >
       <img src={m.attachmentUrl} alt="Attachment" />
-    </a>
+    </button>
   );
 }
 

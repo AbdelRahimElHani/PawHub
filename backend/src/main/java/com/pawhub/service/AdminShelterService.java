@@ -12,6 +12,7 @@ import com.pawhub.web.dto.ShelterDtoMapper;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class AdminShelterService {
      * Admin queue: pending shelters with a submitted dossier first (oldest submission first), then any other pending
      * rows (e.g. legacy signups without dossier timestamps) for tooling and seeds.
      */
+    @Transactional(readOnly = true)
     public List<ShelterDto> pendingSubmissions() {
         List<ShelterDto> out = new ArrayList<>();
         shelterRepository
@@ -54,6 +56,14 @@ public class AdminShelterService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<ShelterDto> allOrderedByNewest() {
+        return shelterRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+                .map(ShelterDtoMapper::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public ShelterDto getShelter(Long shelterId) {
         Shelter s = shelterRepository.findById(shelterId).orElseThrow(() -> notFound(shelterId));
         return ShelterDtoMapper.fromEntity(s);
@@ -115,19 +125,21 @@ public class AdminShelterService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "This shelter has no pending appeal to accept.");
         }
-        s.setStatus(ShelterStatus.PENDING);
+        s.setStatus(ShelterStatus.APPROVED);
         s.setApplicationRejectionReason(null);
         s.setAppealMessage(null);
         s.setAppealSubmittedAt(null);
         s.setAppealState(null);
         shelterRepository.save(s);
-        appNotificationService.publishWithInboxNudge(
+        appNotificationService.publish(
                 s.getUser().getId(),
-                AppNotificationKind.SYSTEM_ANNOUNCEMENT,
-                "Appeal accepted",
-                "Your appeal was accepted. Your shelter application is back in the review queue.",
+                AppNotificationKind.SHELTER_VERIFIED,
+                "Shelter verified",
+                "Your appeal was accepted. "
+                        + s.getName().replace("\"", "'")
+                        + " is again a verified Paw Adopt partner and your eligible listings can appear to adopters.",
                 "/adopt/shelter",
-                "system",
+                "shelter",
                 null);
         return ShelterDtoMapper.fromEntity(s);
     }
@@ -172,7 +184,8 @@ public class AdminShelterService {
                 AppNotificationKind.SHELTER_VERIFICATION_REVOKED,
                 "Shelter verification ended",
                 "Your shelter’s verified partner status on Paw Adopt was revoked by an administrator. "
-                        + "Your live adoption listings are no longer visible to the public. Open Shelter & verification for details.",
+                        + "Your live adoption listings are no longer visible to the public. "
+                        + "Open Shelter & verification to read the notice—you may submit one appeal there if you believe this should be reconsidered.",
                 "/adopt/shelter",
                 "shelter",
                 null);

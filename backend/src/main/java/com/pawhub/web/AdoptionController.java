@@ -1,18 +1,22 @@
 package com.pawhub.web;
 
 import com.pawhub.service.AdoptionService;
+import com.pawhub.service.AiCatCheckService;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.AdoptionListingDto;
 import com.pawhub.web.dto.AdoptionListingUpsertRequest;
+import com.pawhub.web.dto.CatCheckResponse;
 import com.pawhub.web.dto.ShelterDocumentKind;
 import com.pawhub.web.dto.ShelterDto;
 import com.pawhub.web.dto.ShelterProfileUpdateRequest;
+import com.pawhub.web.dto.ShelterAdoptionOutcomeRequest;
 import com.pawhub.web.dto.ShelterUpsertRequest;
 import com.pawhub.web.dto.SubmitShelterAppealRequest;
 import com.pawhub.web.dto.ThreadIdResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -26,6 +30,30 @@ import org.springframework.web.multipart.MultipartFile;
 public class AdoptionController {
 
     private final AdoptionService adoptionService;
+    private final AiCatCheckService aiCatCheckService;
+
+    /** Step 1 preview: adoption hero photo must show a real cat (same Gemini path as upload screening). */
+    @PostMapping(value = "/cat-check-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CatCheckResponse adoptCatCheckImage(@RequestPart("file") MultipartFile file) throws Exception {
+        return aiCatCheckService.verifyAdoptionListingCatPhoto(file.getBytes(), file.getContentType());
+    }
+
+    /**
+     * Step 2 preview: image + listing fields must match (same rules as {@link AdoptionService#uploadListingPhoto} AI
+     * gate).
+     */
+    @PostMapping(value = "/cat-check-match", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CatCheckResponse adoptCatCheckMatch(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String petName,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) String breed,
+            @RequestParam(required = false) Integer ageMonths)
+            throws Exception {
+        return aiCatCheckService.verifyAdoptionListingPhotoMatchesText(
+                file.getBytes(), file.getContentType(), title, petName, description, breed, ageMonths);
+    }
 
     @PostMapping("/shelters")
     public ShelterDto apply(@Valid @RequestBody ShelterUpsertRequest req, @AuthenticationPrincipal SecurityUser user) {
@@ -101,6 +129,19 @@ public class AdoptionController {
     @PostMapping("/listings/{id}/inquire")
     public ThreadIdResponse inquire(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
         return new ThreadIdResponse(adoptionService.inquire(id, user), false);
+    }
+
+    /**
+     * In an adoption thread, the listing shelter records whether the placement with that adopter is complete
+     * (mark adopted + close listing) or did not go ahead (inquirer is notified; listing can stay up).
+     */
+    @PostMapping("/inquiries/threads/{threadId}/shelter-outcome")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void shelterInquiryOutcome(
+            @PathVariable long threadId,
+            @Valid @RequestBody ShelterAdoptionOutcomeRequest body,
+            @AuthenticationPrincipal SecurityUser user) {
+        adoptionService.shelterSetInquiryOutcome(threadId, body.decision(), user);
     }
 
     @PostMapping("/listings/{id}/mark-adopted")

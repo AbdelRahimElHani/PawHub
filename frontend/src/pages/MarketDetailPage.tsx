@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowLeft,
   Gift,
   MapPin,
@@ -13,6 +14,7 @@ import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AdminMarketRemoveDialog } from "../market/AdminMarketRemoveDialog";
 import { UserChip } from "../components/social/UserChip";
+import { useMediaLightbox } from "../components/media/MediaLightboxContext";
 import { ProductLocationMap } from "../market/ProductLocationMap";
 import { formatDistance, haversineKm } from "../market/haversine";
 import { useGeolocation } from "../market/useGeolocation";
@@ -171,6 +173,7 @@ export function MarketDetailPage() {
   const [orderLoading, setOrderLoading] = useState(false);
   const [activeImg, setActiveImg] = useState(0);
   const [confirmAdminDel, setConfirmAdminDel] = useState(false);
+  const { openMedia } = useMediaLightbox();
 
   useEffect(() => {
     if (!id) return;
@@ -296,25 +299,41 @@ export function MarketDetailPage() {
         {/* ── Image gallery ─────────────────────────────────── */}
         {images.length > 0 && (
           <div>
-            <img
-              src={images[activeImg]}
-              alt={listing.title}
+            <button
+              type="button"
+              onClick={() => openMedia(images[activeImg]!, listing.title)}
+              aria-label="View product photos full size"
               style={{
+                border: "none",
+                padding: 0,
+                margin: 0,
                 width: "100%",
-                maxHeight: 400,
-                objectFit: "cover",
+                display: "block",
+                cursor: "zoom-in",
                 borderRadius: 14,
+                overflow: "hidden",
                 background: "#eef6f4",
               }}
-            />
+            >
+              <img
+                src={images[activeImg]}
+                alt={listing.title}
+                style={{
+                  width: "100%",
+                  maxHeight: 400,
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            </button>
             {images.length > 1 && (
               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.6rem", flexWrap: "wrap" }}>
                 {images.map((url, i) => (
-                  <img
+                  <button
                     key={url}
-                    src={url}
-                    alt=""
+                    type="button"
                     onClick={() => setActiveImg(i)}
+                    aria-label={`Show product photo ${i + 1}`}
                     style={{
                       width: 60,
                       height: 60,
@@ -322,8 +341,13 @@ export function MarketDetailPage() {
                       objectFit: "cover",
                       cursor: "pointer",
                       border: i === activeImg ? "2px solid var(--color-primary)" : "2px solid transparent",
+                      padding: 0,
+                      overflow: "hidden",
+                      background: "#eef6f4",
                     }}
-                  />
+                  >
+                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  </button>
                 ))}
               </div>
             )}
@@ -482,7 +506,31 @@ export function MarketDetailPage() {
               fontSize: "0.88rem",
             }}
           >
-            Your account cannot buy or sell on Paw Market. If you think this is a mistake, contact support.
+            Your account cannot buy or sell on Paw Market. Open <strong>Notifications</strong> for the moderator
+            message. If you think this is a mistake, contact support.
+          </p>
+        )}
+
+        {isSelf && !isAdmin && !marketBanned && (
+          <p
+            style={{
+              margin: 0,
+              padding: "0.55rem 0.75rem",
+              borderRadius: 10,
+              background: "rgba(212, 163, 115, 0.12)",
+              color: "var(--color-primary-dark)",
+              fontSize: "0.82rem",
+              lineHeight: 1.5,
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "0.45rem",
+            }}
+          >
+            <AlertTriangle size={16} strokeWidth={2.25} aria-hidden style={{ flexShrink: 0, marginTop: "0.12rem" }} />
+            <span>
+              If a moderator sent a <strong>formal warning</strong> or removed this listing, open the{" "}
+              <strong>Notifications</strong> bell for the full message and admin note.
+            </span>
           </p>
         )}
 

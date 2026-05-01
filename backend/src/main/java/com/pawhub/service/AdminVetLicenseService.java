@@ -14,6 +14,7 @@ import com.pawhub.web.dto.VetLicenseApplicationAdminDto;
 import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +58,13 @@ public class AdminVetLicenseService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<VetLicenseApplicationAdminDto> allOrderedByNewest() {
+        return vetLicenseApplicationRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
     @Transactional
     public VetLicenseApplicationAdminDto approve(Long applicationId) {
         VetLicenseApplication a = vetLicenseApplicationRepository
@@ -88,11 +96,27 @@ public class AdminVetLicenseService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
         requirePending(a);
         a.setStatus(VetVerificationStatus.REJECTED);
-        a.setRejectionReason(req.reason().trim());
+        String reason = req.reason().trim();
+        a.setRejectionReason(reason);
         a.setAppealMessage(null);
         a.setAppealSubmittedAt(null);
         a.setAppealState(null);
-        return toDto(vetLicenseApplicationRepository.save(a));
+        vetLicenseApplicationRepository.save(a);
+        String reasonInBody = reason.length() > 2000 ? reason.substring(0, 1997) + "…" : reason;
+        String body =
+                "Your PawVet license application was not approved. Note: "
+                        + reasonInBody.replace("\"", "'")
+                        + " You may submit one appeal from your vet workspace if you believe this should be reviewed"
+                        + " again.";
+        appNotificationService.publishWithInboxNudge(
+                a.getUser().getId(),
+                AppNotificationKind.VET_LICENSE_APPLICATION_REJECTED,
+                "Vet license not approved",
+                body,
+                "/vet",
+                "vet",
+                null);
+        return toDto(a);
     }
 
     @Transactional
@@ -104,17 +128,20 @@ public class AdminVetLicenseService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "This application has no pending appeal to accept.");
         }
-        a.setStatus(VetVerificationStatus.PENDING);
+        a.setStatus(VetVerificationStatus.APPROVED);
         a.setRejectionReason(null);
         a.setAppealMessage(null);
         a.setAppealSubmittedAt(null);
         a.setAppealState(null);
         vetLicenseApplicationRepository.save(a);
-        appNotificationService.publishWithInboxNudge(
+        String lic = a.getLicenseNumber() != null ? a.getLicenseNumber() : "your license";
+        appNotificationService.publish(
                 a.getUser().getId(),
                 AppNotificationKind.VET_LICENSE_VERIFIED,
-                "Appeal accepted",
-                "Your appeal was accepted. Your license application is back in the review queue.",
+                "License verified",
+                String.format(
+                        "Your appeal was accepted and your license #%s is now verified. You can claim health cases.",
+                        lic),
                 "/vet",
                 "vet",
                 null);

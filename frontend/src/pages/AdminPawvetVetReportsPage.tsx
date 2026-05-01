@@ -30,7 +30,7 @@ export function AdminPawvetVetReportsPage() {
         Reports submitted by guardians about veterinarians during or after triage cases.
       </p>
       <p style={{ marginBottom: "1rem" }}>
-        <Link className="ph-btn ph-btn-ghost" to="/adopt/admin/vet-verification">
+        <Link className="ph-btn ph-btn-ghost" to="/pawvet/admin/vet-verification">
           ← Vet verification
         </Link>
       </p>

@@ -60,10 +60,11 @@ export function MatchesPage() {
       <div className="ph-surface" style={{ padding: "1.25rem", maxWidth: 520 }}>
         <h2 style={{ marginTop: 0 }}>Your matches</h2>
         <p style={{ color: "var(--color-muted)", lineHeight: 1.55 }}>
-          Matches are hidden for administrator accounts. Approvals for shelters and veterinarians are under PawAdopt.
+          Matches are hidden for administrator accounts. Open <strong>Paw Adopt</strong> or <strong>PawVet</strong> from
+          the home dashboard for moderation tools.
         </p>
-        <Link className="ph-btn ph-btn-primary" to="/adopt/admin" style={{ marginTop: "0.75rem", display: "inline-block" }}>
-          Approvals hub
+        <Link className="ph-btn ph-btn-primary" to="/" style={{ marginTop: "0.75rem", display: "inline-block" }}>
+          Home
         </Link>
       </div>
     );

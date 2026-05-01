@@ -79,6 +79,11 @@ public class User {
     @Builder.Default
     private boolean pawMarketBanned = false;
 
+    @Column(name = "paw_adopt_banned", nullable = false)
+    @JdbcTypeCode(SqlTypes.TINYINT)
+    @Builder.Default
+    private boolean pawAdoptBanned = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

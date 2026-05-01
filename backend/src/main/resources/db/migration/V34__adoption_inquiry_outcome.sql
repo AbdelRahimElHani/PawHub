@@ -1,0 +1,1 @@
+ALTER TABLE adoption_inquiries ADD COLUMN outcome VARCHAR(32) NOT NULL DEFAULT 'PENDING';

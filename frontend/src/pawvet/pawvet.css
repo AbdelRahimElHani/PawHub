@@ -129,6 +129,16 @@
   color: var(--color-primary-dark);
 }
 
+.pawvet-table--compact {
+  font-size: 0.8rem;
+}
+
+.pawvet-table--compact th,
+.pawvet-table--compact td {
+  padding: 0.4rem 0.55rem;
+  vertical-align: middle;
+}
+
 .pawvet-urgent {
   display: inline-flex;
   align-items: center;
@@ -293,6 +303,21 @@
   border-radius: 10px;
   overflow: hidden;
   text-decoration: none;
+}
+
+button.pawvet-chat-attach {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+button.pawvet-chat-attach--pdf {
+  width: auto;
+  text-align: left;
 }
 
 .pawvet-chat-attach--img img {

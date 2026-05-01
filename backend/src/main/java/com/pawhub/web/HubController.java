@@ -50,7 +50,7 @@ public class HubController {
     @GetMapping("/forum/posts/{id}")
     public ForumPostDetailDto forumPostDetail(@PathVariable Long id, Authentication authentication) {
         Long userId = currentUserId(authentication);
-        return hubForumService.getPostDetail(id, userId);
+        return hubForumService.getPostDetail(id, userId, isAdminViewer(authentication));
     }
 
     @PostMapping("/forum/rooms/{slug}/posts")
@@ -80,30 +80,33 @@ public class HubController {
     public ForumPostDetailDto editComment(
             @PathVariable Long commentId,
             @Valid @RequestBody ForumCommentEditRequest req,
-            @AuthenticationPrincipal SecurityUser user) {
-        return hubForumService.editOwnComment(commentId, user.getId(), req);
+            @AuthenticationPrincipal SecurityUser user,
+            Authentication authentication) {
+        return hubForumService.editOwnComment(commentId, user.getId(), req, isAdminViewer(authentication));
     }
 
     @DeleteMapping("/forum/comments/{commentId}")
     public ForumPostDetailDto deleteOwnComment(
-            @PathVariable Long commentId, @AuthenticationPrincipal SecurityUser user) {
-        return hubForumService.deleteOwnComment(commentId, user.getId());
+            @PathVariable Long commentId, @AuthenticationPrincipal SecurityUser user, Authentication authentication) {
+        return hubForumService.deleteOwnComment(commentId, user.getId(), isAdminViewer(authentication));
     }
 
     @PostMapping("/forum/posts/{postId}/vote")
     public ForumPostDetailDto vote(
             @PathVariable Long postId,
             @Valid @RequestBody ForumVoteRequest req,
-            @AuthenticationPrincipal SecurityUser user) {
-        return hubForumService.vote(postId, user.getId(), req);
+            @AuthenticationPrincipal SecurityUser user,
+            Authentication authentication) {
+        return hubForumService.vote(postId, user.getId(), req, isAdminViewer(authentication));
     }
 
     @PostMapping("/forum/posts/{postId}/helpful")
     public ForumPostDetailDto markHelpful(
             @PathVariable Long postId,
             @Valid @RequestBody ForumHelpfulRequest req,
-            @AuthenticationPrincipal SecurityUser user) {
-        return hubForumService.markHelpful(postId, user.getId(), req.commentId());
+            @AuthenticationPrincipal SecurityUser user,
+            Authentication authentication) {
+        return hubForumService.markHelpful(postId, user.getId(), req.commentId(), isAdminViewer(authentication));
     }
 
     private static Long currentUserId(Authentication authentication) {
@@ -111,5 +114,12 @@ public class HubController {
             return null;
         }
         return su.getId();
+    }
+
+    private static boolean isAdminViewer(Authentication authentication) {
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 }

@@ -21,4 +21,6 @@ public record AuthResponse(
         /** PENDING / REJECTED_FINAL when accountType is VET; otherwise null */
         String vetAppealState,
         /** True when the user cannot buy or sell on Paw Market. */
-        boolean pawMarketBanned) {}
+        boolean pawMarketBanned,
+        /** True when a shelter account cannot publish or manage Paw Adopt listings. */
+        boolean pawAdoptBanned) {}

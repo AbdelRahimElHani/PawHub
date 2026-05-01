@@ -1,5 +1,6 @@
 package com.pawhub.service;
 
+import com.pawhub.domain.AdoptionInquiry;
 import com.pawhub.domain.AppNotificationKind;
 import com.pawhub.domain.ChatThread;
 import com.pawhub.domain.DmRequestStatus;
@@ -7,6 +8,7 @@ import com.pawhub.domain.FriendshipStatus;
 import com.pawhub.domain.Message;
 import com.pawhub.domain.ThreadType;
 import com.pawhub.domain.User;
+import com.pawhub.repository.AdoptionInquiryRepository;
 import com.pawhub.repository.ChatThreadRepository;
 import com.pawhub.repository.MessageRepository;
 import com.pawhub.repository.UserFriendshipRepository;
@@ -39,6 +41,7 @@ public class ChatService {
 
     private final ChatThreadRepository chatThreadRepository;
     private final MessageRepository messageRepository;
+    private final AdoptionInquiryRepository adoptionInquiryRepository;
     private final UserRepository userRepository;
     private final UserFriendshipRepository userFriendshipRepository;
     private final FileStorageService fileStorageService;
@@ -357,6 +360,23 @@ public class ChatService {
                 locked = true;
             }
         }
+        Long alId = null;
+        String adoptionOutcome = null;
+        String adoptionListStatus = null;
+        boolean adoptionImShelter = false;
+        if (t.getType() == ThreadType.ADOPTION) {
+            Optional<AdoptionInquiry> inqOpt = adoptionInquiryRepository.findByThread_Id(t.getId());
+            if (inqOpt.isEmpty() && t.getAdoptionInquiryId() != null) {
+                inqOpt = adoptionInquiryRepository.findById(t.getAdoptionInquiryId());
+            }
+            if (inqOpt.isPresent()) {
+                AdoptionInquiry inq = inqOpt.get();
+                alId = inq.getAdoptionListing().getId();
+                adoptionOutcome = inq.getOutcome().name();
+                adoptionListStatus = inq.getAdoptionListing().getStatus().name();
+                adoptionImShelter = inq.getAdoptionListing().getShelter().getUser().getId().equals(me);
+            }
+        }
         return new ThreadSummaryDto(
                 t.getId(),
                 t.getType().name(),
@@ -370,7 +390,11 @@ public class ChatService {
                 incoming,
                 outgoing,
                 declined,
-                locked);
+                locked,
+                alId,
+                adoptionOutcome,
+                adoptionListStatus,
+                adoptionImShelter);
     }
 
     private static boolean computeUnread(Optional<Message> lastOpt, Long me, Instant myReadAt) {
@@ -429,5 +453,31 @@ public class ChatService {
                 m.getBody(),
                 m.getCreatedAt(),
                 m.getAttachmentUrl());
+    }
+
+    /**
+     * System-style update in an adoption thread (e.g. shelter recorded outcome) — both participants
+     * receive the message and inbox refresh the same as a user-sent message.
+     */
+    @Transactional
+    public void postAdoptionStatusLine(long threadId, long senderId, String body) {
+        ChatThread t = chatThreadRepository.findById(threadId).orElseThrow();
+        assertParticipant(t, senderId);
+        if (t.getType() != ThreadType.ADOPTION) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not an adoption thread.");
+        }
+        if (body == null || body.isBlank()) {
+            return;
+        }
+        User sender = userRepository.getReferenceById(senderId);
+        Message msg = Message.builder()
+                .thread(t)
+                .sender(sender)
+                .body(body.trim())
+                .build();
+        messageRepository.save(msg);
+        MessageDto dto = toMessageDto(msg);
+        messagingTemplate.convertAndSend("/topic/threads." + threadId, dto);
+        pushInboxToParticipants(t, ChatInboxEvent.message(threadId, dto));
     }
 }

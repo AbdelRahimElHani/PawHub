@@ -41,10 +41,17 @@ export function AdoptHub() {
         setRows([]);
         setLoadErr("We couldn’t load adoptable cats. Try again shortly.");
       });
+  }, []);
+
+  useEffect(() => {
+    if (!user || user.accountType !== "SHELTER") {
+      setShelter(null);
+      return;
+    }
     void api<ShelterDto | null>("/api/adopt/shelters/mine")
       .then((s) => setShelter(s))
       .catch(() => setShelter(null));
-  }, []);
+  }, [user?.userId, user?.accountType]);
 
   const filtered = useMemo(
     () => rows.filter((r) => listingMatchesFilter(r, filterCriteria)),
@@ -66,17 +73,14 @@ export function AdoptHub() {
           <>
             <Link
               className="ph-btn ph-btn-ghost"
-              to="/adopt/admin"
-              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+              to="/adopt/admin/shelters"
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.88rem" }}
             >
               <Shield size={16} strokeWidth={2} aria-hidden />
-              Approvals hub
+              Shelter admin
             </Link>
-            <Link className="ph-btn ph-btn-ghost" to="/adopt/admin/shelters" style={{ fontSize: "0.88rem" }}>
-              Shelters
-            </Link>
-            <Link className="ph-btn ph-btn-ghost" to="/adopt/admin/vet-verification" style={{ fontSize: "0.88rem" }}>
-              Vet licenses
+            <Link className="ph-btn ph-btn-ghost" to="/adopt/admin/banned-accounts" style={{ fontSize: "0.88rem" }}>
+              Banned accounts
             </Link>
           </>
         )}
@@ -86,14 +90,9 @@ export function AdoptHub() {
           </Link>
         )}
         {user?.accountType === "SHELTER" && shelter?.status === "APPROVED" && (
-          <>
-            <Link className="ph-btn ph-btn-accent" to="/adopt/new">
-              New listing
-            </Link>
-            <Link className="ph-btn ph-btn-ghost" to="/adopt/my-listings">
-              My listings & archive
-            </Link>
-          </>
+          <Link className="ph-btn ph-btn-ghost" to="/adopt/my-listings">
+            My listings
+          </Link>
         )}
       </div>
 
@@ -142,14 +141,34 @@ export function AdoptHub() {
             )}
             {shelter.status === "REJECTED" && (
               <p>
-                This application wasn’t approved. Please reach out through support if you believe this was a mistake, or
-                update your details and re-apply when invited.
+                {shelter.applicationRejectionReason?.toLowerCase().includes("revoked") ? (
+                  <>
+                    <strong>Verification was revoked.</strong> Your listings are hidden from Paw Adopt until you are a
+                    verified partner again. Open <strong>Shelter & verification</strong> to read the notice and submit a
+                    one-time appeal if you believe this should be reconsidered.
+                  </>
+                ) : (
+                  <>
+                    This application wasn’t approved. Open your shelter workspace to read the reviewer note and submit a
+                    one-time appeal if available.
+                  </>
+                )}
               </p>
             )}
           </div>
           {shelter.status === "APPROVED" && (
             <Link className="ph-btn ph-btn-accent" to="/adopt/new" style={{ alignSelf: "center" }}>
               New listing
+            </Link>
+          )}
+          {shelter.status === "PENDING" && (
+            <Link className="ph-btn ph-btn-primary" to="/adopt/shelter" style={{ alignSelf: "center" }}>
+              {!shelter.profileCompletedAt ? "Complete dossier" : "Shelter status"}
+            </Link>
+          )}
+          {shelter.status === "REJECTED" && (
+            <Link className="ph-btn ph-btn-primary" to="/adopt/shelter" style={{ alignSelf: "center" }}>
+              Shelter workspace
             </Link>
           )}
         </div>
@@ -251,9 +270,15 @@ export function AdoptHub() {
           {filtered.map((l) => {
             const ownShelterListing = user?.accountType === "SHELTER" && shelter && l.shelterId === shelter.id;
             const hideLove = Boolean(ownShelterListing || isAdminAccount(user));
+            const adminDel = Boolean(isAdminAccount(user));
             return (
               <motion.div key={l.id} className="adopt-masonry__item" variants={item}>
-                <AdoptCard listing={l} hideLove={hideLove} />
+                <AdoptCard
+                  listing={l}
+                  hideLove={hideLove}
+                  adminDelete={adminDel}
+                  onAdminRemoved={(id) => setRows((prev) => prev.filter((x) => x.id !== id))}
+                />
               </motion.div>
             );
           })}

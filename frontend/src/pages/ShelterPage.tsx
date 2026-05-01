@@ -80,6 +80,33 @@ export function ShelterPage() {
   }
 
   const isShelterAccount = user?.accountType === "SHELTER";
+
+  if (isShelterAccount && existing === null) {
+    return (
+      <div className="shelter-landing">
+        <p style={{ marginBottom: "0.75rem" }}>
+          <Link to="/adopt" style={{ fontWeight: 600 }}>
+            ← Paw Adopt
+          </Link>
+        </p>
+        <h1>Shelter verification</h1>
+        <div className="adopt-gate" style={{ maxWidth: 540 }}>
+          <h2 style={{ marginTop: 0 }}>Load your shelter workspace</h2>
+          <p style={{ lineHeight: 1.6 }}>
+            Your account is a <strong>shelter organization</strong>. Open your verification workspace to complete the
+            dossier, upload documents, and submit for admin review.
+          </p>
+          <p style={{ color: "var(--color-muted)", fontSize: "0.92rem", lineHeight: 1.55 }}>
+            If loading failed (network or session), retry here or sign out and sign back in.
+          </p>
+          <button type="button" className="ph-btn ph-btn-primary" onClick={() => void reloadShelter()}>
+            Load workspace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   /** Still filling the dossier — show full wizard */
   const shelterDossierInProgress =
     isShelterAccount && existing?.status === "PENDING" && !existing.profileCompletedAt;
@@ -94,6 +121,10 @@ export function ShelterPage() {
 
   const submittedAt =
     existing?.profileCompletedAt != null ? new Date(existing.profileCompletedAt).toLocaleString() : null;
+
+  const rejectionLooksRevoked =
+    existing?.status === "REJECTED" &&
+    Boolean(existing.applicationRejectionReason?.toLowerCase().includes("revoked"));
 
   return (
     <div className="shelter-landing">
@@ -220,19 +251,27 @@ export function ShelterPage() {
       {shelterRejected && existing && (
         <div className="shelter-submitted-card" data-tone="rejected">
           <BadgeCheck size={40} strokeWidth={1.5} aria-hidden className="shelter-submitted-card__icon" />
-          <h2 className="shelter-submitted-card__title">Application not approved</h2>
+          <h2 className="shelter-submitted-card__title">{rejectionLooksRevoked ? "Verification revoked" : "Application not approved"}</h2>
           <p className="shelter-submitted-card__body">
-            This shelter application was not approved.
+            {rejectionLooksRevoked ? (
+              <>
+                An administrator <strong>revoked</strong> your shelter’s verified partner status on Paw Adopt. Your live
+                listings are hidden from the public until you are verified again.
+              </>
+            ) : (
+              <>This shelter application was not approved.</>
+            )}
             {existing.applicationRejectionReason ? (
               <>
                 {" "}
-                <strong>Note from review:</strong> {existing.applicationRejectionReason}
+                <strong>Note:</strong> {existing.applicationRejectionReason}
               </>
             ) : null}
           </p>
           {existing.appealState === "PENDING" ? (
             <p style={{ color: "var(--color-muted)", lineHeight: 1.55 }}>
-              Your appeal is <strong>waiting for an administrator</strong>. You’ll see updates here when it is decided.
+              Your appeal is <strong>waiting for an administrator</strong>. If it is accepted, your shelter becomes a
+              verified partner again; if not, no further appeals are allowed for this case.
             </p>
           ) : null}
           {existing.appealState === "REJECTED_FINAL" ? (
@@ -271,13 +310,19 @@ export function ShelterPage() {
                 })();
               }}
             >
-              <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem" }}>Appeal (one chance)</label>
+              <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem" }}>
+                Appeal (one chance){rejectionLooksRevoked ? " — ask for verification to be restored" : ""}
+              </label>
               <textarea
                 className="ph-textarea"
                 rows={4}
                 value={appealText}
                 onChange={(e) => setAppealText(e.target.value)}
-                placeholder="Explain why your organization should be reconsidered…"
+                placeholder={
+                  rejectionLooksRevoked
+                    ? "Explain why your shelter should regain verified partner status…"
+                    : "Explain why your organization should be reconsidered…"
+                }
               />
               <button className="ph-btn ph-btn-primary" type="submit" disabled={appealBusy} style={{ marginTop: "0.5rem" }}>
                 {appealBusy ? "Submitting…" : "Submit appeal"}

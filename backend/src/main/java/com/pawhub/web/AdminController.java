@@ -2,13 +2,17 @@ package com.pawhub.web;
 
 import com.pawhub.domain.ShelterStatus;
 import com.pawhub.domain.VetVerificationStatus;
+import com.pawhub.security.SecurityUser;
 import com.pawhub.service.AdoptionService;
 import com.pawhub.service.AdminShelterService;
+import com.pawhub.service.AdminUserBanService;
 import com.pawhub.service.AdminVetLicenseService;
 import com.pawhub.service.AppNotificationService;
 import com.pawhub.service.PawvetConsultationReviewService;
 import com.pawhub.service.PawvetTriageCaseService;
+import com.pawhub.web.dto.AdminRemoveAdoptionListingRequest;
 import com.pawhub.web.dto.AdoptionListingDto;
+import com.pawhub.web.dto.BannedUserAdminDto;
 import com.pawhub.web.dto.BroadcastNotificationRequest;
 import com.pawhub.web.dto.PawvetVetReportAdminDto;
 import com.pawhub.web.dto.RejectShelterAppealRequest;
@@ -24,6 +28,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -39,10 +44,16 @@ public class AdminController {
     private final PawvetConsultationReviewService pawvetConsultationReviewService;
     private final PawvetTriageCaseService pawvetTriageCaseService;
     private final AppNotificationService appNotificationService;
+    private final AdminUserBanService adminUserBanService;
 
     @GetMapping("/shelters/pending")
     public List<ShelterDto> pendingSubmissions() {
         return adminShelterService.pendingSubmissions();
+    }
+
+    @GetMapping("/shelters/all")
+    public List<ShelterDto> allShelters() {
+        return adminShelterService.allOrderedByNewest();
     }
 
     @GetMapping("/shelters/by-status")
@@ -66,8 +77,12 @@ public class AdminController {
     }
 
     @DeleteMapping("/adopt/listings/{listingId}")
-    public void adminDeleteAdoptionListing(@PathVariable long listingId) {
-        adoptionService.adminRemoveAdoptionListing(listingId);
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void adminDeleteAdoptionListing(
+            @PathVariable long listingId,
+            @RequestBody(required = false) AdminRemoveAdoptionListingRequest body,
+            @AuthenticationPrincipal SecurityUser admin) {
+        adoptionService.adminRemoveAdoptionListing(listingId, body, admin);
     }
 
     @PostMapping("/shelters/{id}/approve")
@@ -97,9 +112,32 @@ public class AdminController {
         return adminShelterService.revokeVerification(id);
     }
 
+    @GetMapping("/users/market-or-adopt-banned")
+    public List<BannedUserAdminDto> listMarketOrAdoptBanned() {
+        return adminUserBanService.listMarketOrAdoptBanned();
+    }
+
+    @PostMapping("/users/{userId}/lift-paw-market-ban")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void liftPawMarketBan(
+            @PathVariable long userId, @AuthenticationPrincipal SecurityUser admin) {
+        adminUserBanService.liftPawMarketBan(userId, admin);
+    }
+
+    @PostMapping("/users/{userId}/lift-paw-adopt-ban")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void liftPawAdoptBan(@PathVariable long userId, @AuthenticationPrincipal SecurityUser admin) {
+        adminUserBanService.liftPawAdoptBan(userId, admin);
+    }
+
     @GetMapping("/vet-applications/metrics")
     public VetApplicationMetricsDto vetApplicationMetrics() {
         return adminVetLicenseService.metrics();
+    }
+
+    @GetMapping("/vet-applications/all")
+    public List<VetLicenseApplicationAdminDto> vetApplicationsAll() {
+        return adminVetLicenseService.allOrderedByNewest();
     }
 
     @GetMapping("/vet-applications/pending")

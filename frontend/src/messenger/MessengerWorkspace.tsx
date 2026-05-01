@@ -7,9 +7,12 @@ import { useAuth } from "../auth/AuthContext";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
 import { useChatStomp } from "../chat/ChatStompContext";
 import type { MessageDto, PawMarketOrderThreadDto, ThreadSummaryDto } from "../types";
+import { AdoptionListingShareEmbed } from "./AdoptionListingShareEmbed";
 import { ListingShareEmbed } from "./ListingShareEmbed";
-import { parseListingShareFromMessage } from "./listingShareMessage";
+import { parseMessageEmbeds } from "./listingShareMessage";
 import { PeerTypingIndicator } from "./PeerTypingIndicator";
+import { useMediaLightbox } from "../components/media/MediaLightboxContext";
+import { inferMediaLightboxKind, isPreviewableMediaUrl } from "../components/media/inferMediaKind";
 
 type Page<T> = { content: T[] };
 
@@ -54,6 +57,7 @@ function previewFromMessage(m: MessageDto): string {
 const EXTERNAL_URL_RE = /(https?:\/\/[^\s]+)/g;
 
 function MessageTextWithLinks({ text, mine }: { text: string; mine: boolean }) {
+  const { openMedia } = useMediaLightbox();
   if (!text) return null;
   const nodes: ReactNode[] = [];
   let last = 0;
@@ -64,17 +68,31 @@ function MessageTextWithLinks({ text, mine }: { text: string; mine: boolean }) {
     if (m.index > last) {
       nodes.push(text.slice(last, m.index));
     }
-    nodes.push(
-      <a
-        key={`lnk-${k++}`}
-        href={m[1]}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={"ph-msg-text-link" + (mine ? " ph-msg-text-link--mine" : "")}
-      >
-        {m[1]}
-      </a>,
-    );
+    const href = m[1];
+    if (isPreviewableMediaUrl(href)) {
+      nodes.push(
+        <button
+          key={`lnk-${k++}`}
+          type="button"
+          className={"ph-msg-text-link-btn" + (mine ? " ph-msg-text-link-btn--mine" : "")}
+          onClick={() => openMedia(href)}
+        >
+          {href}
+        </button>,
+      );
+    } else {
+      nodes.push(
+        <a
+          key={`lnk-${k++}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={"ph-msg-text-link" + (mine ? " ph-msg-text-link--mine" : "")}
+        >
+          {href}
+        </a>,
+      );
+    }
     last = EXTERNAL_URL_RE.lastIndex;
   }
   if (last < text.length) {
@@ -107,6 +125,7 @@ export function MessengerWorkspace({
   const location = useLocation();
   const { refresh: refreshGlobalThreads } = useThreadNotifications();
   const { setActiveThread, sendTyping, registerInbox } = useChatStomp();
+  const { openMedia } = useMediaLightbox();
 
   const [threads, setThreads] = useState<ThreadSummaryDto[]>([]);
   const [messages, setMessages] = useState<MessageDto[]>([]);
@@ -119,6 +138,10 @@ export function MessengerWorkspace({
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const liveCameraVideoRef = useRef<HTMLVideoElement>(null);
+  const liveCameraStreamRef = useRef<MediaStream | null>(null);
+  const [liveCameraOpen, setLiveCameraOpen] = useState(false);
+  const [liveCameraBusy, setLiveCameraBusy] = useState(false);
   const newChatPopRef = useRef<HTMLDivElement>(null);
   const composeBtnRef = useRef<HTMLButtonElement>(null);
   const listEndRef = useRef<HTMLDivElement | null>(null);
@@ -132,6 +155,7 @@ export function MessengerWorkspace({
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [adoptOutcomeBusy, setAdoptOutcomeBusy] = useState(false);
   const [qtyDraft, setQtyDraft] = useState("");
 
   const sorted = useMemo(
@@ -157,11 +181,47 @@ export function MessengerWorkspace({
   const showConversationPaused =
     dmLocked && !showIncomingRequest && !showOutgoingPending && !showDeclined;
 
+  const isAdoptionThread = activeThread?.type === "ADOPTION";
+  const adoptOutcome = (activeThread?.adoptionInquiryOutcome ?? "PENDING") as
+    | "PENDING"
+    | "CONFIRMED"
+    | "DECLINED";
+  const adoptListStatus = (activeThread?.adoptionListingStatus ?? "ACTIVE") as
+    | "ACTIVE"
+    | "SOLD"
+    | "ARCHIVED"
+    | string;
+  const adoptImShelter = activeThread?.adoptionImShelter === true;
+
   const loadThreads = useCallback(() => {
     void api<ThreadSummaryDto[]>("/api/chat/threads")
       .then(setThreads)
       .catch((e: unknown) => setListErr(e instanceof Error ? e.message : "Failed to load conversations"));
   }, []);
+
+  const runAdoptShelterOutcome = useCallback(
+    async (decision: "CONFIRM" | "DECLINE") => {
+      if (!validTid || adoptOutcomeBusy) return;
+      setAdoptOutcomeBusy(true);
+      setSendErr(null);
+      try {
+        await api("/api/adopt/inquiries/threads/" + String(tid) + "/shelter-outcome", {
+          method: "POST",
+          body: JSON.stringify({ decision }),
+        });
+        loadThreads();
+        const page = await api<Page<MessageDto>>(`/api/chat/threads/${tid}/messages?page=0&size=100`);
+        const rows = page?.content ?? [];
+        setMessages([...rows].reverse());
+        void refreshGlobalThreads();
+      } catch (e: unknown) {
+        setSendErr(e instanceof Error ? e.message : "Could not update adoption status");
+      } finally {
+        setAdoptOutcomeBusy(false);
+      }
+    },
+    [validTid, adoptOutcomeBusy, tid, loadThreads, refreshGlobalThreads],
+  );
 
   const loadPawMarketCtx = useCallback(async () => {
     if (!token || !validTid || !activeThread || activeThread.type !== "LISTING") {
@@ -352,6 +412,71 @@ export function MessengerWorkspace({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [newChatOpen]);
 
+  const stopLiveCamera = useCallback(() => {
+    liveCameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+    liveCameraStreamRef.current = null;
+    const v = liveCameraVideoRef.current;
+    if (v) v.srcObject = null;
+  }, []);
+
+  useEffect(() => {
+    if (!liveCameraOpen) return;
+    const v = liveCameraVideoRef.current;
+    const s = liveCameraStreamRef.current;
+    if (!v || !s) return;
+    v.srcObject = s;
+    void v.play().catch(() => {});
+    return () => {
+      stopLiveCamera();
+    };
+  }, [liveCameraOpen, stopLiveCamera]);
+
+  useEffect(() => {
+    if (!liveCameraOpen) return;
+    function onKey(ev: KeyboardEvent) {
+      if (ev.key === "Escape") {
+        setLiveCameraOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [liveCameraOpen]);
+
+  const openLiveCamera = useCallback(async () => {
+    if (dmLocked) return;
+    setSendErr(null);
+    stopLiveCamera();
+    if (!navigator.mediaDevices?.getUserMedia) {
+      cameraRef.current?.click();
+      return;
+    }
+    setLiveCameraBusy(true);
+    try {
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+      liveCameraStreamRef.current = stream;
+      setLiveCameraOpen(true);
+    } catch (e) {
+      setSendErr(e instanceof Error ? e.message : "Could not access camera.");
+      cameraRef.current?.click();
+    } finally {
+      setLiveCameraBusy(false);
+    }
+  }, [dmLocked, stopLiveCamera]);
+
+  useEffect(() => {
+    return () => {
+      stopLiveCamera();
+    };
+  }, [stopLiveCamera]);
+
   async function onSend(e: FormEvent) {
     e.preventDefault();
     setSendErr(null);
@@ -521,6 +646,27 @@ export function MessengerWorkspace({
     applyPickedImageFile(f);
   }
 
+  function captureLivePhoto() {
+    const v = liveCameraVideoRef.current;
+    if (!v || v.videoWidth === 0) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = v.videoWidth;
+    canvas.height = v.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(v, 0, 0);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
+        applyPickedImageFile(file);
+        setLiveCameraOpen(false);
+      },
+      "image/jpeg",
+      0.92,
+    );
+  }
+
   if (!token || !user) {
     return null;
   }
@@ -608,7 +754,13 @@ export function MessengerWorkspace({
                   <div className="ph-msg-thread-top">
                     <strong className="ph-msg-name">
                       {t.otherDisplayName}
-                      {t.marketListingId != null ? (
+                      {t.type === "ADOPTION" || t.adoptionListingId != null ? (
+                        <span className="ph-msg-thread-tag" title="About a Paw Adopt listing">
+                          {" "}
+                          · Paw Adopt
+                        </span>
+                      ) : null}
+                      {t.marketListingId != null && t.type !== "ADOPTION" && t.adoptionListingId == null ? (
                         <span className="ph-msg-thread-tag" title="About a Paw Market listing">
                           {" "}
                           · Item
@@ -729,6 +881,111 @@ export function MessengerWorkspace({
               </div>
             ) : null}
 
+            {isAdoptionThread ? (
+              <div
+                className="ph-msg-request-bar"
+                role="region"
+                aria-label="Paw Adopt adoption"
+                style={{ flexDirection: "column", alignItems: "stretch", gap: "0.55rem" }}
+              >
+                {adoptImShelter && adoptOutcome === "PENDING" && adoptListStatus === "ACTIVE" ? (
+                  <>
+                    <span className="ph-msg-request-bar-text">
+                      <strong>Paw Adopt</strong> — When the adoption is final, <strong>Confirm adoption</strong> to
+                      mark this pet as placed and close the listing. <strong>Decline</strong> if this home did not work
+                      out; the pet can stay available for other adopters.
+                    </span>
+                    <div className="ph-msg-request-bar-actions">
+                      <button
+                        type="button"
+                        className="ph-btn ph-btn-primary"
+                        style={{ fontSize: "0.82rem", padding: "0.28rem 0.75rem" }}
+                        disabled={adoptOutcomeBusy}
+                        onClick={() => void runAdoptShelterOutcome("CONFIRM")}
+                      >
+                        {adoptOutcomeBusy ? "Saving…" : "Confirm adoption"}
+                      </button>
+                      <button
+                        type="button"
+                        className="ph-btn ph-btn-ghost"
+                        style={{ fontSize: "0.82rem", padding: "0.28rem 0.75rem" }}
+                        disabled={adoptOutcomeBusy}
+                        onClick={() => void runAdoptShelterOutcome("DECLINE")}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+                {adoptImShelter && adoptOutcome === "PENDING" && adoptListStatus !== "ACTIVE" ? (
+                  <>
+                    <span className="ph-msg-request-bar-text">
+                      <strong>Paw Adopt</strong> — This pet is not listed as available (it may already be adopted).
+                      Confirm is not available here. You can <strong>Decline</strong> to close this inquiry in your
+                      records.
+                    </span>
+                    <div className="ph-msg-request-bar-actions">
+                      <button
+                        type="button"
+                        className="ph-btn ph-btn-ghost"
+                        style={{ fontSize: "0.82rem", padding: "0.28rem 0.75rem" }}
+                        disabled={adoptOutcomeBusy}
+                        onClick={() => void runAdoptShelterOutcome("DECLINE")}
+                      >
+                        {adoptOutcomeBusy ? "Saving…" : "Decline inquiry"}
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+                {adoptImShelter && adoptOutcome === "CONFIRMED" ? (
+                  <div className="ph-msg-request-bar--pending" role="status" style={{ margin: 0, padding: "0.5rem 0" }}>
+                    <span className="ph-msg-request-bar-text">
+                      <strong>Paw Adopt</strong> — You confirmed this placement. The listing is closed as adopted.
+                    </span>
+                  </div>
+                ) : null}
+                {adoptImShelter && adoptOutcome === "DECLINED" ? (
+                  <div className="ph-msg-request-bar--declined" role="status" style={{ margin: 0, padding: "0.5rem 0" }}>
+                    <span className="ph-msg-request-bar-text">
+                      <strong>Paw Adopt</strong> — You recorded that this placement did not go ahead. The inquirer was
+                      notified.
+                    </span>
+                  </div>
+                ) : null}
+                {!adoptImShelter && adoptOutcome === "PENDING" && adoptListStatus === "ACTIVE" ? (
+                  <div className="ph-msg-request-bar--pending" role="status" style={{ margin: 0 }}>
+                    <span className="ph-msg-request-bar-text">
+                      <strong>Paw Adopt</strong> — Waiting for the shelter to confirm adoption or say this inquiry
+                      did not go through. When they confirm, the pet is no longer listed.
+                    </span>
+                  </div>
+                ) : null}
+                {!adoptImShelter && adoptOutcome === "PENDING" && adoptListStatus !== "ACTIVE" ? (
+                  <div className="ph-msg-request-bar--pending" role="status" style={{ margin: 0 }}>
+                    <span className="ph-msg-request-bar-text">
+                      <strong>Paw Adopt</strong> — This listing is no longer available (the pet may already be placed).
+                      You can still message the shelter below if you need closure.
+                    </span>
+                  </div>
+                ) : null}
+                {!adoptImShelter && adoptOutcome === "CONFIRMED" ? (
+                  <div className="ph-msg-request-bar--pending" role="status" style={{ margin: 0 }}>
+                    <span className="ph-msg-request-bar-text">
+                      <strong>Paw Adopt</strong> — The shelter confirmed this adoption. The pet is no longer listed.
+                    </span>
+                  </div>
+                ) : null}
+                {!adoptImShelter && adoptOutcome === "DECLINED" ? (
+                  <div className="ph-msg-request-bar--declined" role="status" style={{ margin: 0 }}>
+                    <span className="ph-msg-request-bar-text">
+                      <strong>Paw Adopt</strong> — The shelter could not place through this inquiry. Check the
+                      listing — the pet may still be there for another adopter.
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {!dmLocked &&
             user?.role !== "ADMIN" &&
             activeThread?.type === "LISTING" &&
@@ -839,9 +1096,9 @@ export function MessengerWorkspace({
             <div className="ph-msg-scroll">
               {sorted.map((m) => {
                 const mine = m.senderId === user.userId;
-                const { text: bodyText, listingId: shareListingId } = m.body
-                  ? parseListingShareFromMessage(m.body)
-                  : { text: "", listingId: null as number | null };
+                const { text: bodyText, marketListingId, adoptionListingId } = m.body
+                  ? parseMessageEmbeds(m.body)
+                  : { text: "", marketListingId: null as number | null, adoptionListingId: null as number | null };
                 const copyText = (
                   bodyText.trim() ||
                   m.body?.trim() ||
@@ -852,12 +1109,29 @@ export function MessengerWorkspace({
                   <div key={m.id} className={"ph-msg-bubble-wrap" + (mine ? " ph-msg-bubble-wrap--mine" : "")}>
                     <div className={"ph-msg-bubble" + (mine ? " ph-msg-bubble--mine" : "")}>
                       {m.attachmentUrl && (
-                        <a href={m.attachmentUrl} target="_blank" rel="noreferrer" className="ph-msg-img-link">
-                          <img src={m.attachmentUrl} alt="" className="ph-msg-img" />
-                        </a>
+                        <button
+                          type="button"
+                          className="ph-msg-img-link"
+                          onClick={() => openMedia(m.attachmentUrl!)}
+                          aria-label="View attachment"
+                        >
+                          {inferMediaLightboxKind(m.attachmentUrl) === "video" ? (
+                            <video
+                              src={m.attachmentUrl}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="ph-msg-img"
+                            />
+                          ) : (
+                            <img src={m.attachmentUrl} alt="" className="ph-msg-img" />
+                          )}
+                        </button>
                       )}
-                      {shareListingId != null ? (
-                        <ListingShareEmbed listingId={shareListingId} mine={mine} />
+                      {adoptionListingId != null ? (
+                        <AdoptionListingShareEmbed listingId={adoptionListingId} mine={mine} />
+                      ) : marketListingId != null ? (
+                        <ListingShareEmbed listingId={marketListingId} mine={mine} />
                       ) : null}
                       {bodyText ? (
                         <div className="ph-msg-text">
@@ -887,6 +1161,7 @@ export function MessengerWorkspace({
                     onClick={() => {
                       setPendingFile(null);
                       setPendingPreview(null);
+                      setLiveCameraOpen(false);
                       if (fileRef.current) fileRef.current.value = "";
                       if (cameraRef.current) cameraRef.current.value = "";
                     }}
@@ -909,9 +1184,9 @@ export function MessengerWorkspace({
                 <button
                   type="button"
                   className="ph-msg-icon-btn"
-                  disabled={dmLocked}
-                  onClick={() => cameraRef.current?.click()}
-                  title="Take a photo"
+                  disabled={dmLocked || liveCameraBusy}
+                  onClick={() => void openLiveCamera()}
+                  title="Take a photo with camera"
                 >
                   <Camera size={18} strokeWidth={1.8} />
                 </button>
@@ -951,6 +1226,79 @@ export function MessengerWorkspace({
                 </button>
               </div>
             </form>
+            {liveCameraOpen ? (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Take a photo"
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 10060,
+                  background: "rgba(0,0,0,0.55)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "1rem",
+                }}
+                onClick={() => setLiveCameraOpen(false)}
+              >
+                <div
+                  className="ph-surface"
+                  style={{
+                    maxWidth: 420,
+                    width: "100%",
+                    padding: "1rem",
+                    borderRadius: 12,
+                    boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "0.75rem",
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, fontSize: "1rem" }}>Camera</span>
+                    <button
+                      type="button"
+                      className="ph-btn ph-btn-ghost"
+                      onClick={() => setLiveCameraOpen(false)}
+                      aria-label="Close camera"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <video
+                    ref={liveCameraVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    style={{
+                      width: "100%",
+                      borderRadius: 10,
+                      background: "#111",
+                      maxHeight: "min(50vh, 360px)",
+                      objectFit: "cover",
+                    }}
+                  />
+                  <p style={{ margin: "0.5rem 0 0", fontSize: "0.78rem", color: "var(--color-muted)" }}>
+                    Allow camera access when your browser asks. Preview is live; gallery is the other button.
+                  </p>
+                  <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "0.85rem" }}>
+                    <button type="button" className="ph-btn ph-btn-ghost" onClick={() => setLiveCameraOpen(false)}>
+                      Cancel
+                    </button>
+                    <button type="button" className="ph-btn ph-btn-primary" onClick={captureLivePhoto}>
+                      Use photo
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </>
     ) : null;
 

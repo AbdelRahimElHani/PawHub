@@ -28,7 +28,7 @@ import { AdminSheltersPage } from "./pages/AdminSheltersPage";
 import { AdminVetReviewsPage } from "./pages/AdminVetReviewsPage";
 import { AdminPawvetVetReportsPage } from "./pages/AdminPawvetVetReportsPage";
 import { AdminShelterReviewPage } from "./pages/AdminShelterReviewPage";
-import { AdoptAdminHome } from "./pages/AdoptAdminHome";
+import { AdminBannedAccountsPage } from "./pages/AdminBannedAccountsPage";
 import { AccountPage } from "./pages/AccountPage";
 import { PeopleDirectoryPage } from "./pages/PeopleDirectoryPage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
@@ -161,12 +161,19 @@ export default function App() {
           <Route path="shelter" element={<ShelterPage />} />
           <Route path="new" element={<AdoptNewPage />} />
           <Route path="my-listings" element={<AdoptMyListingsPage />} />
-          <Route path="admin" element={<RequireAdmin><AdoptAdminHome /></RequireAdmin>} />
+          <Route path="admin" element={<RequireAdmin><Navigate to="/adopt/admin/shelters" replace /></RequireAdmin>} />
           <Route path="admin/shelters" element={<RequireAdmin><AdminSheltersPage /></RequireAdmin>} />
           <Route path="admin/shelters/:shelterId" element={<RequireAdmin><AdminShelterReviewPage /></RequireAdmin>} />
-          <Route path="admin/vet-verification" element={<RequireAdmin><VetVerificationQueue /></RequireAdmin>} />
-          <Route path="admin/vet-reviews" element={<RequireAdmin><AdminVetReviewsPage /></RequireAdmin>} />
-          <Route path="admin/pawvet-reports" element={<RequireAdmin><AdminPawvetVetReportsPage /></RequireAdmin>} />
+          <Route
+            path="admin/vet-verification"
+            element={<RequireAdmin><Navigate to="/pawvet/admin/vet-verification" replace /></RequireAdmin>}
+          />
+          <Route path="admin/vet-reviews" element={<RequireAdmin><Navigate to="/pawvet/admin/vet-reviews" replace /></RequireAdmin>} />
+          <Route
+            path="admin/pawvet-reports"
+            element={<RequireAdmin><Navigate to="/pawvet/admin/pawvet-reports" replace /></RequireAdmin>}
+          />
+          <Route path="admin/banned-accounts" element={<RequireAdmin><AdminBannedAccountsPage /></RequireAdmin>} />
           <Route path=":id" element={<AdoptDetail />} />
         </Route>
         <Route path="/inbox" element={<Navigate to="/messages" replace />} />
@@ -182,20 +189,24 @@ export default function App() {
           <Route path="community/:roomSlug" element={<CommunityFeedPage />} />
           <Route path="community" element={<Navigate to="/hub/community/general" replace />} />
         </Route>
+        <Route path="/pawvet/admin/vet-verification" element={<RequireAdmin><VetVerificationQueue /></RequireAdmin>} />
+        <Route path="/pawvet/admin/vet-reviews" element={<RequireAdmin><AdminVetReviewsPage /></RequireAdmin>} />
+        <Route path="/pawvet/admin/pawvet-reports" element={<RequireAdmin><AdminPawvetVetReportsPage /></RequireAdmin>} />
+        <Route path="/pawvet/admin" element={<RequireAdmin><Navigate to="/pawvet/admin/vet-verification" replace /></RequireAdmin>} />
         <Route path="/pawvet" element={<PawVetHome />} />
-        <Route path="/pawvet/admin" element={<RequireAdmin><Navigate to="/adopt/admin" replace /></RequireAdmin>} />
         <Route path="/pawvet/file-case" element={<FileCase />} />
         <Route path="/pawvet/case/:caseId/rate" element={<RatingScreen />} />
         <Route path="/pawvet/case/:caseId" element={<ConsultationRoom />} />
         <Route path="/vet" element={<VetDashboard />} />
         <Route path="/vet/case/:caseId/resolve" element={<CaseResolution />} />
         <Route path="/chat/:threadId" element={<LegacyChatRedirect />} />
-        <Route path="/admin" element={<RequireAdmin><Navigate to="/adopt/admin" replace /></RequireAdmin>} />
-        <Route path="/admin/vet-verification" element={<RequireAdmin><Navigate to="/adopt/admin/vet-verification" replace /></RequireAdmin>} />
-        <Route path="/admin/vet-reviews" element={<RequireAdmin><Navigate to="/adopt/admin/vet-reviews" replace /></RequireAdmin>} />
-        <Route path="/admin/pawvet-vet-reports" element={<RequireAdmin><Navigate to="/adopt/admin/pawvet-reports" replace /></RequireAdmin>} />
+        <Route path="/admin" element={<RequireAdmin><Navigate to="/adopt/admin/shelters" replace /></RequireAdmin>} />
+        <Route path="/admin/vet-verification" element={<RequireAdmin><Navigate to="/pawvet/admin/vet-verification" replace /></RequireAdmin>} />
+        <Route path="/admin/vet-reviews" element={<RequireAdmin><Navigate to="/pawvet/admin/vet-reviews" replace /></RequireAdmin>} />
+        <Route path="/admin/pawvet-vet-reports" element={<RequireAdmin><Navigate to="/pawvet/admin/pawvet-reports" replace /></RequireAdmin>} />
         <Route path="/admin/shelters/:shelterId" element={<RequireAdmin><RedirectAdoptShelterReview /></RequireAdmin>} />
         <Route path="/admin/shelters" element={<RequireAdmin><Navigate to="/adopt/admin/shelters" replace /></RequireAdmin>} />
+        <Route path="/admin/banned-accounts" element={<RequireAdmin><Navigate to="/adopt/admin/banned-accounts" replace /></RequireAdmin>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
