@@ -65,6 +65,15 @@ public class PawhubProperties {
          * {@code pawhub.bootstrap.paw-market-seed} / env.
          */
         private boolean pawMarketSeed = true;
+
+        /**
+         * When true, ensures one sample user per {@link com.pawhub.domain.UserAccountType} (idempotent by email).
+         * Disable in production.
+         */
+        private boolean devSampleAccounts = true;
+
+        /** Shared password for those sample accounts. */
+        private String devSampleAccountsPassword = "PawHubSeed!9";
     }
 
     @Getter

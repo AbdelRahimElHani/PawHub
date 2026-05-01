@@ -19,6 +19,10 @@ public enum AppNotificationKind {
     MARKET_ORDER_SELLER,
     /** Paw Market listing removed by an administrator. */
     MARKET_LISTING_REMOVED_ADMIN,
+    /** Moderator issued a formal warning related to Paw Market conduct. */
+    ADMIN_PAW_MARKET_USER_WARNED,
+    /** User is banned from buying and selling on Paw Market. */
+    ADMIN_PAW_MARKET_USER_BANNED,
     /** Shelter’s adoption listing is live on PawHub. */
     ADOPTION_LISTING_PUBLISHED,
     /** Guardian’s inquiry was delivered to the shelter (confirmation). */

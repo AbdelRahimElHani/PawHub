@@ -60,7 +60,7 @@ export function PawMatchPage() {
       setCard(c);
       if (!c) {
         setMsg(
-          "No cats to show right now — widen gender, age, vibe, or breed filters on My Cats, or check back later. (Both cats must fit each other's preferences.)",
+          "No cats to show right now — widen gender, age, vibe, or breed filters on My Cats, or check back later. Same-gender pairs never appear when both cats have a gender set. (Both cats must fit each other's preferences.)",
         );
       }
     } catch (e: unknown) {
@@ -111,9 +111,10 @@ export function PawMatchPage() {
             </option>
           ))}
         </select>
-        {selectedCat?.gender === null && myCatId && (
+        {selectedCat && !selectedCat.gender && myCatId && (
           <p style={{ fontSize: "0.8rem", color: "var(--color-muted)", marginTop: "0.35rem" }}>
-            Tip: set your cat's gender in <Link to="/cats">My Cats</Link> to enable gender-based matching.
+            Tip: set your cat&apos;s gender in <Link to="/cats">My Cats</Link> for stricter matching (same-gender pairs
+            are hidden when both sides have a gender).
           </p>
         )}
       </label>

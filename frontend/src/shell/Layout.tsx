@@ -78,9 +78,11 @@ export function Layout({ children }: { children?: ReactNode }) {
               flex: 1,
             }}
           >
-            <NavLink to="/cats" style={linkStyle}>
-              My cats
-            </NavLink>
+            {!isAdminAccount(user) && (
+              <NavLink to="/cats" style={linkStyle}>
+                My cats
+              </NavLink>
+            )}
             <NavLink to="/pawmatch" style={linkStyle}>
               PawMatch
             </NavLink>

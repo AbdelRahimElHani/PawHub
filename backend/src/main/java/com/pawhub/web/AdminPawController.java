@@ -1,6 +1,8 @@
 package com.pawhub.web;
 
+import com.pawhub.security.SecurityUser;
 import com.pawhub.service.PawMarketService;
+import com.pawhub.web.dto.AdminRemoveListingRequest;
 import com.pawhub.web.dto.PawListingDto;
 import com.pawhub.web.dto.PawListingUpsertRequest;
 import jakarta.validation.Valid;
@@ -8,6 +10,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -30,7 +33,10 @@ public class AdminPawController {
 
     @DeleteMapping("/listings/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        pawMarketService.adminForceDeleteListing(id);
+    public void delete(
+            @PathVariable Long id,
+            @RequestBody(required = false) AdminRemoveListingRequest body,
+            @AuthenticationPrincipal SecurityUser admin) {
+        pawMarketService.adminForceDeleteListing(id, body, admin);
     }
 }

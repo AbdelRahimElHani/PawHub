@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
@@ -6,6 +7,8 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 
 export function MarketHubLayout() {
   const { listingUnreadCount } = useThreadNotifications();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
 
   return (
     <div style={{ padding: "0.5rem 0 1.5rem" }}>
@@ -31,26 +34,32 @@ export function MarketHubLayout() {
             Paw Market
           </h1>
           <p style={{ margin: "0.2rem 0 0", color: "var(--color-muted)", fontSize: "0.9rem" }}>
-            Shop community listings, or manage your own items in a separate tab.
+            {isAdmin
+              ? "Moderator view: browse listings and open details to remove items if needed."
+              : "Shop community listings, or manage your own items in a separate tab."}
           </p>
         </div>
-        <Link className="ph-btn ph-btn-accent" to="/market/new">
-          + List an item
-        </Link>
+        {!isAdmin ? (
+          <Link className="ph-btn ph-btn-accent" to="/market/new">
+            + List an item
+          </Link>
+        ) : null}
       </div>
 
       <nav className="pm-hub-tabs" aria-label="Paw Market sections">
         <NavLink to="/market" end className={tabClass}>
           Shop
         </NavLink>
-        <NavLink to="/market/selling" className={tabClass}>
-          My listings
-          {listingUnreadCount > 0 ? (
-            <span className="pm-hub-tab-badge" title="Unread buyer messages about your items">
-              {listingUnreadCount > 9 ? "9+" : listingUnreadCount}
-            </span>
-          ) : null}
-        </NavLink>
+        {!isAdmin ? (
+          <NavLink to="/market/selling" className={tabClass}>
+            My listings
+            {listingUnreadCount > 0 ? (
+              <span className="pm-hub-tab-badge" title="Unread buyer messages about your items">
+                {listingUnreadCount > 9 ? "9+" : listingUnreadCount}
+              </span>
+            ) : null}
+          </NavLink>
+        ) : null}
       </nav>
 
       <Outlet />

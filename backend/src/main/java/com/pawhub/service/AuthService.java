@@ -358,7 +358,8 @@ public class AuthService {
                 user.getProfileBio(),
                 user.isEmailVerified(),
                 vetStatus,
-                vetReject);
+                vetReject,
+                user.isPawMarketBanned());
     }
 
     private static String trimToNull(String s) {

@@ -18,6 +18,8 @@ export type AuthUser = {
   /** Set for veterinarian accounts from the server */
   vetVerificationStatus?: VetVerificationStatusApi | null;
   vetRejectionReason?: string | null;
+  /** When true, user cannot list or buy on Paw Market. */
+  pawMarketBanned?: boolean;
 };
 
 type RegisterResult =
@@ -62,6 +64,7 @@ type AuthResponse = {
   emailVerified?: boolean;
   vetVerificationStatus?: string | null;
   vetRejectionReason?: string | null;
+  pawMarketBanned?: boolean;
 };
 
 function normalizeVetVerificationStatus(raw: string | null | undefined): "PENDING" | "APPROVED" | "REJECTED" | null {
@@ -89,6 +92,7 @@ function mapUser(r: AuthResponse): AuthUser {
     vetVerificationStatus: r.accountType === "VET" ? (vetOk ? vs : "PENDING") : null,
     vetRejectionReason:
       r.accountType === "VET" && vetOk && vs === "REJECTED" ? (r.vetRejectionReason ?? null) : null,
+    pawMarketBanned: Boolean(r.pawMarketBanned),
   };
 }
 

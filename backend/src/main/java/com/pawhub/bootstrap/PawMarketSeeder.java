@@ -402,6 +402,7 @@ public class PawMarketSeeder implements CommandLineRunner {
                 .buyerPhone(phone)
                 .quantity(qty)
                 .threadId(thread.getId())
+                .sellerStatus(PawOrderSellerStatus.CONFIRMED)
                 .build());
     }
 

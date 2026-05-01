@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { HubConfirmDialog } from "../hub/components/HubConfirmDialog";
+import { AdminMarketRemoveDialog } from "../market/AdminMarketRemoveDialog";
 import { haversineKm, formatDistance } from "../market/haversine";
 import { useCountriesCitiesCatalog } from "../market/useCountriesCitiesCatalog";
 import { useGeolocation } from "../market/useGeolocation";
@@ -70,17 +70,11 @@ function ListingCard({
           >
             <Trash2 size={16} color="#b42318" />
           </button>
-          <HubConfirmDialog
+          <AdminMarketRemoveDialog
             open={confirmDel}
             onOpenChange={setConfirmDel}
-            title="Remove this listing?"
-            description="The seller’s item will be permanently removed from Paw Market (including order history tied to it)."
-            confirmLabel="Remove listing"
-            danger
-            onConfirm={async () => {
-              await api(`/api/admin/paw/listings/${listing.id}`, { method: "DELETE" });
-              onAdminDeleted?.();
-            }}
+            listingId={listing.id}
+            onRemoved={() => onAdminDeleted?.()}
           />
         </>
       )}

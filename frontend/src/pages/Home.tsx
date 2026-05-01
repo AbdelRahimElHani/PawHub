@@ -100,7 +100,9 @@ export function Home() {
       </div>
 
       <div className="ph-dash-grid">
-        {DASH_TILES.filter((t) => !t.shelterOnly || user.accountType === "SHELTER").map((t) => (
+        {DASH_TILES.filter(
+          (t) => (!t.shelterOnly || user.accountType === "SHELTER") && !(isAdminAccount(user) && t.to === "/cats"),
+        ).map((t) => (
           <Link key={t.to} className="ph-surface ph-dash-tile" to={t.to}>
             <span className="ph-dash-tile-emoji" aria-hidden>
               {t.emoji}

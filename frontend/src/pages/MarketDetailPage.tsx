@@ -11,12 +11,12 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { HubConfirmDialog } from "../hub/components/HubConfirmDialog";
+import { AdminMarketRemoveDialog } from "../market/AdminMarketRemoveDialog";
 import { UserChip } from "../components/social/UserChip";
 import { ProductLocationMap } from "../market/ProductLocationMap";
 import { formatDistance, haversineKm } from "../market/haversine";
 import { useGeolocation } from "../market/useGeolocation";
-import type { PawListingDto, PawReviewDto, PlaceOrderResponse } from "../types";
+import type { PawListingDto, PawReviewDto, PlaceOrderResponse, ThreadIdResponse } from "../types";
 
 function listingPastExpiry(listing: PawListingDto): boolean {
   if (!listing.expiresAt) return false;
@@ -183,6 +183,16 @@ export function MarketDetailPage() {
       .catch((e: unknown) => setErr(e instanceof Error ? e.message : "Failed to load."));
   }, [id]);
 
+  async function openSellerThread(presetMoreDetails: boolean) {
+    if (!id) return;
+    try {
+      const r = await api<ThreadIdResponse>(`/api/market/listings/${id}/thread`, { method: "POST" });
+      nav(`/messages/${r.threadId}${presetMoreDetails ? "?compose=more-details" : ""}`);
+    } catch {
+      setErr("Could not open messages.");
+    }
+  }
+
   async function handleBuy(phone: string, quantity: number) {
     if (!id) return;
     setOrderLoading(true);
@@ -219,6 +229,8 @@ export function MarketDetailPage() {
   const images = listing.imageUrls?.length ? listing.imageUrls : listing.photoUrl ? [listing.photoUrl] : [];
   const isFree = listing.isFree;
   const isSelf = user?.userId === listing.sellerUserId;
+  const isAdmin = user?.role === "ADMIN";
+  const marketBanned = Boolean(user?.pawMarketBanned);
   const isAvailable = listing.pawStatus === "Available";
   const showExpired =
     listing.pawStatus === "Expired" || listingPastExpiry(listing);
@@ -246,7 +258,7 @@ export function MarketDetailPage() {
       </Link>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem", alignItems: "center" }}>
-        {isSelf && (
+        {isSelf && !isAdmin && (
           <>
             <Link className="ph-btn ph-btn-ghost" to="/market/selling">
               My listings
@@ -258,7 +270,7 @@ export function MarketDetailPage() {
             ) : null}
           </>
         )}
-        {user?.role === "ADMIN" && (
+        {isAdmin && (
           <>
             <button
               type="button"
@@ -269,17 +281,11 @@ export function MarketDetailPage() {
               <Trash2 size={16} style={{ marginRight: "0.35rem" }} aria-hidden />
               Remove listing
             </button>
-            <HubConfirmDialog
+            <AdminMarketRemoveDialog
               open={confirmAdminDel}
               onOpenChange={setConfirmAdminDel}
-              title="Remove this listing?"
-              description="This permanently removes the seller’s item from Paw Market."
-              confirmLabel="Remove"
-              danger
-              onConfirm={async () => {
-                await api(`/api/admin/paw/listings/${listing.id}`, { method: "DELETE" });
-                nav("/market");
-              }}
+              listingId={listing.id}
+              onRemoved={() => nav("/market")}
             />
           </>
         )}
@@ -465,9 +471,24 @@ export function MarketDetailPage() {
         {/* ── Action buttons ────────────────────────────────── */}
         {err && <p style={{ margin: 0, color: "#b42318", fontSize: "0.9rem" }}>{err}</p>}
 
-        {!isSelf && (
+        {marketBanned && !isAdmin && (
+          <p
+            style={{
+              margin: 0,
+              padding: "0.65rem 0.85rem",
+              borderRadius: 10,
+              background: "rgba(180,35,24,0.08)",
+              color: "#7a271a",
+              fontSize: "0.88rem",
+            }}
+          >
+            Your account cannot buy or sell on Paw Market. If you think this is a mistake, contact support.
+          </p>
+        )}
+
+        {!isSelf && !isAdmin && (
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-            {buyable && (
+            {buyable && !marketBanned && (
               <button
                 type="button"
                 className="ph-btn ph-btn-primary"
@@ -477,20 +498,26 @@ export function MarketDetailPage() {
                 <ShoppingBag size={16} /> Buy Now
               </button>
             )}
-            <Link
-              to="/messages"
-              className="ph-btn ph-btn-ghost"
-              style={{ flex: 1, minWidth: 140, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
-              onClick={async (e) => {
-                e.preventDefault();
-                try {
-                  const r = await api<{ threadId: number }>(`/api/market/listings/${id}/thread`, { method: "POST" });
-                  nav(`/messages/${r.threadId}`);
-                } catch {}
-              }}
-            >
-              <MessageCircle size={15} /> Message Seller
-            </Link>
+            {!marketBanned && (
+              <>
+                <button
+                  type="button"
+                  className="ph-btn ph-btn-ghost"
+                  style={{ flex: 1, minWidth: 140, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
+                  onClick={() => void openSellerThread(false)}
+                >
+                  <MessageCircle size={15} /> Message seller
+                </button>
+                <button
+                  type="button"
+                  className="ph-btn ph-btn-ghost"
+                  style={{ flex: 1, minWidth: 180, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
+                  onClick={() => void openSellerThread(true)}
+                >
+                  <MessageCircle size={15} /> Can I know more details?
+                </button>
+              </>
+            )}
           </div>
         )}
 

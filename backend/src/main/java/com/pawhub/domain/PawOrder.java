@@ -32,6 +32,11 @@ public class PawOrder {
     @Builder.Default
     private int quantity = 1;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "seller_status", nullable = false, length = 32)
+    @Builder.Default
+    private PawOrderSellerStatus sellerStatus = PawOrderSellerStatus.PENDING_SELLER;
+
     @Column(name = "thread_id", nullable = false)
     private Long threadId;
 

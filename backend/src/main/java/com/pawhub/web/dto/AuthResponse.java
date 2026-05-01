@@ -15,4 +15,6 @@ public record AuthResponse(
         /** PENDING / APPROVED / REJECTED when accountType is VET; otherwise null */
         String vetVerificationStatus,
         /** Populated when vet verification was rejected */
-        String vetRejectionReason) {}
+        String vetRejectionReason,
+        /** True when the user cannot buy or sell on Paw Market. */
+        boolean pawMarketBanned) {}

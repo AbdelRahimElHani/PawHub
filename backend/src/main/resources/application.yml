@@ -23,7 +23,7 @@ spring:
   datasource:
     url: jdbc:mysql://${MYSQLHOST:localhost}:${MYSQLPORT:3306}/${MYSQLDATABASE:pawhub}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: ${MYSQLUSER:root}
-    password: ${MYSQLPASSWORD:smab}
+
   jpa:
     hibernate:
       ddl-auto: validate
@@ -66,6 +66,9 @@ pawhub:
   bootstrap:
     # Large demo dataset for Paw Market — disable in production (set false).
     paw-market-seed: ${PAWHUB_BOOTSTRAP_PAW_MARKET_SEED:true}
+    # One sample user per account type (ADOPTER, CAT_OWNER, SHELTER, VET) — disable in production.
+    dev-sample-accounts: ${PAWHUB_BOOTSTRAP_DEV_SAMPLE_ACCOUNTS:true}
+    dev-sample-accounts-password: ${PAWHUB_BOOTSTRAP_DEV_SAMPLE_ACCOUNTS_PASSWORD:PawHubSeed!9}
   frontend-base-url: ${PAWHUB_FRONTEND_BASE_URL:http://localhost:5173}
   # Comma-separated; use for custom domains or hosts not covered by built-in patterns (Vercel/Railway/etc.).
   cors-additional-allowed-patterns: ${PAWHUB_CORS_ADDITIONAL:}

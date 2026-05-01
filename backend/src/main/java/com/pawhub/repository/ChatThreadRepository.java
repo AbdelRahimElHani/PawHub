@@ -38,4 +38,11 @@ public interface ChatThreadRepository extends JpaRepository<ChatThread, Long> {
             """)
     Optional<ChatThread> findDirectThread(
             @Param("a") Long userId1, @Param("b") Long userId2, @Param("tp") ThreadType type);
+
+    @Query(
+            """
+            SELECT t FROM ChatThread t
+            WHERE t.type = :tp AND t.marketListingId = :listingId
+            """)
+    List<ChatThread> findByTypeAndMarketListingId(@Param("tp") ThreadType type, @Param("listingId") Long listingId);
 }
