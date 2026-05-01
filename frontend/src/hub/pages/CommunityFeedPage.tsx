@@ -78,13 +78,10 @@ export function CommunityFeedPage() {
     setForumErr(null);
     if (!isAdmin) return;
     try {
-      const created = await api<{ id: number; slug: string; title: string; description: string | null; icon: string; createdByUserId: number | null }>(
-        "/api/admin/hub/forum/rooms",
-        {
-          method: "POST",
-          body: JSON.stringify({ title: newForumTitle.trim(), description: newForumDesc.trim() }),
-        },
-      );
+      const created = await api<ForumRoomJson>("/api/admin/hub/forum/rooms", {
+        method: "POST",
+        body: JSON.stringify({ title: newForumTitle.trim(), description: newForumDesc.trim() }),
+      });
       setNewForumTitle("");
       setNewForumDesc("");
       setForumOpen(false);
@@ -213,7 +210,13 @@ export function CommunityFeedPage() {
         </p>
       )}
 
-      {user && room && (
+      {room && room.adminOnlyPosts && (
+        <p className="ph-surface" style={{ padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.9rem", color: "var(--color-muted)", borderLeft: "4px solid var(--hub-sage)" }}>
+          <strong style={{ color: "var(--hub-charcoal)" }}>PawHub announcements.</strong> Only PawHub administrators can start threads here; everyone can read and comment.
+        </p>
+      )}
+
+      {user && room && !(room.adminOnlyPosts && !isAdmin) && (
         <motion.form
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}

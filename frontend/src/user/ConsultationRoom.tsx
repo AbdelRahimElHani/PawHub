@@ -1,12 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { BadgeCheck, Flag, Send } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { BadgeCheck, FileText, Flag, Paperclip, Send, X } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { UserChip } from "../components/social/UserChip";
-import { api } from "../api/client";
+import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useChatStomp } from "../chat/ChatStompContext";
 import type { PawvetTriageCaseDto } from "../types/pawvetTriage";
-import { useVetStore } from "../store/useVetStore";
+import { useVetStore, type CaseChatMessage } from "../store/useVetStore";
+import { PawvetTypingIndicator } from "./PawvetTypingIndicator";
 import "../pawvet/pawvet.css";
 
 function formatAgeMonths(m: number | null | undefined): string {
@@ -17,19 +19,55 @@ function formatAgeMonths(m: number | null | undefined): string {
   return mo ? `${y} yr ${mo} mo` : `${y} yr`;
 }
 
+function MessageAttachment({ m }: { m: CaseChatMessage }) {
+  if (!m.attachmentUrl) return null;
+  const isPdf =
+    m.attachmentKind === "pdf" ||
+    /\.pdf(\?|$)/i.test(m.attachmentUrl) ||
+    m.attachmentUrl.toLowerCase().includes("application/pdf");
+  if (isPdf) {
+    return (
+      <a
+        href={m.attachmentUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="pawvet-chat-attach pawvet-chat-attach--pdf"
+      >
+        <FileText size={18} strokeWidth={2} aria-hidden />
+        Open PDF attachment
+      </a>
+    );
+  }
+  return (
+    <a href={m.attachmentUrl} target="_blank" rel="noreferrer" className="pawvet-chat-attach pawvet-chat-attach--img">
+      <img src={m.attachmentUrl} alt="Attachment" />
+    </a>
+  );
+}
+
 export function ConsultationRoom() {
   const { caseId } = useParams();
   const nav = useNavigate();
   const { user } = useAuth();
+  const { setActiveTriageCase, sendTriageTyping } = useChatStomp();
   const cases = useVetStore((s) => s.cases);
   const mergeCasesFromApi = useVetStore((s) => s.mergeCasesFromApi);
-  const reportVet = useVetStore((s) => s.reportVet);
 
   const c = useMemo(() => (caseId ? cases.find((x) => x.id === caseId) : undefined), [cases, caseId]);
+  const caseNum = useMemo(() => (caseId && Number.isFinite(Number(caseId)) ? Number(caseId) : NaN), [caseId]);
+
   const [body, setBody] = useState("");
+  const [sendErr, setSendErr] = useState<string | null>(null);
+  const [peerTyping, setPeerTyping] = useState<string | null>(null);
+  const peerClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
+  const [reportToast, setReportToast] = useState(false);
 
   const isOwner = Boolean(user && c && user.userId === c.ownerUserId);
   const isVet = Boolean(user && c && user.userId === c.vetUserId);
@@ -38,7 +76,7 @@ export function ConsultationRoom() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [c?.messages.length]);
+  }, [c?.messages.length, peerTyping]);
 
   useEffect(() => {
     if (!caseId || !Number.isFinite(Number(caseId))) return;
@@ -52,7 +90,7 @@ export function ConsultationRoom() {
       }
     }
     void pull();
-    const t = window.setInterval(() => void pull(), 8000);
+    const t = window.setInterval(() => void pull(), 25000);
     return () => {
       cancelled = true;
       window.clearInterval(t);
@@ -60,10 +98,85 @@ export function ConsultationRoom() {
   }, [caseId, mergeCasesFromApi]);
 
   useEffect(() => {
+    if (!user || !Number.isFinite(caseNum) || caseNum <= 0) {
+      setActiveTriageCase(null, null);
+      return;
+    }
+    if (c?.status !== "IN_PROGRESS") {
+      setActiveTriageCase(null, null);
+      return;
+    }
+    const myId = user.userId;
+    setActiveTriageCase(caseNum, {
+      onCaseUpdate: (raw) => {
+        try {
+          const dto = JSON.parse(raw) as PawvetTriageCaseDto;
+          mergeCasesFromApi([dto]);
+        } catch {
+          /* ignore */
+        }
+      },
+      onTyping: (raw) => {
+        let t: { userId: number; displayName: string; typing: boolean };
+        try {
+          t = JSON.parse(raw);
+        } catch {
+          return;
+        }
+        if (t.userId === myId) return;
+        if (t.typing) {
+          setPeerTyping(t.displayName || "Someone");
+          if (peerClearRef.current) clearTimeout(peerClearRef.current);
+          peerClearRef.current = setTimeout(() => setPeerTyping(null), 4200);
+        } else {
+          setPeerTyping(null);
+        }
+      },
+    });
+    return () => {
+      setActiveTriageCase(null, null);
+      if (peerClearRef.current) {
+        clearTimeout(peerClearRef.current);
+        peerClearRef.current = null;
+      }
+      setPeerTyping(null);
+    };
+  }, [caseNum, user, c?.status, mergeCasesFromApi, setActiveTriageCase]);
+
+  useEffect(() => {
+    return () => {
+      if (Number.isFinite(caseNum) && caseNum > 0) {
+        sendTriageTyping(caseNum, false);
+      }
+      if (typingIdleRef.current) {
+        clearTimeout(typingIdleRef.current);
+        typingIdleRef.current = null;
+      }
+    };
+  }, [caseNum, sendTriageTyping]);
+
+  useEffect(() => {
     if (!closed || !isOwner || !caseId) return;
     const t = window.setTimeout(() => nav(`/pawvet/case/${caseId}/rate`, { replace: true }), 600);
     return () => window.clearTimeout(t);
   }, [closed, isOwner, nav, caseId]);
+
+  const scheduleComposerTyping = useCallback(
+    (textLen: number) => {
+      if (!canChat || !Number.isFinite(caseNum) || caseNum <= 0) return;
+      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+      if (textLen > 0) {
+        sendTriageTyping(caseNum, true);
+        typingIdleRef.current = window.setTimeout(() => {
+          sendTriageTyping(caseNum, false);
+          typingIdleRef.current = null;
+        }, 2800);
+      } else {
+        sendTriageTyping(caseNum, false);
+      }
+    },
+    [canChat, caseNum, sendTriageTyping],
+  );
 
   if (!caseId) {
     return <p className="pawvet-shell">Invalid case.</p>;
@@ -82,35 +195,123 @@ export function ConsultationRoom() {
 
   async function send(e: FormEvent) {
     e.preventDefault();
-    if (!body.trim() || !canChat || !caseId) return;
-    const id = Number(caseId);
-    if (!Number.isFinite(id)) return;
+    setSendErr(null);
+    const text = body.trim();
+    if (!text && !pendingFile) return;
+    if (!canChat || !Number.isFinite(caseNum) || caseNum <= 0) return;
+    if (typingIdleRef.current) {
+      clearTimeout(typingIdleRef.current);
+      typingIdleRef.current = null;
+    }
+    sendTriageTyping(caseNum, false);
+
     try {
-      const dto = await api<PawvetTriageCaseDto>(`/api/pawvet/triage-cases/${id}/messages`, {
+      let attachmentUrl: string | undefined;
+      let attachmentKind: "image" | "pdf" | undefined;
+      if (pendingFile) {
+        const fd = new FormData();
+        fd.append("file", pendingFile);
+        const auth = getToken();
+        const headers: HeadersInit = {};
+        if (auth) headers.Authorization = `Bearer ${auth}`;
+        const res = await fetch(apiUrl(`/api/pawvet/triage-cases/${caseNum}/message-media`), {
+          method: "POST",
+          headers,
+          body: fd,
+        });
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+          throw new Error(j.error ?? j.message ?? res.statusText);
+        }
+        const j = (await res.json()) as { url: string };
+        attachmentUrl = j.url;
+        attachmentKind = pendingFile.type === "application/pdf" ? "pdf" : "image";
+      }
+      if (!text && !attachmentUrl) return;
+
+      const dto = await api<PawvetTriageCaseDto>(`/api/pawvet/triage-cases/${caseNum}/messages`, {
         method: "POST",
-        body: JSON.stringify({ body: body.trim() }),
+        body: JSON.stringify({
+          body: text,
+          attachmentUrl: attachmentUrl ?? null,
+          attachmentKind: attachmentKind ?? null,
+        }),
       });
       mergeCasesFromApi([dto]);
       setBody("");
-    } catch {
-      /* keep draft */
+      if (pendingPreview?.startsWith("blob:")) URL.revokeObjectURL(pendingPreview);
+      setPendingFile(null);
+      setPendingPreview(null);
+      if (fileRef.current) fileRef.current.value = "";
+    } catch (err) {
+      setSendErr(err instanceof Error ? err.message : "Send failed");
     }
   }
 
+  function onPickFile() {
+    const f = fileRef.current?.files?.[0];
+    if (!f) {
+      setPendingFile(null);
+      setPendingPreview(null);
+      return;
+    }
+    const ok = f.type.startsWith("image/") || f.type === "application/pdf";
+    if (!ok) {
+      setSendErr("Please choose an image or a PDF.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    setSendErr(null);
+    setPendingFile(f);
+    if (f.type.startsWith("image/")) {
+      setPendingPreview(URL.createObjectURL(f));
+    } else {
+      setPendingPreview(null);
+    }
+    scheduleComposerTyping(1);
+  }
+
   function submitReport() {
-    if (!c || !user || !c.vetUserId || !reportReason.trim()) return;
-    reportVet({
-      caseId: c.id,
-      vetUserId: c.vetUserId,
-      reporterUserId: user.userId,
-      reason: reportReason.trim(),
-    });
-    setReportOpen(false);
-    setReportReason("");
+    void (async () => {
+      if (!c || !user || !c.vetUserId || !reportReason.trim()) return;
+      setSendErr(null);
+      try {
+        await api(`/api/pawvet/triage-cases/${c.id}/report-vet`, {
+          method: "POST",
+          body: JSON.stringify({ reason: reportReason.trim() }),
+        });
+        setReportOpen(false);
+        setReportReason("");
+        setReportToast(true);
+        window.setTimeout(() => setReportToast(false), 4500);
+      } catch (e: unknown) {
+        setSendErr(e instanceof Error ? e.message : "Report failed");
+      }
+    })();
   }
 
   return (
     <div className="pawvet-shell">
+      {reportToast ? (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            bottom: "1.25rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 90,
+            padding: "0.65rem 1.1rem",
+            borderRadius: 10,
+            background: "var(--color-primary-dark)",
+            color: "#fff",
+            fontSize: "0.9rem",
+            boxShadow: "var(--shadow-soft)",
+          }}
+        >
+          Report submitted. Our team will review it.
+        </div>
+      ) : null}
       <header
         className="pawvet-glass-card"
         style={{
@@ -129,11 +330,7 @@ export function ConsultationRoom() {
           <>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
-                <UserChip
-                  userId={c.vetUserId}
-                  displayName={c.vetName}
-                  avatarUrl={c.vetAvatarUrl ?? null}
-                />
+                <UserChip userId={c.vetUserId} displayName={c.vetName} avatarUrl={c.vetAvatarUrl ?? null} />
                 <span
                   style={{
                     display: "inline-flex",
@@ -168,6 +365,11 @@ export function ConsultationRoom() {
             Report vet
           </button>
         ) : null}
+        {isVet && canChat ? (
+          <Link className="ph-btn ph-btn-primary" style={{ marginLeft: isOwner && c.vetUserId ? "0.5rem" : "auto", fontSize: "0.85rem" }} to={`/vet/case/${caseId}/resolve`}>
+            Close case
+          </Link>
+        ) : null}
       </header>
 
       {isVet ? (
@@ -185,11 +387,7 @@ export function ConsultationRoom() {
           <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--color-muted)", textTransform: "uppercase" }}>
             Guardian
           </span>
-          <UserChip
-            userId={c.ownerUserId}
-            displayName={c.ownerDisplayName ?? "Pet parent"}
-            avatarUrl={c.ownerAvatarUrl ?? null}
-          />
+          <UserChip userId={c.ownerUserId} displayName={c.ownerDisplayName ?? "Pet parent"} avatarUrl={c.ownerAvatarUrl ?? null} />
         </div>
       ) : null}
 
@@ -306,7 +504,10 @@ export function ConsultationRoom() {
                       : "pawvet-chat-bubble pawvet-chat-bubble--system"
                 }
               >
-                {m.body}
+                {m.body.trim() ? (
+                  <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</div>
+                ) : null}
+                <MessageAttachment m={m} />
               </div>
               <span
                 style={{
@@ -320,6 +521,7 @@ export function ConsultationRoom() {
             </motion.div>
           ))}
         </AnimatePresence>
+        {peerTyping ? <PawvetTypingIndicator displayName={peerTyping} /> : null}
         <div ref={bottomRef} />
       </div>
 
@@ -330,18 +532,78 @@ export function ConsultationRoom() {
       )}
 
       {canChat ? (
-        <form onSubmit={send} className="pawvet-glass-card" style={{ padding: "0.65rem 0.75rem", display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
-          <textarea
-            className="ph-textarea"
-            rows={2}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder={isVet ? "Professional guidance…" : "Reply to your vet…"}
-            style={{ flex: 1, margin: 0, resize: "none" }}
-          />
-          <button type="submit" className="ph-btn ph-btn-primary" disabled={!body.trim()}>
-            <Send size={18} aria-hidden />
-          </button>
+        <form onSubmit={send} className="pawvet-glass-card pawvet-compose" style={{ padding: "0.65rem 0.75rem" }}>
+          {pendingFile ? (
+            <div className="pawvet-compose-pending">
+              {pendingPreview ? (
+                <img src={pendingPreview} alt="" />
+              ) : (
+                <div style={{ width: 52, height: 52, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <FileText size={28} strokeWidth={1.75} aria-hidden style={{ color: "var(--pawvet-medical)" }} />
+                </div>
+              )}
+              <span className="pawvet-compose-pending-meta">{pendingFile.name}</span>
+              <button
+                type="button"
+                className="ph-btn ph-btn-ghost"
+                style={{ fontSize: "0.78rem", padding: "0.2rem 0.45rem" }}
+                onClick={() => {
+                  if (pendingPreview?.startsWith("blob:")) URL.revokeObjectURL(pendingPreview);
+                  setPendingFile(null);
+                  setPendingPreview(null);
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+              >
+                <X size={16} aria-hidden />
+              </button>
+            </div>
+          ) : null}
+          {sendErr ? (
+            <p role="alert" style={{ color: "#b42318", margin: 0, fontSize: "0.85rem" }}>
+              {sendErr}
+            </p>
+          ) : null}
+          <div className="pawvet-compose-row">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="pawvet-compose-file"
+              onChange={onPickFile}
+            />
+            <button
+              type="button"
+              className="pawvet-compose-icon"
+              disabled={!canChat}
+              title="Attach image or PDF"
+              aria-label="Attach image or PDF"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Paperclip size={18} strokeWidth={2} aria-hidden />
+            </button>
+            <textarea
+              className="ph-textarea"
+              rows={2}
+              value={body}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBody(v);
+                scheduleComposerTyping(v.trim().length + (pendingFile ? 1 : 0));
+              }}
+              onBlur={() => {
+                if (typingIdleRef.current) {
+                  clearTimeout(typingIdleRef.current);
+                  typingIdleRef.current = null;
+                }
+                if (Number.isFinite(caseNum) && caseNum > 0) sendTriageTyping(caseNum, false);
+              }}
+              placeholder={isVet ? "Professional guidance… (optional caption with attachment)" : "Reply to your vet…"}
+              style={{ flex: 1, margin: 0, resize: "none" }}
+            />
+            <button type="submit" className="ph-btn ph-btn-primary" disabled={!body.trim() && !pendingFile} title="Send">
+              <Send size={18} aria-hidden />
+            </button>
+          </div>
         </form>
       ) : c.status === "OPEN" ? (
         <p style={{ color: "var(--color-muted)", fontSize: "0.9rem" }}>You&apos;ll be able to chat once a vet claims this case.</p>

@@ -1,12 +1,19 @@
-import { CheckCircle2, ChevronDown, ChevronUp, Flag, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Flag, ImagePlus, Pencil, SendHorizontal, Trash2 } from "lucide-react";
 import clsx from "clsx";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import type { ForumCommentJson, ForumPostDetailJson } from "../api/hubApiTypes";
 import { UserChip } from "../../components/social/UserChip";
 import { HubConfirmDialog } from "../components/HubConfirmDialog";
+
+async function uploadForumImage(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await api<{ url: string }>("/api/hub/forum/upload-image", { method: "POST", body: fd });
+  return res.url;
+}
 
 export function ThreadPage() {
   const { roomSlug, postId } = useParams();
@@ -17,10 +24,9 @@ export function ThreadPage() {
 
   const [detail, setDetail] = useState<ForumPostDetailJson | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [topDraft, setTopDraft] = useState("");
   const [voteBusy, setVoteBusy] = useState(false);
   const [delPostOpen, setDelPostOpen] = useState(false);
-  const [delCommentId, setDelCommentId] = useState<number | null>(null);
+  const [delComment, setDelComment] = useState<{ id: number; mode: "admin" | "self" } | null>(null);
 
   const reload = useCallback(() => {
     if (!Number.isFinite(numericId)) return;
@@ -51,19 +57,6 @@ export function ThreadPage() {
     }
   }
 
-  async function onTopComment(e: FormEvent) {
-    e.preventDefault();
-    if (!user || !detail || !Number.isFinite(numericId)) return;
-    const t = topDraft.trim();
-    if (!t) return;
-    await api(`/api/hub/forum/posts/${numericId}/comments`, {
-      method: "POST",
-      body: JSON.stringify({ parentId: null, body: t }),
-    });
-    setTopDraft("");
-    reload();
-  }
-
   async function markHelpful(commentId: number) {
     if (!detail || !Number.isFinite(numericId)) return;
     await api(`/api/hub/forum/posts/${numericId}/helpful`, {
@@ -79,11 +72,17 @@ export function ThreadPage() {
     navigate(`/hub/community/${roomSlug ?? detail?.post.roomSlug ?? "general"}`);
   }
 
-  async function deleteComment() {
-    if (delCommentId == null) return;
-    await api(`/api/admin/hub/forum/comments/${delCommentId}`, { method: "DELETE" });
-    setDelCommentId(null);
-    reload();
+  async function confirmDeleteComment() {
+    if (delComment == null || !Number.isFinite(numericId)) return;
+    const { id, mode } = delComment;
+    setDelComment(null);
+    if (mode === "admin") {
+      await api(`/api/admin/hub/forum/comments/${id}`, { method: "DELETE" });
+      reload();
+      return;
+    }
+    const d = await api<ForumPostDetailJson>(`/api/hub/forum/comments/${id}`, { method: "DELETE" });
+    setDetail(d);
   }
 
   if (!Number.isFinite(numericId)) {
@@ -190,44 +189,96 @@ export function ThreadPage() {
           Discussion <span style={{ color: "var(--color-muted)", fontWeight: 500 }}>({p.commentCount})</span>
         </h2>
 
-        {user && (
-          <form onSubmit={(e) => void onTopComment(e)} className="ph-surface" style={{ padding: "1rem", marginBottom: "1rem" }}>
-            <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Add a comment</label>
-            <textarea className="ph-textarea" rows={4} placeholder="Share advice or ask a follow-up…" value={topDraft} onChange={(e) => setTopDraft(e.target.value)} />
-            <button type="submit" className="ph-btn ph-btn-primary" style={{ marginTop: "0.5rem" }} disabled={!topDraft.trim()}>
-              Comment
-            </button>
-          </form>
-        )}
+        {user && <CompactCommentBar postId={numericId} parentId={null} onDone={reload} />}
 
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+        <ul style={{ listStyle: "none", padding: 0, margin: "1rem 0 0" }}>
           {detail.comments.map((c) => (
             <CommentBranch
               key={c.id}
               node={c}
+              depth={0}
               postAuthorId={p.authorUserId}
               postId={numericId}
               helpfulId={p.helpfulCommentId}
               currentUserId={user?.userId ?? null}
               isOpViewer={isOpViewer}
               isAdmin={isAdmin}
-              onReply={reload}
+              onThreadUpdated={(d) => setDetail(d)}
+              onReload={reload}
               onMarkHelpful={markHelpful}
-              onAdminDelete={(id) => setDelCommentId(id)}
+              onRequestDelete={(id, mode) => setDelComment({ id, mode })}
             />
           ))}
         </ul>
       </section>
 
       <HubConfirmDialog
-        open={delCommentId != null}
-        onOpenChange={(o) => !o && setDelCommentId(null)}
-        title="Delete this comment?"
-        description="Nested replies may also be removed."
-        confirmLabel="Delete"
+        open={delComment != null}
+        onOpenChange={(o) => !o && setDelComment(null)}
+        title={delComment?.mode === "admin" ? "Remove this comment?" : "Delete your comment?"}
+        description={
+          delComment?.mode === "admin"
+            ? "The comment will be hidden and shown as removed by a moderator."
+            : "Your comment will be hidden for other readers."
+        }
+        confirmLabel={delComment?.mode === "admin" ? "Remove" : "Delete"}
         danger
-        onConfirm={deleteComment}
+        onConfirm={confirmDeleteComment}
       />
+    </div>
+  );
+}
+
+function CompactCommentBar({ postId, parentId, onDone }: { postId: number; parentId: number | null; onDone: () => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function submit() {
+    const t = text.trim();
+    const files = fileRef.current?.files;
+    const file = files && files[0] ? files[0] : null;
+    if (!t && !file) return;
+    setBusy(true);
+    try {
+      let attachmentUrl: string | null = null;
+      if (file) attachmentUrl = await uploadForumImage(file);
+      await api(`/api/hub/forum/posts/${postId}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ parentId, body: t, attachmentUrl }),
+      });
+      setText("");
+      if (fileRef.current) fileRef.current.value = "";
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void submit();
+    }
+  }
+
+  return (
+    <div className="hub-forum-composer ph-surface">
+      <input ref={fileRef} type="file" accept="image/*" className="hub-forum-composer-file" aria-label="Attach image" />
+      <button type="button" className="ph-btn ph-btn-ghost hub-forum-composer-icon" onClick={() => fileRef.current?.click()} aria-label="Upload image">
+        <ImagePlus size={20} />
+      </button>
+      <input
+        className="ph-input hub-forum-composer-input"
+        placeholder={parentId ? "Reply…" : "Write a comment…"}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={onKeyDown}
+        disabled={busy}
+      />
+      <button type="button" className="ph-btn ph-btn-primary hub-forum-composer-send" disabled={busy} onClick={() => void submit()} aria-label="Send">
+        <SendHorizontal size={18} />
+      </button>
     </div>
   );
 }
@@ -241,9 +292,10 @@ function CommentBranch({
   currentUserId,
   isOpViewer,
   isAdmin,
-  onReply,
+  onThreadUpdated,
+  onReload,
   onMarkHelpful,
-  onAdminDelete,
+  onRequestDelete,
 }: {
   node: ForumCommentJson;
   depth?: number;
@@ -253,37 +305,75 @@ function CommentBranch({
   currentUserId: number | null;
   isOpViewer: boolean;
   isAdmin: boolean;
-  onReply: () => void;
+  onThreadUpdated: (d: ForumPostDetailJson) => void;
+  onReload: () => void;
   onMarkHelpful: (id: number) => void;
-  onAdminDelete: (id: number) => void;
+  onRequestDelete: (id: number, mode: "admin" | "self") => void;
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
-  const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState(node.body);
   const isOp = node.authorUserId === postAuthorId;
   const isHelpful = helpfulId === node.id;
+  const isOwn = currentUserId != null && currentUserId === node.authorUserId;
 
-  async function submitReply(e: FormEvent) {
-    e.preventDefault();
-    if (!currentUserId) return;
-    const t = draft.trim();
-    if (!t) return;
-    await api(`/api/hub/forum/posts/${postId}/comments`, {
-      method: "POST",
-      body: JSON.stringify({ parentId: node.id, body: t }),
+  useEffect(() => {
+    if (!editing) setEditDraft(node.body);
+  }, [node.body, editing]);
+
+  async function saveEdit() {
+    const d = await api<ForumPostDetailJson>(`/api/hub/forum/comments/${node.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ body: editDraft }),
     });
-    setDraft("");
-    setReplyOpen(false);
-    onReply();
+    onThreadUpdated(d);
+    setEditing(false);
   }
 
   const palette = ["var(--hub-salmon)", "var(--hub-sage)", "#c4b8a8", "#9a8f82"];
   const indent = palette[depth % palette.length];
 
+  if (node.deleted) {
+    return (
+      <li style={{ marginBottom: "0.75rem" }}>
+        <article
+          className={clsx(depth > 0 && "hub-forum-comment-nested")}
+          style={depth > 0 ? { ["--indent-color" as string]: indent } : undefined}
+        >
+          <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--color-muted)", fontStyle: "italic" }}>
+            {node.deletedByAdmin ? "This comment was removed by a moderator." : "This comment was removed."}
+          </p>
+        </article>
+        {node.children.length > 0 && (
+          <ul style={{ listStyle: "none", paddingLeft: "0.75rem", marginTop: "0.5rem" }}>
+            {node.children.map((ch) => (
+              <CommentBranch
+                key={ch.id}
+                node={ch}
+                depth={depth + 1}
+                postAuthorId={postAuthorId}
+                postId={postId}
+                helpfulId={helpfulId}
+                currentUserId={currentUserId}
+                isOpViewer={isOpViewer}
+                isAdmin={isAdmin}
+                onThreadUpdated={onThreadUpdated}
+                onReload={onReload}
+                onMarkHelpful={onMarkHelpful}
+                onRequestDelete={onRequestDelete}
+              />
+            ))}
+          </ul>
+        )}
+      </li>
+    );
+  }
+
   return (
     <li style={{ marginBottom: "0.75rem" }}>
       <article
-        className={depth ? "hub-comment-nested" : undefined}
-        style={{ ["--indent-color" as string]: indent, borderLeft: depth ? "3px solid var(--indent-color, #ccc)" : undefined, paddingLeft: depth ? "0.65rem" : 0 }}
+        className={clsx(depth > 0 && "hub-forum-comment-nested")}
+        style={depth > 0 ? { ["--indent-color" as string]: indent } : undefined}
       >
         <header style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.35rem" }}>
           <UserChip userId={node.authorUserId} displayName={node.authorDisplayName} avatarUrl={null} size="sm" />
@@ -297,24 +387,60 @@ function CommentBranch({
             {new Date(node.createdAt).toLocaleString()}
           </time>
         </header>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.55, fontSize: "0.92rem" }}>{node.body}</p>
+        {node.attachmentUrl && (
+          <div style={{ marginBottom: "0.5rem" }}>
+            <img src={node.attachmentUrl} alt="" style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 8, display: "block" }} loading="lazy" />
+          </div>
+        )}
+        {editing ? (
+          <div style={{ marginBottom: "0.5rem" }}>
+            <textarea className="ph-textarea" rows={3} value={editDraft} onChange={(e) => setEditDraft(e.target.value)} style={{ width: "100%" }} />
+            <div style={{ display: "flex", gap: "0.35rem", marginTop: "0.35rem" }}>
+              <button type="button" className="ph-btn ph-btn-primary" style={{ fontSize: "0.85rem" }} onClick={() => void saveEdit()}>
+                Save
+              </button>
+              <button type="button" className="ph-btn ph-btn-ghost" style={{ fontSize: "0.85rem" }} onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p style={{ margin: "0 0 0.5rem", lineHeight: 1.55, fontSize: "0.92rem" }}>{node.body}</p>
+        )}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
-          {currentUserId && (
+          {currentUserId && !editing && (
             <button type="button" className="ph-btn ph-btn-ghost" style={{ padding: "0.2rem 0.5rem", fontSize: "0.78rem" }} onClick={() => setReplyOpen((v) => !v)}>
               {replyOpen ? "Cancel" : "Reply"}
             </button>
           )}
-          {isOpViewer && !isHelpful && node.authorUserId !== postAuthorId && (
+          {isOwn && !editing && (
+            <>
+              <button type="button" className="ph-btn ph-btn-ghost" style={{ padding: "0.2rem 0.5rem", fontSize: "0.78rem" }} onClick={() => setEditing(true)}>
+                <Pencil size={14} style={{ marginRight: "0.25rem" }} aria-hidden />
+                Edit
+              </button>
+              <button
+                type="button"
+                className="ph-btn ph-btn-ghost"
+                style={{ padding: "0.2rem 0.5rem", fontSize: "0.78rem", color: "#b42318" }}
+                onClick={() => onRequestDelete(node.id, "self")}
+              >
+                <Trash2 size={14} style={{ marginRight: "0.25rem" }} aria-hidden />
+                Delete
+              </button>
+            </>
+          )}
+          {isOpViewer && !isHelpful && !node.deleted && node.authorUserId !== postAuthorId && (
             <button type="button" className="ph-btn ph-btn-primary" style={{ padding: "0.2rem 0.55rem", fontSize: "0.78rem" }} onClick={() => onMarkHelpful(node.id)}>
               Mark helpful answer
             </button>
           )}
-          {isAdmin && (
+          {isAdmin && !isOwn && (
             <button
               type="button"
               className="ph-btn ph-btn-ghost"
               style={{ padding: "0.2rem 0.5rem", fontSize: "0.78rem", color: "#b42318" }}
-              onClick={() => onAdminDelete(node.id)}
+              onClick={() => onRequestDelete(node.id, "admin")}
             >
               <Trash2 size={14} style={{ marginRight: "0.25rem" }} aria-hidden />
               Remove
@@ -322,12 +448,16 @@ function CommentBranch({
           )}
         </div>
         {replyOpen && currentUserId && (
-          <form onSubmit={(e) => void submitReply(e)} style={{ marginTop: "0.65rem" }}>
-            <textarea className="ph-textarea" rows={3} placeholder="Write a reply…" value={draft} onChange={(e) => setDraft(e.target.value)} style={{ marginBottom: "0.5rem" }} />
-            <button type="submit" className="ph-btn ph-btn-primary" style={{ fontSize: "0.85rem" }} disabled={!draft.trim()}>
-              Post reply
-            </button>
-          </form>
+          <div style={{ marginTop: "0.65rem" }}>
+            <CompactCommentBar
+              postId={postId}
+              parentId={node.id}
+              onDone={() => {
+                setReplyOpen(false);
+                onReload();
+              }}
+            />
+          </div>
         )}
       </article>
       {node.children.length > 0 && (
@@ -343,9 +473,10 @@ function CommentBranch({
               currentUserId={currentUserId}
               isOpViewer={isOpViewer}
               isAdmin={isAdmin}
-              onReply={onReply}
+              onThreadUpdated={onThreadUpdated}
+              onReload={onReload}
               onMarkHelpful={onMarkHelpful}
-              onAdminDelete={onAdminDelete}
+              onRequestDelete={onRequestDelete}
             />
           ))}
         </ul>

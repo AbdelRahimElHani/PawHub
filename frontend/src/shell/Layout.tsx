@@ -81,12 +81,16 @@ export function Layout({ children }: { children?: ReactNode }) {
             <NavLink to="/cats" style={linkStyle}>
               My cats
             </NavLink>
-            <NavLink to="/pawmatch" style={linkStyle}>
-              PawMatch
-            </NavLink>
-            <NavLink to="/matches" style={linkStyle}>
-              Matches
-            </NavLink>
+            {!isAdminAccount(user) && (
+              <>
+                <NavLink to="/pawmatch" style={linkStyle}>
+                  PawMatch
+                </NavLink>
+                <NavLink to="/matches" style={linkStyle}>
+                  Matches
+                </NavLink>
+              </>
+            )}
             <NavLink to="/people" style={linkStyle}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
                 <UsersRound size={16} strokeWidth={2} aria-hidden />
@@ -97,17 +101,12 @@ export function Layout({ children }: { children?: ReactNode }) {
             <NavLink to="/hub" style={linkStyle}>
               Learn
             </NavLink>
-            <NavLink to={isAdminAccount(user) ? "/pawvet/admin" : "/pawvet"} style={linkStyle}>
+            <NavLink to="/pawvet" style={linkStyle}>
               PawVet
             </NavLink>
             <NavLink to="/adopt" style={linkStyle}>
               PawAdopt
             </NavLink>
-            {isAdminAccount(user) && (
-              <NavLink to="/admin" style={linkStyle}>
-                Admin
-              </NavLink>
-            )}
           </nav>
         </header>
         {user ? (

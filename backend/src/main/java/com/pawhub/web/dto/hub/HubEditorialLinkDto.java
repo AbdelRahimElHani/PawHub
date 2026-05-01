@@ -9,4 +9,5 @@ public record HubEditorialLinkDto(
         String dek,
         String imageUrl,
         boolean featured,
-        int sortOrder) {}
+        int sortOrder,
+        String sectionTitle) {}

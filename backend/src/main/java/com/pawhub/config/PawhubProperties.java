@@ -45,6 +45,15 @@ public class PawhubProperties {
         return base + "/market/" + listingId;
     }
 
+    /** Deep link to a Paw Adopt listing profile in the SPA. */
+    public String adoptionListingPageUrl(long listingId) {
+        String base = frontendBaseUrl == null || frontendBaseUrl.isBlank() ? "http://localhost:5173" : frontendBaseUrl.trim();
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base + "/adopt/" + listingId;
+    }
+
     private final Gemini gemini = new Gemini();
 
     private final Mail mail = new Mail();

@@ -7,6 +7,7 @@ export type HubFaqJson = {
   answer: string;
   healthRelated: boolean;
   sortOrder: number;
+  sectionTitle: string | null;
 };
 
 export type HubEditorialJson = {
@@ -19,6 +20,7 @@ export type HubEditorialJson = {
   imageUrl: string | null;
   featured: boolean;
   sortOrder: number;
+  sectionTitle: string | null;
 };
 
 export type ForumRoomJson = {
@@ -28,6 +30,7 @@ export type ForumRoomJson = {
   description: string | null;
   icon: string;
   createdByUserId: number | null;
+  adminOnlyPosts: boolean;
 };
 
 export type ForumPostJson = {
@@ -51,6 +54,9 @@ export type ForumCommentJson = {
   authorDisplayName: string;
   body: string;
   createdAt: string;
+  deleted: boolean;
+  deletedByAdmin: boolean;
+  attachmentUrl: string | null;
   children: ForumCommentJson[];
 };
 

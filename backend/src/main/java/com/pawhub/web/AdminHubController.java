@@ -29,6 +29,11 @@ public class AdminHubController {
         hubContentService.deleteFaq(id);
     }
 
+    @PostMapping("/faq/reorder")
+    public void reorderFaq(@Valid @RequestBody HubReorderIdsRequest req) {
+        hubContentService.reorderFaq(req);
+    }
+
     @PostMapping("/editorial")
     public HubEditorialLinkDto upsertEditorial(@Valid @RequestBody HubEditorialUpsertRequest req) {
         return hubContentService.saveEditorial(req);
@@ -37,6 +42,11 @@ public class AdminHubController {
     @DeleteMapping("/editorial/{id}")
     public void deleteEditorial(@PathVariable String id) {
         hubContentService.deleteEditorial(id);
+    }
+
+    @PostMapping("/editorial/reorder")
+    public void reorderEditorial(@Valid @RequestBody HubReorderIdsRequest req) {
+        hubContentService.reorderEditorial(req);
     }
 
     @PostMapping("/forum/rooms")

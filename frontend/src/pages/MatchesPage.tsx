@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { UserChip } from "../components/social/UserChip";
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
+import { isAdminAccount } from "../auth/vetAccess";
 import type { CatDto, MatchSummaryDto } from "../types";
 
 const STORAGE_KEY = "pawhub.matches.myCatId";
 
 export function MatchesPage() {
+  const { user } = useAuth();
   const [cats, setCats] = useState<CatDto[]>([]);
   const [rows, setRows] = useState<MatchSummaryDto[]>([]);
   const [myCatId, setMyCatId] = useState<number | "">("");
@@ -51,6 +54,20 @@ export function MatchesPage() {
   }, [rows, myCatId]);
 
   const selectedCat = cats.find((c) => c.id === myCatId);
+
+  if (isAdminAccount(user)) {
+    return (
+      <div className="ph-surface" style={{ padding: "1.25rem", maxWidth: 520 }}>
+        <h2 style={{ marginTop: 0 }}>Your matches</h2>
+        <p style={{ color: "var(--color-muted)", lineHeight: 1.55 }}>
+          Matches are hidden for administrator accounts. Approvals for shelters and veterinarians are under PawAdopt.
+        </p>
+        <Link className="ph-btn ph-btn-primary" to="/adopt/admin" style={{ marginTop: "0.75rem", display: "inline-block" }}>
+          Approvals hub
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="ph-surface" style={{ padding: "1.25rem" }}>

@@ -51,7 +51,9 @@ pawhub:
     from: ${MAIL_FROM:${MAIL_USERNAME:noreply@localhost}}
     from-name: ${MAIL_FROM_NAME:PawHub}
   auth:
-    auto-verify-email-on-registration: ${PAWHUB_AUTO_VERIFY_EMAIL:true}
+    # When false (default), every new account must verify email before login — applies to MEMBER, SHELTER, and VET.
+    # Set PAWHUB_AUTO_VERIFY_EMAIL=true for frictionless local demos only.
+    auto-verify-email-on-registration: ${PAWHUB_AUTO_VERIFY_EMAIL:false}
   admin:
     email: ${PAWHUB_ADMIN_EMAIL:admin@pawhub.local}
     password: ${PAWHUB_ADMIN_PASSWORD:admin123}

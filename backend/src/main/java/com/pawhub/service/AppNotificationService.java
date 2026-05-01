@@ -134,22 +134,28 @@ public class AppNotificationService {
         return switch (kind) {
             case ADMIN_SHELTER_REGISTERED,
                     ADMIN_SHELTER_DOSSIER_SUBMITTED,
+                    ADMIN_SHELTER_APPEAL_PENDING,
                     SHELTER_VERIFIED,
+                    SHELTER_VERIFICATION_REVOKED,
                     ADOPTION_INQUIRY,
                     ADOPTION_LISTING_PUBLISHED,
+                    ADOPTION_LISTING_REMOVED_ADMIN,
                     ADOPTION_INQUIRY_SUBMITTED,
                     SHELTER_APPLICATION_REJECTED -> "shelter";
-            case NEW_MESSAGE, MESSAGE_REQUEST_RECEIVED -> "message";
+            case NEW_MESSAGE, MESSAGE_REQUEST_RECEIVED, PAWVET_TRIAGE_MESSAGE -> "message";
             case ADMIN_VET_LICENSE_SUBMITTED,
                     VET_LICENSE_VERIFIED,
                     VET_NEW_REVIEW,
-                    PAWVET_NEW_TRIAGE_CASE -> "vet";
+                    PAWVET_NEW_TRIAGE_CASE,
+                    PAWVET_CASE_CLAIMED,
+                    ADMIN_VET_LICENSE_APPEAL_PENDING -> "vet";
             case MARKET_ORDER_BUYER, MARKET_ORDER_SELLER, MARKET_LISTING_REMOVED_ADMIN -> "package";
             case FORUM_REPLY, FORUM_COMMENT_REPLY -> "forum";
             case FORUM_SCORE_MILESTONE -> "forum";
             case SYSTEM_ANNOUNCEMENT -> "system";
             case HEALTH_REMINDER -> "health";
             case FRIEND_REQUEST_RECEIVED, FRIEND_REQUEST_SENT, FRIEND_REQUEST_ACCEPTED -> "friend";
+            case ADMIN_PAWVET_VET_REPORT -> "urgent";
         };
     }
 

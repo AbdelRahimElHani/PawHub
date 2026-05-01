@@ -47,6 +47,11 @@ public class PawvetTriageCaseController {
         return triageCaseService.listMyClaims(user);
     }
 
+    @GetMapping("/my-resolved-archive")
+    public List<PawvetTriageCaseDto> myResolvedArchive(@AuthenticationPrincipal SecurityUser user) {
+        return triageCaseService.listMyResolvedArchive(user);
+    }
+
     @GetMapping("/{id}")
     public PawvetTriageCaseDto get(@PathVariable long id, @AuthenticationPrincipal SecurityUser user) {
         return triageCaseService.get(user, id);
@@ -65,11 +70,27 @@ public class PawvetTriageCaseController {
         return triageCaseService.appendMessage(user, id, req);
     }
 
+    @PostMapping(value = "/{id}/message-media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, String> uploadMessageMedia(
+            @PathVariable long id, @RequestPart("file") MultipartFile file, @AuthenticationPrincipal SecurityUser user)
+            throws Exception {
+        String url = triageCaseService.uploadMessageAttachment(user, id, file);
+        return Map.of("url", url);
+    }
+
     @PostMapping("/{id}/resolve")
     public PawvetTriageCaseDto resolve(
             @PathVariable long id,
             @Valid @RequestBody ResolvePawvetTriageCaseRequest req,
             @AuthenticationPrincipal SecurityUser user) {
         return triageCaseService.resolve(user, id, req);
+    }
+
+    @PostMapping("/{id}/report-vet")
+    public void reportVet(
+            @PathVariable long id,
+            @Valid @RequestBody SubmitPawvetVetReportRequest req,
+            @AuthenticationPrincipal SecurityUser user) {
+        triageCaseService.submitVetReport(user, id, req);
     }
 }

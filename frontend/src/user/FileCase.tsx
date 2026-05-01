@@ -4,6 +4,7 @@ import { type ChangeEvent, FormEvent, useCallback, useEffect, useState } from "r
 import { Link, useNavigate } from "react-router-dom";
 import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useChatStomp } from "../chat/ChatStompContext";
 import { isAdminAccount, isVeterinarianAccount } from "../auth/vetAccess";
 import { useCatSanctuaryStore } from "../cats/useCatSanctuaryStore";
 import type { CaseAttachment, CatCaseSnapshot } from "../store/useVetStore";
@@ -61,6 +62,7 @@ function readOneFile(file: File): Promise<string | null> {
 export function FileCase() {
   const nav = useNavigate();
   const { user } = useAuth();
+  const { setActiveTriageCase } = useChatStomp();
   const cats = useCatSanctuaryStore((s) => s.cats);
   const fetchCats = useCatSanctuaryStore((s) => s.fetchCats);
   const mergeCasesFromApi = useVetStore((s) => s.mergeCasesFromApi);
@@ -91,6 +93,32 @@ export function FileCase() {
   useEffect(() => {
     if (step !== 3) setAttachHint(null);
   }, [step]);
+
+  useEffect(() => {
+    if (step !== 4 || !awaitClaimCaseId) {
+      setActiveTriageCase(null, null);
+      return;
+    }
+    const caseNum = Number(awaitClaimCaseId);
+    if (!Number.isFinite(caseNum) || caseNum <= 0) {
+      setActiveTriageCase(null, null);
+      return;
+    }
+    setActiveTriageCase(caseNum, {
+      onCaseUpdate: (raw) => {
+        try {
+          const dto = JSON.parse(raw) as PawvetTriageCaseDto;
+          mergeCasesFromApi([dto]);
+        } catch {
+          /* ignore */
+        }
+      },
+      onTyping: () => {},
+    });
+    return () => {
+      setActiveTriageCase(null, null);
+    };
+  }, [step, awaitClaimCaseId, mergeCasesFromApi, setActiveTriageCase]);
 
   useEffect(() => {
     if (step !== 4 || !awaitClaimCaseId) return;
@@ -310,7 +338,7 @@ export function FileCase() {
           <p>Administrator accounts do not file guardian triage cases. Use the PawVet admin hub to review veterinarians and programs.</p>
         </div>
         <div className="pawvet-glass-card" style={{ padding: "1.25rem" }}>
-          <Link className="ph-btn ph-btn-primary" to="/pawvet/admin">
+          <Link className="ph-btn ph-btn-primary" to="/adopt">
             PawVet admin
           </Link>
           <p style={{ margin: "1rem 0 0" }}>

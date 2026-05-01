@@ -79,7 +79,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/pawvet/verified-vet-names")
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/adopt/listings/mine")
+                        .requestMatchers(HttpMethod.GET, "/api/adopt/listings/mine", "/api/adopt/listings/mine/archive")
                         .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/adopt/listings", "/api/adopt/listings/*")
                         .permitAll()

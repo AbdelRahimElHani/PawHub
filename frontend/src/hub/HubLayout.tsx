@@ -2,7 +2,6 @@ import clsx from "clsx";
 import { BookOpen, Cat, LayoutGrid, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { SavedArticlesProvider } from "./context/SavedArticlesContext";
 import "./hub.css";
 import { CommandPalette } from "./components/molecules/CommandPalette";
 
@@ -18,8 +17,7 @@ export function HubLayout() {
   const communityActive = location.pathname.startsWith("/hub/community");
 
   return (
-    <SavedArticlesProvider>
-      <div className="hub-root">
+    <div className="hub-root">
         <div className="hub-shell">
           <aside className="hub-sidebar" aria-label="Learn navigation">
             <div className="hub-sidebar-brand">
@@ -110,7 +108,6 @@ export function HubLayout() {
             );
           })}
         </nav>
-      </div>
-    </SavedArticlesProvider>
+    </div>
   );
 }

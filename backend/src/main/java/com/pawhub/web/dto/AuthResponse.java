@@ -15,4 +15,8 @@ public record AuthResponse(
         /** PENDING / APPROVED / REJECTED when accountType is VET; otherwise null */
         String vetVerificationStatus,
         /** Populated when vet verification was rejected */
-        String vetRejectionReason) {}
+        String vetRejectionReason,
+        /** Database id of vet license application when accountType is VET */
+        Long vetApplicationId,
+        /** PENDING / REJECTED_FINAL when accountType is VET; otherwise null */
+        String vetAppealState) {}

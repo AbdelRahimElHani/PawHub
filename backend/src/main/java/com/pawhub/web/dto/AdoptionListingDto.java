@@ -10,4 +10,6 @@ public record AdoptionListingDto(
         Integer ageMonths,
         String photoUrl,
         String status,
-        String shelterName) {}
+        String shelterName,
+        Long shelterOwnerUserId,
+        String shelterAvatarUrl) {}

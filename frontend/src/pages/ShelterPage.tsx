@@ -18,6 +18,8 @@ export function ShelterPage() {
   const [emailContact, setEmailContact] = useState("");
   const [bio, setBio] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [appealText, setAppealText] = useState("");
+  const [appealBusy, setAppealBusy] = useState(false);
 
   const reloadShelter = useCallback(async () => {
     try {
@@ -205,6 +207,9 @@ export function ShelterPage() {
             <Link className="ph-btn ph-btn-accent" to="/adopt/new">
               New adoption listing
             </Link>
+            <Link className="ph-btn ph-btn-ghost" to="/adopt/my-listings">
+              My listings & archive
+            </Link>
             <Link className="ph-btn ph-btn-ghost" to="/adopt">
               Browse Paw Adopt
             </Link>
@@ -217,10 +222,69 @@ export function ShelterPage() {
           <BadgeCheck size={40} strokeWidth={1.5} aria-hidden className="shelter-submitted-card__icon" />
           <h2 className="shelter-submitted-card__title">Application not approved</h2>
           <p className="shelter-submitted-card__body">
-            This shelter application was not approved. If you think this was a mistake, please contact support through
-            your usual PawHub channel.
+            This shelter application was not approved.
+            {existing.applicationRejectionReason ? (
+              <>
+                {" "}
+                <strong>Note from review:</strong> {existing.applicationRejectionReason}
+              </>
+            ) : null}
           </p>
-          <Link className="ph-btn ph-btn-ghost" to="/adopt">
+          {existing.appealState === "PENDING" ? (
+            <p style={{ color: "var(--color-muted)", lineHeight: 1.55 }}>
+              Your appeal is <strong>waiting for an administrator</strong>. You’ll see updates here when it is decided.
+            </p>
+          ) : null}
+          {existing.appealState === "REJECTED_FINAL" ? (
+            <p style={{ color: "var(--color-muted)", lineHeight: 1.55 }}>
+              An appeal was reviewed and <strong>not accepted</strong>. Further appeals are not available for this
+              application.
+            </p>
+          ) : null}
+          {existing.status === "REJECTED" &&
+          existing.appealState !== "PENDING" &&
+          existing.appealState !== "REJECTED_FINAL" ? (
+            <form
+              style={{ marginTop: "0.75rem", textAlign: "left" }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                setMsg(null);
+                if (!appealText.trim()) {
+                  setMsg("Please write a short appeal message.");
+                  return;
+                }
+                void (async () => {
+                  setAppealBusy(true);
+                  try {
+                    await api("/api/adopt/shelters/mine/appeal", {
+                      method: "POST",
+                      body: JSON.stringify({ message: appealText.trim() }),
+                    });
+                    setAppealText("");
+                    setMsg("Appeal submitted. Our team will review it.");
+                    await reloadShelter();
+                  } catch (ex: unknown) {
+                    setMsg(ex instanceof Error ? ex.message : "Could not submit appeal.");
+                  } finally {
+                    setAppealBusy(false);
+                  }
+                })();
+              }}
+            >
+              <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem" }}>Appeal (one chance)</label>
+              <textarea
+                className="ph-textarea"
+                rows={4}
+                value={appealText}
+                onChange={(e) => setAppealText(e.target.value)}
+                placeholder="Explain why your organization should be reconsidered…"
+              />
+              <button className="ph-btn ph-btn-primary" type="submit" disabled={appealBusy} style={{ marginTop: "0.5rem" }}>
+                {appealBusy ? "Submitting…" : "Submit appeal"}
+              </button>
+            </form>
+          ) : null}
+          <Link className="ph-btn ph-btn-ghost" to="/adopt" style={{ marginTop: "0.75rem", display: "inline-flex" }}>
             Back to Paw Adopt
           </Link>
         </div>

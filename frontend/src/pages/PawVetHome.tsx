@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
-import { ClipboardList, HeartPulse, ShieldCheck, Stethoscope } from "lucide-react";
+import { ClipboardList, HeartPulse, Stethoscope } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { isAdminAccount, isVeterinarianAccount } from "../auth/vetAccess";
@@ -63,7 +63,28 @@ export function PawVetHome() {
   }, [cases, user, isVet]);
 
   if (isAdminAccount(user)) {
-    return <Navigate to="/pawvet/admin" replace />;
+    return (
+      <div className="pawvet-shell">
+        <div className="pawvet-hero">
+          <h1>PawVet</h1>
+          <p style={{ margin: "0 0 1rem", color: "var(--color-muted)", lineHeight: 1.55, maxWidth: "56ch" }}>
+            Shelter and veterinarian account approvals are handled under{" "}
+            <Link to="/adopt/admin" style={{ fontWeight: 700 }}>
+              PawAdopt → Approvals
+            </Link>
+            . Use PawVet here for live triage cases and guardian tools.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            <Link className="ph-btn ph-btn-primary" to="/adopt/admin">
+              Open approvals hub
+            </Link>
+            <Link className="ph-btn ph-btn-ghost" to="/">
+              Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -113,26 +134,6 @@ export function PawVetHome() {
           )}
         </motion.div>
 
-        {!isVet ? (
-          <motion.div
-            className="pawvet-glass-card"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            style={{ padding: "1.25rem" }}
-          >
-            <ShieldCheck size={22} color="var(--pawvet-medical)" aria-hidden />
-            <h2 style={{ margin: "0.5rem 0 0.35rem", fontFamily: "var(--font-display)", color: "var(--color-primary-dark)" }}>
-              I am a veterinarian
-            </h2>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.9rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
-              Review the open triage board, claim cases, and manage your professional profile.
-            </p>
-            <Link className="ph-btn ph-btn-accent" to="/vet">
-              Vet dashboard
-            </Link>
-          </motion.div>
-        ) : null}
       </div>
 
       {!isVet ? (

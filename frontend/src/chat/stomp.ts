@@ -44,3 +44,13 @@ export function sendChatTyping(client: Client, threadId: number, typing: boolean
     body: JSON.stringify({ threadId, typing }),
   });
 }
+
+export function sendTriageTyping(client: Client, caseId: number, typing: boolean) {
+  if (!client.connected) {
+    return;
+  }
+  client.publish({
+    destination: "/app/pawvet.triage.typing",
+    body: JSON.stringify({ caseId, typing }),
+  });
+}

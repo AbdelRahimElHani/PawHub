@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { BadgeCheck, MessageCircle } from "lucide-react";
+import { BadgeCheck, MessageCircle, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { isAdminAccount } from "../auth/vetAccess";
 import type { AdoptionListingDto, ShelterDto } from "../types";
 import { LIFESTYLE_FILTERS, listingMatchesFilter } from "./adoptPersonality";
 import { AdoptCard } from "./AdoptCard";
@@ -61,15 +62,38 @@ export function AdoptHub() {
     <div className="adopt-hub">
       <div className="adopt-toolbar">
         <div style={{ flex: 1 }} />
+        {user && isAdminAccount(user) && (
+          <>
+            <Link
+              className="ph-btn ph-btn-ghost"
+              to="/adopt/admin"
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+            >
+              <Shield size={16} strokeWidth={2} aria-hidden />
+              Approvals hub
+            </Link>
+            <Link className="ph-btn ph-btn-ghost" to="/adopt/admin/shelters" style={{ fontSize: "0.88rem" }}>
+              Shelters
+            </Link>
+            <Link className="ph-btn ph-btn-ghost" to="/adopt/admin/vet-verification" style={{ fontSize: "0.88rem" }}>
+              Vet licenses
+            </Link>
+          </>
+        )}
         {user?.accountType === "SHELTER" && (
           <Link className="ph-btn ph-btn-ghost" to="/adopt/shelter">
             Shelter & verification
           </Link>
         )}
         {user?.accountType === "SHELTER" && shelter?.status === "APPROVED" && (
-          <Link className="ph-btn ph-btn-accent" to="/adopt/new">
-            New listing
-          </Link>
+          <>
+            <Link className="ph-btn ph-btn-accent" to="/adopt/new">
+              New listing
+            </Link>
+            <Link className="ph-btn ph-btn-ghost" to="/adopt/my-listings">
+              My listings & archive
+            </Link>
+          </>
         )}
       </div>
 
@@ -125,7 +149,7 @@ export function AdoptHub() {
           </div>
           {shelter.status === "APPROVED" && (
             <Link className="ph-btn ph-btn-accent" to="/adopt/new" style={{ alignSelf: "center" }}>
-              Post a cat
+              New listing
             </Link>
           )}
         </div>
@@ -141,45 +165,59 @@ export function AdoptHub() {
             seller on the market.
           </p>
           <div className="adopt-love-strip">
-            {loveList.map((l) => (
-              <article key={l.id} className="adopt-love-card">
-                <Link to={`/adopt/${l.id}`} className="adopt-love-card__media" style={{ display: "block" }}>
-                  {l.photoUrl ? (
-                    <img src={l.photoUrl} alt="" />
-                  ) : (
-                    <div
-                      style={{
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "0.8rem",
-                        fontWeight: 700,
-                        color: "var(--color-muted)",
-                      }}
-                    >
-                      No photo
+            {loveList.map((l) => {
+              const ownShelterListing =
+                user?.accountType === "SHELTER" && shelter && l.shelterId === shelter.id;
+              return (
+                <article key={l.id} className="adopt-love-card">
+                  <Link to={`/adopt/${l.id}`} className="adopt-love-card__media" style={{ display: "block" }}>
+                    {l.photoUrl ? (
+                      <img src={l.photoUrl} alt="" />
+                    ) : (
+                      <div
+                        style={{
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          color: "var(--color-muted)",
+                        }}
+                      >
+                        No photo
+                      </div>
+                    )}
+                  </Link>
+                  <div className="adopt-love-card__body">
+                    <div className="adopt-love-card__name">{l.petName ?? l.title}</div>
+                    <div className="adopt-love-card__actions">
+                      <Link className="ph-btn ph-btn-ghost" to={`/adopt/${l.id}`} style={{ fontSize: "0.82rem" }}>
+                        View profile
+                      </Link>
+                      {ownShelterListing ? (
+                        <Link className="ph-btn ph-btn-primary" to={`/adopt/${l.id}`} style={{ fontSize: "0.82rem" }}>
+                          Manage listing
+                        </Link>
+                      ) : isAdminAccount(user) ? (
+                        <span style={{ fontSize: "0.78rem", color: "var(--color-muted)", alignSelf: "center" }}>
+                          View only (admin)
+                        </span>
+                      ) : (
+                        <Link
+                          className="ph-btn ph-btn-primary"
+                          to={`/adopt/${l.id}?contact=1`}
+                          style={{ fontSize: "0.82rem", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                        >
+                          <MessageCircle size={15} aria-hidden />
+                          Message shelter
+                        </Link>
+                      )}
                     </div>
-                  )}
-                </Link>
-                <div className="adopt-love-card__body">
-                  <div className="adopt-love-card__name">{l.petName ?? l.title}</div>
-                  <div className="adopt-love-card__actions">
-                    <Link className="ph-btn ph-btn-ghost" to={`/adopt/${l.id}`} style={{ fontSize: "0.82rem" }}>
-                      View profile
-                    </Link>
-                    <Link
-                      className="ph-btn ph-btn-primary"
-                      to={`/adopt/${l.id}?contact=1`}
-                      style={{ fontSize: "0.82rem", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
-                    >
-                      <MessageCircle size={15} aria-hidden />
-                      Message shelter
-                    </Link>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         </section>
       )}
@@ -210,11 +248,15 @@ export function AdoptHub() {
         </p>
       ) : (
         <motion.div className="adopt-masonry" variants={container} initial="hidden" animate="show">
-          {filtered.map((l) => (
-            <motion.div key={l.id} className="adopt-masonry__item" variants={item}>
-              <AdoptCard listing={l} />
-            </motion.div>
-          ))}
+          {filtered.map((l) => {
+            const ownShelterListing = user?.accountType === "SHELTER" && shelter && l.shelterId === shelter.id;
+            const hideLove = Boolean(ownShelterListing || isAdminAccount(user));
+            return (
+              <motion.div key={l.id} className="adopt-masonry__item" variants={item}>
+                <AdoptCard listing={l} hideLove={hideLove} />
+              </motion.div>
+            );
+          })}
         </motion.div>
       )}
     </div>

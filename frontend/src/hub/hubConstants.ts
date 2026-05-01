@@ -54,3 +54,6 @@ export const EDITORIAL_TOPICS: { id: string; label: string }[] = [
   { id: "welfare", label: "Welfare & environment" },
   { id: "science", label: "Science & news" },
 ];
+
+/** Official announcements room — matches backend `HubForumService.PAWHUB_HOME_ROOM_SLUG`. */
+export const PAWHUB_HOME_ROOM_SLUG = "pawhub-announcements";

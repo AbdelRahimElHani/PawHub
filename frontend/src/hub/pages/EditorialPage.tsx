@@ -1,14 +1,13 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
-import { Bookmark, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, GripVertical, Plus, Trash2 } from "lucide-react";
 import clsx from "clsx";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import type { HubEditorialJson } from "../api/hubApiTypes";
 import { HubConfirmDialog } from "../components/HubConfirmDialog";
 import { EDITORIAL_TOPICS } from "../hubConstants";
-import { useSavedArticles } from "../context/SavedArticlesContext";
 import type { ExternalLinkEntry } from "../types";
 
 function mapEditorial(j: HubEditorialJson): ExternalLinkEntry {
@@ -21,13 +20,46 @@ function mapEditorial(j: HubEditorialJson): ExternalLinkEntry {
     dek: j.dek ?? "",
     imageUrl: j.imageUrl,
     featured: j.featured,
+    sectionTitle: j.sectionTitle ?? undefined,
   };
+}
+
+function groupBySection<T extends { sectionTitle?: string | null }>(items: T[]): { key: string; label: string | null; items: T[] }[] {
+  const keys: string[] = [];
+  const m = new Map<string, T[]>();
+  for (const it of items) {
+    const key = (it.sectionTitle ?? "").trim();
+    if (!m.has(key)) {
+      m.set(key, []);
+      keys.push(key);
+    }
+    m.get(key)!.push(it);
+  }
+  return keys.map((key) => ({ key, label: key ? key : null, items: m.get(key)! }));
+}
+
+function mergeEditorialOrder(all: HubEditorialJson[], topic: string, fromId: string, toId: string): string[] {
+  const F = [...all].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+  const inView = (x: HubEditorialJson) => topic === "all" || x.topicId === topic;
+  const viewIds = F.filter(inView).map((x) => x.id);
+  const fromI = viewIds.indexOf(fromId);
+  const toI = viewIds.indexOf(toId);
+  if (fromI < 0 || toI < 0) return F.map((x) => x.id);
+  const next = [...viewIds];
+  next.splice(fromI, 1);
+  next.splice(toI, 0, fromId);
+  const merged: string[] = [];
+  let vi = 0;
+  for (const x of F) {
+    if (inView(x)) merged.push(next[vi++]!);
+    else merged.push(x.id);
+  }
+  return merged;
 }
 
 export function EditorialPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
-  const { isSaved, toggle } = useSavedArticles();
 
   const [rows, setRows] = useState<HubEditorialJson[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -35,7 +67,7 @@ export function EditorialPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const reload = () => {
+  const reload = useCallback(() => {
     setLoadErr(null);
     void api<HubEditorialJson[]>("/api/hub/editorial")
       .then((r) => setRows([...r].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))))
@@ -43,11 +75,11 @@ export function EditorialPage() {
         setRows([]);
         setLoadErr("Could not load editorial picks.");
       });
-  };
+  }, []);
 
   useEffect(() => {
     reload();
-  }, []);
+  }, [reload]);
 
   const list = useMemo(() => {
     const mapped = rows.map(mapEditorial);
@@ -57,6 +89,7 @@ export function EditorialPage() {
 
   const featured = list.length ? (list.find((e) => e.featured) ?? list[0]) : undefined;
   const rest = featured ? list.filter((e) => e.id !== featured.id) : [];
+  const restGrouped = useMemo(() => groupBySection(rest), [rest]);
 
   async function submitAdd(e: FormEvent) {
     e.preventDefault();
@@ -71,6 +104,7 @@ export function EditorialPage() {
       imageUrl: (fd.get("imageUrl") as string) || null,
       featured: fd.get("featured") === "on",
       sortOrder: parseInt(String(fd.get("sortOrder")), 10) || 0,
+      sectionTitle: ((fd.get("sectionTitle") as string) || "").trim() || null,
     };
     await api("/api/admin/hub/editorial", { method: "POST", body: JSON.stringify(body) });
     setAddOpen(false);
@@ -81,6 +115,13 @@ export function EditorialPage() {
     if (!deleteId) return;
     await api(`/api/admin/hub/editorial/${encodeURIComponent(deleteId)}`, { method: "DELETE" });
     setDeleteId(null);
+    reload();
+  }
+
+  async function onReorder(fromId: string, toId: string) {
+    if (!isAdmin) return;
+    const orderedIds = mergeEditorialOrder(rows, topic, fromId, toId);
+    await api("/api/admin/hub/editorial/reorder", { method: "POST", body: JSON.stringify({ orderedIds }) });
     reload();
   }
 
@@ -122,6 +163,8 @@ export function EditorialPage() {
                       </option>
                     ))}
                   </select>
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Section title (optional)</label>
+                  <input name="sectionTitle" className="ph-input" style={{ width: "100%", marginBottom: "0.5rem" }} placeholder="e.g. Deep dives" />
                   <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Source label</label>
                   <input name="sourceLabel" className="ph-input" style={{ width: "100%", marginBottom: "0.5rem" }} />
                   <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Short description</label>
@@ -149,6 +192,12 @@ export function EditorialPage() {
       </header>
 
       {loadErr && <p style={{ color: "#b42318", marginBottom: "0.75rem" }}>{loadErr}</p>}
+
+      {isAdmin && (
+        <p style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginBottom: "0.75rem" }}>
+          Drag the handle on a card to reorder within the current topic tab.
+        </p>
+      )}
 
       <nav className="pm-hub-tabs" aria-label="Topics" style={{ flexWrap: "wrap", rowGap: "0.35rem" }}>
         {EDITORIAL_TOPICS.map((t) => (
@@ -207,70 +256,108 @@ export function EditorialPage() {
                 Read on {featured.sourceLabel}
                 <ExternalLink size={16} aria-hidden style={{ marginLeft: "0.35rem" }} />
               </a>
-              <button
-                type="button"
-                className="ph-btn ph-btn-ghost"
-                style={{ background: "rgba(255,255,255,0.15)", color: "#fff", borderColor: "rgba(255,255,255,0.35)" }}
-                onClick={() => toggle(featured.id)}
-              >
-                <Bookmark size={18} aria-hidden fill={isSaved(featured.id) ? "currentColor" : "none"} />
-                {isSaved(featured.id) ? "Saved" : "Save link"}
-              </button>
             </div>
           </div>
         </motion.section>
       )}
 
-      <div className="hub-editorial-grid">
-        {rest.map((a, i) => (
-          <motion.article
-            key={a.id}
-            className="ph-surface hub-editorial-card"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * i }}
-          >
-            {isAdmin && (
-              <button
-                type="button"
-                className="ph-btn ph-btn-ghost"
-                title="Remove article"
-                aria-label="Remove article"
-                onClick={() => setDeleteId(a.id)}
-                style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}
+      {restGrouped.map((g) => (
+        <section key={g.key || "__ungrouped__"} style={{ marginBottom: "1.75rem" }}>
+          {g.label && (
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "1.1rem",
+                margin: "0 0 0.75rem",
+                color: "var(--hub-charcoal)",
+                borderBottom: "1px solid var(--color-border)",
+                paddingBottom: "0.35rem",
+              }}
+            >
+              {g.label}
+            </h2>
+          )}
+          <div className="hub-editorial-grid">
+            {g.items.map((a, i) => (
+              <motion.article
+                key={a.id}
+                className="ph-surface hub-editorial-card"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.04 * i }}
+                onDragOver={
+                  isAdmin
+                    ? (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }
+                    : undefined
+                }
+                onDrop={
+                  isAdmin
+                    ? (e) => {
+                        e.preventDefault();
+                        const from = e.dataTransfer.getData("application/x-pawhub-editorial-id");
+                        if (from && from !== a.id) void onReorder(from, a.id);
+                      }
+                    : undefined
+                }
               >
-                <Trash2 size={16} />
-              </button>
-            )}
-            <a className="hub-editorial-card__link" href={a.url} target="_blank" rel="noopener noreferrer">
-              {a.imageUrl ? (
-                <img className="hub-editorial-card__media" src={a.imageUrl} alt="" loading="lazy" />
-              ) : (
-                <div className="hub-editorial-card__media-placeholder" aria-hidden />
-              )}
-              <div className="hub-editorial-card__body">
-                <p className="hub-meta" style={{ margin: 0 }}>
-                  {a.sourceLabel}
-                </p>
-                <h2 className="hub-editorial-card__title">{a.title}</h2>
-                <p className="hub-editorial-card__dek">{a.dek}</p>
-                <span className="hub-tag" style={{ marginTop: "0.25rem", display: "inline-block" }}>
-                  {EDITORIAL_TOPICS.find((x) => x.id === a.topicId)?.label ?? a.topicId}
-                </span>
-              </div>
-            </a>
-            <div className="hub-editorial-card__footer">
-              <a className="ph-btn ph-btn-primary" style={{ fontSize: "0.88rem", textDecoration: "none" }} href={a.url} target="_blank" rel="noopener noreferrer">
-                Open article <ExternalLink size={14} style={{ marginLeft: "0.25rem" }} aria-hidden />
-              </a>
-              <button type="button" className="ph-btn ph-btn-ghost" style={{ fontSize: "0.85rem" }} onClick={() => toggle(a.id)} aria-label={isSaved(a.id) ? "Remove save" : "Save link"}>
-                <Bookmark size={16} aria-hidden fill={isSaved(a.id) ? "currentColor" : "none"} />
-                {isSaved(a.id) ? "Saved" : "Save"}
-              </button>
-            </div>
-          </motion.article>
-        ))}
-      </div>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("application/x-pawhub-editorial-id", a.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    className="ph-btn ph-btn-ghost"
+                    title="Drag to reorder"
+                    aria-label="Drag to reorder"
+                    style={{ position: "absolute", top: 8, left: 8, zIndex: 3, padding: "0.2rem", cursor: "grab" }}
+                  >
+                    <GripVertical size={16} />
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    className="ph-btn ph-btn-ghost"
+                    title="Remove article"
+                    aria-label="Remove article"
+                    onClick={() => setDeleteId(a.id)}
+                    style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                <a className="hub-editorial-card__link" href={a.url} target="_blank" rel="noopener noreferrer">
+                  {a.imageUrl ? (
+                    <img className="hub-editorial-card__media" src={a.imageUrl} alt="" loading="lazy" />
+                  ) : (
+                    <div className="hub-editorial-card__media-placeholder" aria-hidden />
+                  )}
+                  <div className="hub-editorial-card__body">
+                    <p className="hub-meta" style={{ margin: 0 }}>
+                      {a.sourceLabel}
+                    </p>
+                    <h2 className="hub-editorial-card__title">{a.title}</h2>
+                    <p className="hub-editorial-card__dek">{a.dek}</p>
+                    <span className="hub-tag" style={{ marginTop: "0.25rem", display: "inline-block" }}>
+                      {EDITORIAL_TOPICS.find((x) => x.id === a.topicId)?.label ?? a.topicId}
+                    </span>
+                  </div>
+                </a>
+                <div className="hub-editorial-card__footer">
+                  <a className="ph-btn ph-btn-primary" style={{ fontSize: "0.88rem", textDecoration: "none" }} href={a.url} target="_blank" rel="noopener noreferrer">
+                    Open article <ExternalLink size={14} style={{ marginLeft: "0.25rem" }} aria-hidden />
+                  </a>
+                </div>
+              </motion.article>
+            ))}
+          </div>
+        </section>
+      ))}
 
       {list.length === 0 && !loadErr && (
         <p style={{ color: "var(--color-muted)" }}>No picks in this topic yet — try “All picks”.</p>

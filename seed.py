@@ -60,7 +60,7 @@ owners = [
 ]
 owner_tokens = {}
 for email, pw, name in owners:
-    t = register(email, pw, name, "CAT_OWNER")
+    t = register(email, pw, name, "MEMBER")
     if t:
         owner_tokens[email] = t
 

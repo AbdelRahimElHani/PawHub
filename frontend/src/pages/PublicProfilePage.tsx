@@ -84,8 +84,9 @@ export function PublicProfilePage() {
   const isSelf = rel === "SELF";
 
   const TYPE_LABEL: Record<string, string> = {
-    ADOPTER: "Adopter / explorer",
-    CAT_OWNER: "Cat owner",
+    MEMBER: "Member",
+    ADOPTER: "Member",
+    CAT_OWNER: "Member",
     SHELTER: "Shelter / rescue",
     VET: "Veterinarian (PawVet)",
   };

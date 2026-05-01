@@ -3,10 +3,12 @@ package com.pawhub.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pawhub.domain.AppNotificationKind;
+import com.pawhub.domain.VetAppealState;
 import com.pawhub.domain.VetLicenseApplication;
 import com.pawhub.domain.VetVerificationStatus;
 import com.pawhub.repository.VetLicenseApplicationRepository;
 import com.pawhub.web.dto.RejectVetApplicationRequest;
+import com.pawhub.web.dto.RejectVetAppealRequest;
 import com.pawhub.web.dto.VetApplicationMetricsDto;
 import com.pawhub.web.dto.VetLicenseApplicationAdminDto;
 import java.util.Collections;
@@ -41,6 +43,20 @@ public class AdminVetLicenseService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<VetLicenseApplicationAdminDto> byStatus(VetVerificationStatus status) {
+        return vetLicenseApplicationRepository.findByStatusOrderByCreatedAtDesc(status).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<VetLicenseApplicationAdminDto> appealsPending() {
+        return vetLicenseApplicationRepository.findByAppealStateOrderByAppealSubmittedAtAsc(VetAppealState.PENDING).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
     @Transactional
     public VetLicenseApplicationAdminDto approve(Long applicationId) {
         VetLicenseApplication a = vetLicenseApplicationRepository
@@ -49,6 +65,9 @@ public class AdminVetLicenseService {
         requirePending(a);
         a.setStatus(VetVerificationStatus.APPROVED);
         a.setRejectionReason(null);
+        a.setAppealMessage(null);
+        a.setAppealSubmittedAt(null);
+        a.setAppealState(null);
         vetLicenseApplicationRepository.save(a);
         String lic = a.getLicenseNumber() != null ? a.getLicenseNumber() : "your license";
         appNotificationService.publish(
@@ -70,6 +89,59 @@ public class AdminVetLicenseService {
         requirePending(a);
         a.setStatus(VetVerificationStatus.REJECTED);
         a.setRejectionReason(req.reason().trim());
+        a.setAppealMessage(null);
+        a.setAppealSubmittedAt(null);
+        a.setAppealState(null);
+        return toDto(vetLicenseApplicationRepository.save(a));
+    }
+
+    @Transactional
+    public VetLicenseApplicationAdminDto acceptAppeal(Long applicationId) {
+        VetLicenseApplication a = vetLicenseApplicationRepository
+                .findById(applicationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
+        if (a.getStatus() != VetVerificationStatus.REJECTED || a.getAppealState() != VetAppealState.PENDING) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "This application has no pending appeal to accept.");
+        }
+        a.setStatus(VetVerificationStatus.PENDING);
+        a.setRejectionReason(null);
+        a.setAppealMessage(null);
+        a.setAppealSubmittedAt(null);
+        a.setAppealState(null);
+        vetLicenseApplicationRepository.save(a);
+        appNotificationService.publishWithInboxNudge(
+                a.getUser().getId(),
+                AppNotificationKind.VET_LICENSE_VERIFIED,
+                "Appeal accepted",
+                "Your appeal was accepted. Your license application is back in the review queue.",
+                "/vet",
+                "vet",
+                null);
+        return toDto(a);
+    }
+
+    @Transactional
+    public VetLicenseApplicationAdminDto rejectAppeal(Long applicationId, RejectVetAppealRequest req) {
+        VetLicenseApplication a = vetLicenseApplicationRepository
+                .findById(applicationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
+        if (a.getAppealState() != VetAppealState.PENDING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This application has no pending appeal.");
+        }
+        a.setAppealState(VetAppealState.REJECTED_FINAL);
+        String extra = req != null && req.reason() != null && !req.reason().isBlank()
+                ? " Admin note: " + req.reason().trim()
+                : "";
+        appNotificationService.publishWithInboxNudge(
+                a.getUser().getId(),
+                AppNotificationKind.SYSTEM_ANNOUNCEMENT,
+                "Appeal not accepted",
+                "Your appeal was reviewed and was not accepted. You cannot submit another appeal for this decision."
+                    + extra,
+                "/vet",
+                "system",
+                null);
         return toDto(vetLicenseApplicationRepository.save(a));
     }
 
@@ -88,6 +160,7 @@ public class AdminVetLicenseService {
                 u.getId(),
                 u.getEmail(),
                 u.getDisplayName(),
+                u.getAvatarUrl(),
                 a.getLicenseNumber(),
                 a.getUniversity(),
                 a.getYearsExperience(),
@@ -96,7 +169,10 @@ public class AdminVetLicenseService {
                 a.getStatus().name(),
                 a.getRejectionReason(),
                 a.getCreatedAt(),
-                docUrls);
+                docUrls,
+                a.getAppealMessage(),
+                a.getAppealSubmittedAt(),
+                a.getAppealState() != null ? a.getAppealState().name() : null);
     }
 
     private List<String> parseSupportingUrls(String json) {

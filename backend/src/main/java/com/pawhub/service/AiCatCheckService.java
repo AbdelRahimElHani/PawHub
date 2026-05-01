@@ -89,6 +89,24 @@ public class AiCatCheckService {
             In "reason" give a short human-readable note.
             """;
 
+    /**
+     * Paw Adopt listing hero photo: must show a real, live cat (not merchandise, drawings, memes, dogs-only, empty
+     * rooms, or unrelated objects).
+     */
+    private static final String ADOPTION_LISTING_CAT_PHOTO_PROMPT =
+            """
+            You are screening a PHOTO for a cat adoption listing (Paw Adopt).
+
+            Set isCatRelated=true ONLY if the image clearly shows one or more real, live domestic cats as the main
+            subject (shelter/rescue adoption context). The cat(s) should be clearly visible (not tiny silhouettes).
+
+            Set isCatRelated=false for: illustrations, cartoons, AI-generated cats, logos, memes, human-only photos,
+            dogs without cats, product-only shots, empty rooms, landscapes, stock graphics, heavily edited images where
+            the cat is not plausibly a real photograph, or when no cat is visible.
+
+            In "reason" give a short human-readable note.
+            """;
+
     private static final Pattern IS_CAT =
             Pattern.compile("\"isCatRelated\"\\s*:\\s*(true|false)", Pattern.CASE_INSENSITIVE);
     private static final Pattern REASON =
@@ -107,6 +125,11 @@ public class AiCatCheckService {
      */
     public CatCheckResponse verifyImageCatOnly(byte[] imageBytes, String mimeType) {
         return verifyWithTextPrompt(IMAGE_ONLY_PROMPT, imageBytes, mimeType);
+    }
+
+    /** Hero photo for Paw Adopt: must be a real cat, not products or unrelated imagery. */
+    public CatCheckResponse verifyAdoptionListingCatPhoto(byte[] imageBytes, String mimeType) {
+        return verifyWithTextPrompt(ADOPTION_LISTING_CAT_PHOTO_PROMPT, imageBytes, mimeType);
     }
 
     /**

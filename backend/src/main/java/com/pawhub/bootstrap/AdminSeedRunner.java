@@ -44,7 +44,7 @@ public class AdminSeedRunner implements ApplicationRunner {
                                     .email(email)
                                     .passwordHash(passwordEncoder.encode(password))
                                     .displayName("PawHub Admin")
-                                    .accountType(UserAccountType.ADOPTER)
+                                    .accountType(UserAccountType.MEMBER)
                                     .role(UserRole.ADMIN)
                                     .emailVerified(true)
                                     .build();

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { UserChip } from "../components/social/UserChip";
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
+import { isAdminAccount } from "../auth/vetAccess";
 import type { CatCardDto, CatDto, SwipeResponse } from "../types";
 
 const GENDER_LABEL: Record<string, string> = { MALE: "♂ Male", FEMALE: "♀ Female" };
@@ -39,6 +41,7 @@ function CatAvatar({ name, photoUrl }: { name: string; photoUrl: string | null }
 }
 
 export function PawMatchPage() {
+  const { user } = useAuth();
   const [cats, setCats] = useState<CatDto[]>([]);
   const [myCatId, setMyCatId] = useState<number | "">("");
   const [card, setCard] = useState<CatCardDto>(null);
@@ -92,6 +95,21 @@ export function PawMatchPage() {
   }
 
   const selectedCat = cats.find((c) => c.id === myCatId);
+
+  if (isAdminAccount(user)) {
+    return (
+      <div className="ph-surface" style={{ padding: "1.5rem", maxWidth: 520, margin: "0 auto" }}>
+        <h2 style={{ marginTop: 0 }}>PawMatch</h2>
+        <p style={{ color: "var(--color-muted)", lineHeight: 1.55 }}>
+          PawMatch is hidden for administrator accounts. Use PawAdopt for shelter and veterinarian approvals, or browse the app as a
+          non-admin test user.
+        </p>
+        <Link className="ph-btn ph-btn-primary" to="/adopt/admin" style={{ marginTop: "0.75rem", display: "inline-block" }}>
+          Approvals hub
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="ph-surface" style={{ padding: "1.5rem", maxWidth: 480, margin: "0 auto" }}>

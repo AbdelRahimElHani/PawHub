@@ -144,7 +144,7 @@ public class AuthService {
                     String.format(
                             "%s (%s) registered as a shelter organization and is pending review.",
                             shelter.getName(), user.getDisplayName()),
-                    "/admin/shelters");
+                    "/adopt/admin/shelters");
         }
 
         if (req.accountType() == UserAccountType.VET) {
@@ -182,7 +182,7 @@ public class AuthService {
                     String.format(
                             "%s applied for a veterinarian account (license %s). Review documents in the admin queue.",
                             user.getDisplayName(), vapp.getLicenseNumber()),
-                    "/admin/vet-verification");
+                    "/adopt/admin/vet-verification");
         }
 
         if (!autoVerify) {
@@ -335,12 +335,16 @@ public class AuthService {
     private AuthResponse toAuthResponse(String token, User user) {
         String vetStatus = null;
         String vetReject = null;
+        Long vetAppId = null;
+        String vetAppeal = null;
         if (user.getAccountType() == UserAccountType.VET) {
             var opt = vetLicenseApplicationRepository.findByUser_Id(user.getId());
             if (opt.isPresent()) {
                 var a = opt.get();
                 vetStatus = a.getStatus().name();
                 vetReject = a.getRejectionReason();
+                vetAppId = a.getId();
+                vetAppeal = a.getAppealState() != null ? a.getAppealState().name() : null;
             } else {
                 vetStatus = "PENDING";
             }
@@ -358,7 +362,9 @@ public class AuthService {
                 user.getProfileBio(),
                 user.isEmailVerified(),
                 vetStatus,
-                vetReject);
+                vetReject,
+                vetAppId,
+                vetAppeal);
     }
 
     private static String trimToNull(String s) {

@@ -33,6 +33,17 @@ public class HubForumComment {
     @Column(nullable = false, columnDefinition = "MEDIUMTEXT")
     private String body;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
+
+    @Column(name = "deleted_by_admin", nullable = false)
+    @Builder.Default
+    private boolean deletedByAdmin = false;
+
+    @Column(name = "attachment_url", length = 2048)
+    private String attachmentUrl;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

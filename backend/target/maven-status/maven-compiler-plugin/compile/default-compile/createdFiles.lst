@@ -9,4 +9,6 @@ com\pawhub\domain\PawvetTriageCaseStatus.class
 com\pawhub\service\AppNotificationService$2.class
 com\pawhub\web\dto\WhiskerTitleResponse.class
 com\pawhub\web\dto\UpdateProfileRequest.class
+com\pawhub\domain\PawvetVetReport$PawvetVetReportBuilder.class
+com\pawhub\domain\PawvetVetReport.class
 com\pawhub\web\dto\ChatTypingEvent.class

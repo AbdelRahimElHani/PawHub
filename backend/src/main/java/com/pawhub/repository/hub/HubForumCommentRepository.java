@@ -9,4 +9,6 @@ public interface HubForumCommentRepository extends JpaRepository<HubForumComment
     List<HubForumComment> findByPostOrderByIdAsc(HubForumPost post);
 
     int countByPost(HubForumPost post);
+
+    int countByPostAndDeletedIsFalse(HubForumPost post);
 }

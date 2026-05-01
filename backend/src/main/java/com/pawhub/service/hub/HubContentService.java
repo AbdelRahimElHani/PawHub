@@ -34,16 +34,40 @@ public class HubContentService {
 
     @Transactional
     public HubFaqItemDto saveFaq(HubFaqUpsertRequest req) {
-        String id = req.id() != null && !req.id().isBlank() ? req.id() : "faq-" + System.currentTimeMillis();
-        HubFaqItem e = HubFaqItem.builder()
-                .id(id)
-                .categoryId(req.categoryId())
-                .question(req.question())
-                .answerText(req.answer())
-                .health(req.healthRelated())
-                .sortOrder(req.sortOrder())
-                .build();
+        String id = req.id() != null && !req.id().isBlank() ? req.id().trim() : "faq-" + System.currentTimeMillis();
+        HubFaqItem e = faqRepository.findById(id).orElse(null);
+        if (e == null) {
+            e = HubFaqItem.builder()
+                    .id(id)
+                    .categoryId(req.categoryId().trim())
+                    .question(req.question().trim())
+                    .answerText(req.answer().trim())
+                    .health(req.healthRelated())
+                    .sortOrder(req.sortOrder())
+                    .sectionTitle(trimToNull(req.sectionTitle()))
+                    .build();
+        } else {
+            e.setCategoryId(req.categoryId().trim());
+            e.setQuestion(req.question().trim());
+            e.setAnswerText(req.answer().trim());
+            e.setHealth(req.healthRelated());
+            e.setSortOrder(req.sortOrder());
+            e.setSectionTitle(trimToNull(req.sectionTitle()));
+        }
         return toFaqDto(faqRepository.save(e));
+    }
+
+    @Transactional
+    public void reorderFaq(HubReorderIdsRequest req) {
+        List<String> ids = req.orderedIds();
+        for (int i = 0; i < ids.size(); i++) {
+            String id = ids.get(i);
+            final int sort = i * 10;
+            faqRepository.findById(id).ifPresent(e -> {
+                e.setSortOrder(sort);
+                faqRepository.save(e);
+            });
+        }
     }
 
     @Transactional
@@ -53,19 +77,46 @@ public class HubContentService {
 
     @Transactional
     public HubEditorialLinkDto saveEditorial(HubEditorialUpsertRequest req) {
-        String id = req.id() != null && !req.id().isBlank() ? req.id() : "el-" + System.currentTimeMillis();
-        HubEditorialLink e = HubEditorialLink.builder()
-                .id(id)
-                .title(req.title())
-                .url(req.url())
-                .topicId(req.topicId())
-                .sourceLabel(req.sourceLabel())
-                .dek(req.dek())
-                .imageUrl(req.imageUrl())
-                .featured(req.featured())
-                .sortOrder(req.sortOrder())
-                .build();
+        String id = req.id() != null && !req.id().isBlank() ? req.id().trim() : "el-" + System.currentTimeMillis();
+        HubEditorialLink e = editorialRepository.findById(id).orElse(null);
+        if (e == null) {
+            e = HubEditorialLink.builder()
+                    .id(id)
+                    .title(req.title().trim())
+                    .url(req.url().trim())
+                    .topicId(req.topicId().trim())
+                    .sourceLabel(trimToNull(req.sourceLabel()))
+                    .dek(trimToNull(req.dek()))
+                    .imageUrl(trimToNull(req.imageUrl()))
+                    .featured(req.featured())
+                    .sortOrder(req.sortOrder())
+                    .sectionTitle(trimToNull(req.sectionTitle()))
+                    .build();
+        } else {
+            e.setTitle(req.title().trim());
+            e.setUrl(req.url().trim());
+            e.setTopicId(req.topicId().trim());
+            e.setSourceLabel(trimToNull(req.sourceLabel()));
+            e.setDek(trimToNull(req.dek()));
+            e.setImageUrl(trimToNull(req.imageUrl()));
+            e.setFeatured(req.featured());
+            e.setSortOrder(req.sortOrder());
+            e.setSectionTitle(trimToNull(req.sectionTitle()));
+        }
         return toEditorialDto(editorialRepository.save(e));
+    }
+
+    @Transactional
+    public void reorderEditorial(HubReorderIdsRequest req) {
+        List<String> ids = req.orderedIds();
+        for (int i = 0; i < ids.size(); i++) {
+            String id = ids.get(i);
+            final int sort = i * 10;
+            editorialRepository.findById(id).ifPresent(e -> {
+                e.setSortOrder(sort);
+                editorialRepository.save(e);
+            });
+        }
     }
 
     @Transactional
@@ -75,7 +126,13 @@ public class HubContentService {
 
     private HubFaqItemDto toFaqDto(HubFaqItem e) {
         return new HubFaqItemDto(
-                e.getId(), e.getCategoryId(), e.getQuestion(), e.getAnswerText(), e.isHealth(), e.getSortOrder());
+                e.getId(),
+                e.getCategoryId(),
+                e.getQuestion(),
+                e.getAnswerText(),
+                e.isHealth(),
+                e.getSortOrder(),
+                e.getSectionTitle());
     }
 
     private HubEditorialLinkDto toEditorialDto(HubEditorialLink e) {
@@ -88,6 +145,15 @@ public class HubContentService {
                 e.getDek(),
                 e.getImageUrl(),
                 e.isFeatured(),
-                e.getSortOrder());
+                e.getSortOrder(),
+                e.getSectionTitle());
+    }
+
+    private static String trimToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 }

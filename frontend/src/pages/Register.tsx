@@ -6,16 +6,10 @@ import type { AccountType, RegisterPayload } from "../auth/authTypes";
 
 const TYPES: { id: AccountType; title: string; desc: string; icon: string }[] = [
   {
-    id: "ADOPTER",
+    id: "MEMBER",
     icon: "🐾",
-    title: "Adopter / explorer",
-    desc: "Browse adoption listings, save favorites, and message shelters. You can add a cat profile anytime.",
-  },
-  {
-    id: "CAT_OWNER",
-    icon: "🐱",
-    title: "Cat owner",
-    desc: "Profiles for your cats, PawMatch, and PawMarket — built for multi-cat homes.",
+    title: "Member",
+    desc: "PawMatch, PawMarket, adoption browsing, My cats, and messaging — the standard PawHub experience.",
   },
   {
     id: "SHELTER",
@@ -122,14 +116,29 @@ export function Register() {
       return false;
     }
     if (accountType === "SHELTER" && !shelterOrgName.trim()) {
-      setErr("Shelter / rescue name is required.");
+      setErr("Shelter organization name is required.");
       focusAndScroll(shelterOrgRef.current);
       return false;
+    }
+    if (accountType === "VET" && vetDocFiles.length === 0) {
+      setErr("Please attach at least one proving document for veterinarian registration.");
+      focusAndScroll(accountSectionRef.current);
+      return false;
+    }
+    if (accountType === "VET") {
+      if (!vetLicenseNumber.trim()) {
+        setErr("License number is required.");
+        return false;
+      }
+      if (!vetUniversity.trim()) {
+        setErr("University / DVM program is required.");
+        return false;
+      }
     }
     return true;
   }
 
-  const payload = useMemo((): RegisterPayload | null => {
+  const payload: RegisterPayload | null = useMemo(() => {
     if (!accountType) return null;
     const base: RegisterPayload = {
       email: email.trim(),
@@ -143,7 +152,7 @@ export function Register() {
     if (accountType === "SHELTER") {
       return {
         ...base,
-        shelterOrgName: shelterOrgName.trim() || null,
+        shelterOrgName: shelterOrgName.trim(),
         shelterCity: shelterCity.trim() || null,
         shelterRegion: shelterRegion.trim() || null,
         shelterPhone: shelterPhone.trim() || null,
@@ -152,13 +161,12 @@ export function Register() {
       };
     }
     if (accountType === "VET") {
-      const y = vetYearsExperience.trim();
-      const years = y === "" ? null : Number.parseInt(y, 10);
+      const y = vetYearsExperience.trim() ? Number.parseInt(vetYearsExperience, 10) : null;
       return {
         ...base,
-        vetLicenseNumber: vetLicenseNumber.trim() || null,
-        vetUniversity: vetUniversity.trim() || null,
-        vetYearsExperience: years != null && !Number.isNaN(years) ? years : null,
+        vetLicenseNumber: vetLicenseNumber.trim(),
+        vetUniversity: vetUniversity.trim(),
+        vetYearsExperience: Number.isFinite(y) ? y : null,
         vetPhone: vetPhone.trim() || null,
         vetProfessionalBio: vetProfessionalBio.trim() || null,
       };
@@ -185,37 +193,10 @@ export function Register() {
     vetProfessionalBio,
   ]);
 
-  function onAvatarChange(f: File | null) {
-    setAvatarFile(f);
-    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-    setAvatarPreview(f ? URL.createObjectURL(f) : null);
-  }
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setErr(null);
-    if (!validateBeforeSubmit() || !payload) {
-      return;
-    }
-    if (payload.accountType === "VET") {
-      if (!payload.vetLicenseNumber?.trim() || !payload.vetUniversity?.trim()) {
-        setErr("License number and university / DVM program are required for veterinarian accounts.");
-        return;
-      }
-      const y = payload.vetYearsExperience;
-      if (y != null && (y < 0 || y > 70)) {
-        setErr("Years of experience must be between 0 and 70.");
-        return;
-      }
-      if (vetDocFiles.length < 1) {
-        setErr("Please upload at least one proving document (PDF or image), such as your veterinary license or diploma.");
-        return;
-      }
-      if (vetDocFiles.length > 8) {
-        setErr("You can upload at most 8 documents.");
-        return;
-      }
-    }
+    if (!validateBeforeSubmit() || !payload) return;
     try {
       const result = await register(
         payload,
@@ -227,7 +208,7 @@ export function Register() {
         return;
       }
       if (payload.accountType === "SHELTER") nav("/adopt/shelter");
-      else if (payload.accountType === "CAT_OWNER") nav("/cats");
+      else if (payload.accountType === "MEMBER") nav("/");
       else if (payload.accountType === "VET") nav("/vet");
       else nav("/adopt");
     } catch (ex: unknown) {
@@ -237,51 +218,47 @@ export function Register() {
     }
   }
 
+  function onAvatarChange(file: File | null) {
+    setAvatarFile(file);
+    if (!file) {
+      setAvatarPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setAvatarPreview(url);
+  }
+
   return (
     <AuthShell
       title="Join PawHub"
-      subtitle="Pick the journey that fits you. You can always add cat profiles or explore adoption later."
+      subtitle="Pick the journey that fits you. You can list cats, browse adoption, and use the market from one member account."
     >
-      <div
-        style={{
-          marginBottom: "1rem",
-          padding: "0.75rem 1rem",
-          background: "#f8f4ef",
-          borderRadius: "12px",
-          fontSize: "0.85rem",
-          color: "var(--color-muted)",
-        }}
-      >
-        <strong style={{ color: "var(--color-text)" }}>Admin access</strong> is not available here; admin accounts are seeded
-        for demos only.
-      </div>
-
       <form noValidate onSubmit={onSubmit} className="ph-grid" style={{ gap: "1.25rem" }}>
         <div ref={accountSectionRef}>
-        <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
-          <legend className="ph-label" style={{ marginBottom: "0.75rem" }}>
-            I am joining as…
-          </legend>
-          <div className="ph-account-types">
-            {TYPES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={"ph-account-type" + (accountType === t.id ? " selected" : "")}
-                onClick={() => setAccountType(t.id)}
-                aria-pressed={accountType === t.id}
-              >
-                <span className="ph-account-type-icon" aria-hidden>
-                  {t.icon}
-                </span>
-                <span className="ph-account-type-body">
-                  <span className="ph-account-type-title">{t.title}</span>
-                  <span className="ph-account-type-desc">{t.desc}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
+          <fieldset style={{ border: "none", margin: 0, padding: 0 }}>
+            <legend className="ph-label" style={{ marginBottom: "0.75rem" }}>
+              I am joining as…
+            </legend>
+            <div className="ph-account-types">
+              {TYPES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={"ph-account-type" + (accountType === t.id ? " selected" : "")}
+                  onClick={() => setAccountType(t.id)}
+                  aria-pressed={accountType === t.id}
+                >
+                  <span className="ph-account-type-icon" aria-hidden>
+                    {t.icon}
+                  </span>
+                  <span className="ph-account-type-body">
+                    <span className="ph-account-type-title">{t.title}</span>
+                    <span className="ph-account-type-desc">{t.desc}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
         </div>
 
         <div>
@@ -322,11 +299,7 @@ export function Register() {
           <span className="ph-label">Profile photo (optional)</span>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
             {avatarPreview && <img src={avatarPreview} alt="" className="ph-avatar-preview" />}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => onAvatarChange(e.target.files?.[0] ?? null)}
-            />
+            <input type="file" accept="image/*" onChange={(e) => onAvatarChange(e.target.files?.[0] ?? null)} />
           </div>
         </div>
 

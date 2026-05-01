@@ -1,4 +1,4 @@
-export type AccountType = "ADOPTER" | "CAT_OWNER" | "SHELTER" | "VET";
+export type AccountType = "MEMBER" | "SHELTER" | "VET";
 
 export type RegisterPayload = {
   email: string;

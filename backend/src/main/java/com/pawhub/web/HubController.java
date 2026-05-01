@@ -5,11 +5,14 @@ import com.pawhub.service.hub.HubContentService;
 import com.pawhub.service.hub.HubForumService;
 import com.pawhub.web.dto.hub.*;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/hub")
@@ -32,6 +35,11 @@ public class HubController {
     @GetMapping("/forum/rooms")
     public List<ForumRoomDto> forumRooms() {
         return hubForumService.listRooms();
+    }
+
+    @GetMapping("/forum/home-announcements")
+    public List<ForumPostDto> homeAnnouncements(@RequestParam(defaultValue = "8") int limit) {
+        return hubForumService.listHomeAnnouncements(limit);
     }
 
     @GetMapping("/forum/rooms/{slug}/posts")
@@ -59,6 +67,27 @@ public class HubController {
             @Valid @RequestBody ForumNewCommentRequest req,
             @AuthenticationPrincipal SecurityUser user) {
         return hubForumService.addComment(postId, user.getId(), req);
+    }
+
+    @PostMapping("/forum/upload-image")
+    public Map<String, String> uploadForumImage(
+            @RequestPart("file") MultipartFile file, @AuthenticationPrincipal SecurityUser user) throws IOException {
+        String url = hubForumService.storeForumImage(file, user.getId());
+        return Map.of("url", url);
+    }
+
+    @PatchMapping("/forum/comments/{commentId}")
+    public ForumPostDetailDto editComment(
+            @PathVariable Long commentId,
+            @Valid @RequestBody ForumCommentEditRequest req,
+            @AuthenticationPrincipal SecurityUser user) {
+        return hubForumService.editOwnComment(commentId, user.getId(), req);
+    }
+
+    @DeleteMapping("/forum/comments/{commentId}")
+    public ForumPostDetailDto deleteOwnComment(
+            @PathVariable Long commentId, @AuthenticationPrincipal SecurityUser user) {
+        return hubForumService.deleteOwnComment(commentId, user.getId());
     }
 
     @PostMapping("/forum/posts/{postId}/vote")

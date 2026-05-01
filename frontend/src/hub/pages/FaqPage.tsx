@@ -2,8 +2,8 @@ import Fuse from "fuse.js";
 import clsx from "clsx";
 import * as Dialog from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
-import { Plus, Search, Trash2 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -20,7 +20,41 @@ function mapToFaqItem(j: HubFaqJson): FAQItem {
     question: j.question,
     answer: j.answer,
     isHealthRelated: j.healthRelated,
+    sectionTitle: j.sectionTitle ?? undefined,
   };
+}
+
+function groupFaqBySection(items: FAQItem[]): { key: string; label: string | null; items: FAQItem[] }[] {
+  const keys: string[] = [];
+  const m = new Map<string, FAQItem[]>();
+  for (const it of items) {
+    const key = (it.sectionTitle ?? "").trim();
+    if (!m.has(key)) {
+      m.set(key, []);
+      keys.push(key);
+    }
+    m.get(key)!.push(it);
+  }
+  return keys.map((key) => ({ key, label: key ? key : null, items: m.get(key)! }));
+}
+
+function mergeFaqOrder(all: HubFaqJson[], cat: string | null, fromId: string, toId: string): string[] {
+  const F = [...all].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+  const inView = (x: HubFaqJson) => !cat || x.categoryId === cat;
+  const viewIds = F.filter(inView).map((x) => x.id);
+  const fromI = viewIds.indexOf(fromId);
+  const toI = viewIds.indexOf(toId);
+  if (fromI < 0 || toI < 0) return F.map((x) => x.id);
+  const next = [...viewIds];
+  next.splice(fromI, 1);
+  next.splice(toI, 0, fromId);
+  const merged: string[] = [];
+  let vi = 0;
+  for (const x of F) {
+    if (inView(x)) merged.push(next[vi++]!);
+    else merged.push(x.id);
+  }
+  return merged;
 }
 
 export function FaqPage() {
@@ -35,8 +69,9 @@ export function FaqPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<FAQItem | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<HubFaqJson | null>(null);
 
-  const reload = () => {
+  const reload = useCallback(() => {
     setLoadErr(null);
     void api<HubFaqJson[]>("/api/hub/faq")
       .then((rows) => setApiItems([...rows].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))))
@@ -44,19 +79,18 @@ export function FaqPage() {
         setApiItems([]);
         setLoadErr("Could not load FAQ from the server.");
       });
-  };
+  }, []);
 
   useEffect(() => {
     reload();
-  }, []);
+  }, [reload]);
 
   const categoryIds = useMemo(() => {
     const fromData = new Set(apiItems.map((x) => x.categoryId));
     return [...FAQ_CATEGORY_META.map((c) => c.id), ...[...fromData].filter((id) => !FAQ_CATEGORY_META.some((m) => m.id === id))];
   }, [apiItems]);
 
-  const cat: string | null =
-    rawCat && categoryIds.includes(rawCat) ? rawCat : null;
+  const cat: string | null = rawCat && categoryIds.includes(rawCat) ? rawCat : null;
 
   const items: FAQItem[] = useMemo(() => apiItems.map(mapToFaqItem), [apiItems]);
 
@@ -89,15 +123,25 @@ export function FaqPage() {
 
   useEffect(() => {
     const id = window.location.hash.replace(/^#/, "");
-    if (id && items.some((f) => f.id === id)) {
-      setOpenValues((o) => [...new Set([...o, id])]);
+    if (!id || apiItems.length === 0) return;
+    const row = apiItems.find((x) => x.id === id);
+    if (!row) return;
+    if (rawCat !== row.categoryId) {
+      setSearchParams({ cat: row.categoryId }, { replace: true });
     }
-  }, [items]);
+    setOpenValues((o) => [...new Set([...o, id])]);
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [apiItems, rawCat, setSearchParams]);
 
   useEffect(() => {
     const onHash = () => {
       const id = window.location.hash.replace(/^#/, "");
-      if (id) setOpenValues((o) => [...new Set([...o, id])]);
+      if (!id) return;
+      setOpenValues((o) => [...new Set([...o, id])]);
+      window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -108,19 +152,21 @@ export function FaqPage() {
     else setSearchParams({});
   };
 
-  async function submitAdd(e: FormEvent) {
+  async function submitFaq(e: FormEvent, mode: "add" | "edit") {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
     const body = {
-      id: ((fd.get("id") as string) || "").trim() || null,
+      id: mode === "edit" && editTarget ? editTarget.id : ((fd.get("id") as string) || "").trim() || null,
       categoryId: fd.get("categoryId") as string,
       question: fd.get("question") as string,
       answer: fd.get("answer") as string,
       healthRelated: fd.get("healthRelated") === "on",
       sortOrder: parseInt(String(fd.get("sortOrder")), 10) || 0,
+      sectionTitle: ((fd.get("sectionTitle") as string) || "").trim() || null,
     };
     await api("/api/admin/hub/faq", { method: "POST", body: JSON.stringify(body) });
     setAddOpen(false);
+    setEditTarget(null);
     reload();
   }
 
@@ -130,6 +176,15 @@ export function FaqPage() {
     setDeleteTarget(null);
     reload();
   }
+
+  async function onReorder(fromId: string, toId: string) {
+    if (!isAdmin) return;
+    const orderedIds = mergeFaqOrder(apiItems, cat, fromId, toId);
+    await api("/api/admin/hub/faq/reorder", { method: "POST", body: JSON.stringify({ orderedIds }) });
+    reload();
+  }
+
+  const sectioned = useMemo(() => groupFaqBySection(displayItems), [displayItems]);
 
   return (
     <div>
@@ -152,13 +207,15 @@ export function FaqPage() {
               <Dialog.Overlay className="hub-dialog-overlay" />
               <Dialog.Content className="hub-dialog-content" style={{ top: "10%", maxHeight: "88vh" }} aria-describedby={undefined}>
                 <Dialog.Title style={{ padding: "0.75rem 1rem", borderBottom: "1px solid var(--color-border)", margin: 0, fontFamily: "var(--font-display)" }}>
-                  Add or update FAQ
+                  Add FAQ
                 </Dialog.Title>
-                <form onSubmit={(e) => void submitAdd(e)} style={{ padding: "1rem" }}>
+                <form onSubmit={(e) => void submitFaq(e, "add")} style={{ padding: "1rem" }}>
                   <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Id (optional)</label>
                   <input name="id" className="ph-input" style={{ width: "100%", marginBottom: "0.5rem" }} />
                   <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Category id</label>
                   <input name="categoryId" className="ph-input" required style={{ width: "100%", marginBottom: "0.5rem" }} placeholder="e.g. general" />
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Section title (optional)</label>
+                  <input name="sectionTitle" className="ph-input" style={{ width: "100%", marginBottom: "0.5rem" }} placeholder="e.g. Litter box basics" />
                   <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Question</label>
                   <input name="question" className="ph-input" required style={{ width: "100%", marginBottom: "0.5rem" }} />
                   <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Answer</label>
@@ -182,6 +239,43 @@ export function FaqPage() {
           </Dialog.Root>
         )}
       </header>
+
+      {isAdmin && editTarget && (
+        <Dialog.Root open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="hub-dialog-overlay" />
+            <Dialog.Content className="hub-dialog-content" style={{ top: "10%", maxHeight: "88vh" }} aria-describedby={undefined}>
+              <Dialog.Title style={{ padding: "0.75rem 1rem", borderBottom: "1px solid var(--color-border)", margin: 0, fontFamily: "var(--font-display)" }}>
+                Edit FAQ
+              </Dialog.Title>
+              <form key={editTarget.id} onSubmit={(e) => void submitFaq(e, "edit")} style={{ padding: "1rem" }}>
+                <input type="hidden" name="id" value={editTarget.id} />
+                <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Category id</label>
+                <input name="categoryId" className="ph-input" required style={{ width: "100%", marginBottom: "0.5rem" }} defaultValue={editTarget.categoryId} />
+                <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Section title (optional)</label>
+                <input name="sectionTitle" className="ph-input" style={{ width: "100%", marginBottom: "0.5rem" }} defaultValue={editTarget.sectionTitle ?? ""} />
+                <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Question</label>
+                <input name="question" className="ph-input" required style={{ width: "100%", marginBottom: "0.5rem" }} defaultValue={editTarget.question} />
+                <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Answer</label>
+                <textarea name="answer" className="ph-textarea" required rows={4} style={{ width: "100%", marginBottom: "0.5rem" }} defaultValue={editTarget.answer} />
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <input name="healthRelated" type="checkbox" defaultChecked={editTarget.healthRelated} /> Health-related
+                </label>
+                <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem", fontSize: "0.9rem" }}>Sort order</label>
+                <input name="sortOrder" className="ph-input" type="number" defaultValue={editTarget.sortOrder} style={{ width: "100%", marginBottom: "0.75rem" }} />
+                <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                  <button type="button" className="ph-btn ph-btn-ghost" onClick={() => setEditTarget(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="ph-btn ph-btn-primary">
+                    Save changes
+                  </button>
+                </div>
+              </form>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      )}
 
       {loadErr && <p style={{ color: "#b42318", marginBottom: "0.75rem" }}>{loadErr}</p>}
 
@@ -219,27 +313,68 @@ export function FaqPage() {
         </motion.p>
       )}
 
-      <FaqAccordion
-        items={displayItems}
-        openValues={openValues}
-        onOpenChange={setOpenValues}
-        headerExtra={
-          isAdmin
-            ? (item) => (
-                <button
-                  type="button"
-                  className="ph-btn ph-btn-ghost"
-                  style={{ padding: "0.35rem", minWidth: "auto" }}
-                  title="Remove FAQ"
-                  aria-label="Remove FAQ"
-                  onClick={() => setDeleteTarget(item)}
-                >
-                  <Trash2 size={16} />
-                </button>
-              )
-            : undefined
-        }
-      />
+      {isAdmin && (
+        <p style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginBottom: "0.75rem" }}>
+          Drag the handle beside a question to reorder within this topic view (order is saved for the whole knowledge base).
+        </p>
+      )}
+
+      {sectioned.map((g) => (
+        <section key={g.key || "__ungrouped__"} style={{ marginBottom: "1.5rem" }}>
+          {g.label && (
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "1.1rem",
+                margin: "0 0 0.65rem",
+                color: "var(--hub-charcoal)",
+                borderBottom: "1px solid var(--color-border)",
+                paddingBottom: "0.35rem",
+              }}
+            >
+              {g.label}
+            </h2>
+          )}
+          <FaqAccordion
+            items={g.items}
+            openValues={openValues}
+            onOpenChange={setOpenValues}
+            adminReorder={isAdmin}
+            onReorder={onReorder}
+            headerExtra={
+              isAdmin
+                ? (item) => (
+                    <>
+                      <button
+                        type="button"
+                        className="ph-btn ph-btn-ghost"
+                        style={{ padding: "0.35rem", minWidth: "auto" }}
+                        title="Edit FAQ"
+                        aria-label="Edit FAQ"
+                        onClick={() => {
+                          const row = apiItems.find((x) => x.id === item.id);
+                          if (row) setEditTarget(row);
+                        }}
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="ph-btn ph-btn-ghost"
+                        style={{ padding: "0.35rem", minWidth: "auto" }}
+                        title="Remove FAQ"
+                        aria-label="Remove FAQ"
+                        onClick={() => setDeleteTarget(item)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )
+                : undefined
+            }
+          />
+        </section>
+      ))}
 
       <HubConfirmDialog
         open={deleteTarget != null}

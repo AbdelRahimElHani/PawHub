@@ -47,6 +47,17 @@ public class VetLicenseApplication {
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 
+    @Column(name = "appeal_message", columnDefinition = "TEXT")
+    private String appealMessage;
+
+    @Column(name = "appeal_submitted_at")
+    private Instant appealSubmittedAt;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "appeal_state", length = 32)
+    private VetAppealState appealState;
+
     /** JSON array of public URLs for uploaded license / ID / diploma files */
     @Column(name = "supporting_document_urls", columnDefinition = "TEXT")
     private String supportingDocumentUrls;

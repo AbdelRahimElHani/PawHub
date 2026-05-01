@@ -205,6 +205,8 @@ export type AdoptionListingDto = {
   photoUrl: string | null;
   status: string;
   shelterName: string;
+  shelterOwnerUserId: number;
+  shelterAvatarUrl: string | null;
 };
 
 export type ShelterDto = {
@@ -248,6 +250,11 @@ export type ShelterDto = {
   docProtocolsUrl?: string | null;
   profileCompletedAt?: string | null;
   profileLastSavedAt?: string | null;
+  appealMessage?: string | null;
+  appealSubmittedAt?: string | null;
+  appealState?: string | null;
+  applicationRejectionReason?: string | null;
+  ownerAvatarUrl?: string | null;
 };
 
 export type VetLicenseApplicationAdminDto = {
@@ -255,6 +262,7 @@ export type VetLicenseApplicationAdminDto = {
   userId: number;
   email: string;
   displayName: string;
+  avatarUrl?: string | null;
   licenseNumber: string;
   university: string;
   yearsExperience: number | null;
@@ -264,6 +272,23 @@ export type VetLicenseApplicationAdminDto = {
   rejectionReason: string | null;
   createdAt: string;
   supportingDocumentUrls?: string[];
+  appealMessage?: string | null;
+  appealSubmittedAt?: string | null;
+  appealState?: string | null;
+};
+
+export type PawvetVetReportAdminDto = {
+  id: number;
+  triageCaseId: number;
+  catName: string;
+  vetUserId: number;
+  vetDisplayName: string;
+  vetEmail: string;
+  reporterUserId: number;
+  reporterDisplayName: string;
+  reporterEmail: string;
+  reason: string;
+  createdAt: string;
 };
 
 export type VetApplicationMetricsDto = {

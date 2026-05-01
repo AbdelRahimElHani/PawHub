@@ -47,6 +47,11 @@ public final class ShelterDtoMapper {
                 s.getDocInsuranceUrl(),
                 s.getDocProtocolsUrl(),
                 s.getProfileCompletedAt(),
-                s.getProfileLastSavedAt());
+                s.getProfileLastSavedAt(),
+                s.getAppealMessage(),
+                s.getAppealSubmittedAt(),
+                s.getAppealState() != null ? s.getAppealState().name() : null,
+                s.getApplicationRejectionReason(),
+                s.getUser().getAvatarUrl());
     }
 }

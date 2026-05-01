@@ -9,9 +9,10 @@ import { useAdoptStore } from "./useAdoptStore";
 
 type Props = {
   listing: AdoptionListingDto;
+  hideLove?: boolean;
 };
 
-export function AdoptCard({ listing }: Props) {
+export function AdoptCard({ listing, hideLove }: Props) {
   const toggleFavorite = useAdoptStore((s) => s.toggleFavorite);
   const isFavorite = useAdoptStore((s) => s.isFavorite(listing.id));
   const [pop, setPop] = useState(false);
@@ -58,25 +59,41 @@ export function AdoptCard({ listing }: Props) {
           <BadgeCheck size={12} strokeWidth={2.5} aria-hidden />
           Verified
         </span>
-        <div className="adopt-card__actions">
-          <motion.button
-            type="button"
-            className="adopt-heart-btn"
-            data-active={isFavorite}
-            aria-label={isFavorite ? "Remove from love list" : "Add to love list"}
-            onClick={onHeartClick}
-            animate={pop ? { scale: [1, 1.28, 1] } : { scale: 1 }}
-            transition={{ type: "spring", stiffness: 520, damping: 12 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Heart size={20} fill={isFavorite ? "currentColor" : "none"} strokeWidth={2} />
-          </motion.button>
-        </div>
+        {!hideLove ? (
+          <div className="adopt-card__actions">
+            <motion.button
+              type="button"
+              className="adopt-heart-btn"
+              data-active={isFavorite}
+              aria-label={isFavorite ? "Remove from love list" : "Add to love list"}
+              onClick={onHeartClick}
+              animate={pop ? { scale: [1, 1.28, 1] } : { scale: 1 }}
+              transition={{ type: "spring", stiffness: 520, damping: 12 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <Heart size={20} fill={isFavorite ? "currentColor" : "none"} strokeWidth={2} />
+            </motion.button>
+          </div>
+        ) : null}
       </div>
       <Link to={detailPath} className="adopt-card__footer" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
         <h3 className="adopt-card__name">{listing.petName ?? listing.title}</h3>
-        <p className="adopt-card__meta">
-          {listing.breed ?? "Mixed"} · {listing.shelterName}
+        <div className="pm-seller" style={{ marginTop: "0.35rem" }}>
+          {listing.shelterAvatarUrl ? (
+            <img src={listing.shelterAvatarUrl} alt="" className="pm-seller__avatar" />
+          ) : (
+            <span
+              className="pm-seller__avatar"
+              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", fontWeight: 700 }}
+              aria-hidden
+            >
+              {listing.shelterName.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          <span style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>{listing.shelterName}</span>
+        </div>
+        <p className="adopt-card__meta" style={{ marginTop: "0.25rem" }}>
+          {listing.breed ?? "Mixed"}
         </p>
       </Link>
     </article>

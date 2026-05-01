@@ -8,13 +8,14 @@ import type { HubEditorialJson, HubFaqJson } from "../../api/hubApiTypes";
 import { EDITORIAL_TOPICS, FAQ_CATEGORY_META } from "../../hubConstants";
 
 type Hit =
-  | { kind: "faq"; id: string; title: string; subtitle: string }
+  | { kind: "faq"; id: string; categoryId: string; title: string; subtitle: string }
   | { kind: "link"; id: string; title: string; subtitle: string; url: string };
 
 function buildHits(faq: HubFaqJson[], editorial: HubEditorialJson[]): Hit[] {
   const faqHits: Hit[] = faq.map((f) => ({
     kind: "faq",
     id: f.id,
+    categoryId: f.categoryId,
     title: f.question,
     subtitle: `${FAQ_CATEGORY_META.find((c) => c.id === f.categoryId)?.label ?? f.categoryId} · knowledge base`,
   }));
@@ -86,7 +87,7 @@ export function CommandPalette() {
     (h: Hit) => {
       setOpen(false);
       setQuery("");
-      if (h.kind === "faq") navigate(`/hub/faq#${h.id}`);
+      if (h.kind === "faq") navigate(`/hub/faq?cat=${encodeURIComponent(h.categoryId)}#${h.id}`);
       else window.open(h.url, "_blank", "noopener,noreferrer");
     },
     [navigate],

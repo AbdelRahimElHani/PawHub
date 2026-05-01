@@ -12,4 +12,5 @@ public record HubEditorialUpsertRequest(
         String dek,
         String imageUrl,
         boolean featured,
-        int sortOrder) {}
+        int sortOrder,
+        @Size(max = 256) String sectionTitle) {}

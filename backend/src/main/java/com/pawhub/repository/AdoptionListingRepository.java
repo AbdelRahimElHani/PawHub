@@ -10,4 +10,6 @@ public interface AdoptionListingRepository extends JpaRepository<AdoptionListing
     List<AdoptionListing> findByStatusOrderByCreatedAtDesc(ListingStatus status);
 
     List<AdoptionListing> findByShelterIdAndStatusOrderByCreatedAtDesc(Long shelterId, ListingStatus status);
+
+    List<AdoptionListing> findByShelter_IdOrderByCreatedAtDesc(Long shelterId);
 }

@@ -10,4 +10,7 @@ public record ForumCommentDto(
         String authorDisplayName,
         String body,
         String createdAt,
+        boolean deleted,
+        boolean deletedByAdmin,
+        String attachmentUrl,
         List<ForumCommentDto> children) {}

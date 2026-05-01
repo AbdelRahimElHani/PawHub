@@ -12,4 +12,6 @@ public interface PawvetTriageCaseRepository extends JpaRepository<PawvetTriageCa
     List<PawvetTriageCase> findByOwner_IdOrderByCreatedAtDesc(Long ownerId);
 
     List<PawvetTriageCase> findByVet_IdAndStatusOrderByCreatedAtDesc(Long vetId, PawvetTriageCaseStatus status);
+
+    List<PawvetTriageCase> findByVet_IdAndStatusOrderByResolvedAtDesc(Long vetId, PawvetTriageCaseStatus status);
 }

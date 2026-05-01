@@ -26,6 +26,10 @@ export function VetDashboard() {
   const [resolveId, setResolveId] = useState<string | null>(null);
   const [apiReviews, setApiReviews] = useState<PawVetConsultationReviewDto[] | null>(null);
   const [reviewsErr, setReviewsErr] = useState<string | null>(null);
+  const [archived, setArchived] = useState<PawvetTriageCaseDto[] | null>(null);
+  const [appealText, setAppealText] = useState("");
+  const [appealBusy, setAppealBusy] = useState(false);
+  const [appealErr, setAppealErr] = useState<string | null>(null);
 
   const verified = canWorkAsVerifiedVet(user);
   const openCases = useMemo(() => cases.filter((c) => c.status === "OPEN"), [cases]);
@@ -90,6 +94,25 @@ export function VetDashboard() {
     };
   }, [verified, mergeCasesFromApi]);
 
+  useEffect(() => {
+    if (!verified) {
+      setArchived(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await api<PawvetTriageCaseDto[]>("/api/pawvet/triage-cases/my-resolved-archive");
+        if (!cancelled) setArchived(rows ?? []);
+      } catch {
+        if (!cancelled) setArchived([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [verified]);
+
   async function claim(caseId: string) {
     if (!user || !verified) return;
     const id = Number(caseId);
@@ -99,6 +122,24 @@ export function VetDashboard() {
       mergeCasesFromApi([dto]);
     } catch {
       /* surface minimal feedback — could add toast */
+    }
+  }
+
+  async function submitAppeal() {
+    if (!appealText.trim()) return;
+    setAppealBusy(true);
+    setAppealErr(null);
+    try {
+      await api("/api/pawvet/vet-license/appeal", {
+        method: "POST",
+        body: JSON.stringify({ message: appealText.trim() }),
+      });
+      setAppealText("");
+      await refreshMe();
+    } catch (e: unknown) {
+      setAppealErr(e instanceof Error ? e.message : "Could not submit appeal.");
+    } finally {
+      setAppealBusy(false);
     }
   }
 
@@ -178,6 +219,55 @@ export function VetDashboard() {
               ? user.vetRejectionReason
               : "Please contact support if you believe this was a mistake."}
           </p>
+          {user.vetAppealState === "REJECTED_FINAL" ? (
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.88rem", color: "var(--color-muted)" }}>
+              An appeal was reviewed and was not accepted. You cannot submit another appeal for this application.
+            </p>
+          ) : null}
+        </motion.div>
+      ) : null}
+
+      {rejected && user.vetAppealState === "PENDING" ? (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="pawvet-glass-card"
+          style={{ padding: "1rem", marginBottom: "1rem", border: "1px dashed var(--pawvet-medical)" }}
+        >
+          <strong style={{ color: "var(--color-primary-dark)" }}>Appeal submitted</strong>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.9rem", color: "var(--color-muted)" }}>
+            Our team is reviewing your appeal. Watch your email and use Refresh status after you hear from us.
+          </p>
+        </motion.div>
+      ) : null}
+
+      {rejected && user.vetAppealState !== "PENDING" && user.vetAppealState !== "REJECTED_FINAL" ? (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="pawvet-glass-card"
+          style={{ padding: "1rem", marginBottom: "1rem", border: "1px solid var(--color-border)" }}
+        >
+          <strong style={{ color: "var(--color-primary-dark)" }}>Appeal this decision</strong>
+          <p style={{ margin: "0.35rem 0 0.75rem", fontSize: "0.88rem", color: "var(--color-muted)" }}>
+            Explain why your credentials should be reconsidered. You can submit one appeal per rejection.
+          </p>
+          {appealErr ? (
+            <p style={{ color: "#b42318", fontSize: "0.88rem", marginBottom: "0.5rem" }} role="alert">
+              {appealErr}
+            </p>
+          ) : null}
+          <textarea
+            className="ph-textarea"
+            rows={5}
+            value={appealText}
+            onChange={(e) => setAppealText(e.target.value)}
+            placeholder="Your appeal…"
+            style={{ width: "100%", marginBottom: "0.65rem" }}
+          />
+          <button type="button" className="ph-btn ph-btn-primary" disabled={appealBusy || !appealText.trim()} onClick={() => void submitAppeal()}>
+            {appealBusy ? "Submitting…" : "Submit appeal"}
+          </button>
         </motion.div>
       ) : null}
 
@@ -277,6 +367,33 @@ export function VetDashboard() {
                       )}
                     </div>
                     {resolveId === c.id ? <CaseClosePanel caseId={c.id} onClosed={() => setResolveId(null)} /> : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.section>
+
+          <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} style={{ marginBottom: "1.5rem" }}>
+            <h2 style={{ fontFamily: "var(--font-display)", color: "var(--color-primary-dark)", marginBottom: "0.75rem" }}>Past cases (archive)</h2>
+            {archived === null ? (
+              <p style={{ color: "var(--color-muted)", margin: 0 }}>Loading archive…</p>
+            ) : archived.length === 0 ? (
+              <p className="pawvet-glass-card" style={{ padding: "1rem", color: "var(--color-muted)", margin: 0 }}>
+                No closed cases yet.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                {archived.map((row) => (
+                  <div key={row.id} className="pawvet-glass-card" style={{ padding: "1rem", display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <strong style={{ color: "var(--color-primary-dark)" }}>{row.catName}</strong>
+                      <div style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                        Closed {row.resolvedAt ? new Date(row.resolvedAt).toLocaleString() : "—"}
+                      </div>
+                    </div>
+                    <Link className="ph-btn ph-btn-ghost" to={`/pawvet/case/${row.id}`}>
+                      Open summary
+                    </Link>
                   </div>
                 ))}
               </div>

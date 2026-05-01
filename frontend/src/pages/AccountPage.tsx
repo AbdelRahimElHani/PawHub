@@ -5,8 +5,9 @@ import { useAuth } from "../auth/AuthContext";
 import { userInitials } from "../shell/userDisplay";
 
 const TYPE_LABEL: Record<string, string> = {
-  ADOPTER: "Adopter / explorer",
-  CAT_OWNER: "Cat owner",
+  MEMBER: "Member",
+  ADOPTER: "Member",
+  CAT_OWNER: "Member",
   SHELTER: "Shelter / rescue",
   VET: "Veterinarian (PawVet)",
 };

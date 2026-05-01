@@ -21,14 +21,14 @@ export function CaseClosePanel({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!summary.trim()) return;
     const id = Number(caseId);
     if (!Number.isFinite(id)) return;
     setBusy(true);
     try {
+      const summaryText = summary.trim();
       const dto = await api<PawvetTriageCaseDto>(`/api/pawvet/triage-cases/${id}/resolve`, {
         method: "POST",
-        body: JSON.stringify({ summary: summary.trim() }),
+        body: JSON.stringify({ summary: summaryText }),
       });
       mergeCasesFromApi([dto]);
       onClosed?.();
@@ -57,10 +57,10 @@ export function CaseClosePanel({
         rows={6}
         value={summary}
         onChange={(e) => setSummary(e.target.value)}
-        placeholder="Clinical impression, differentials discussed, home monitoring, red flags, follow-up…"
+        placeholder="Clinical impression, home monitoring, red flags, follow-up… (optional — a short default is used if empty)"
         style={{ width: "100%", marginBottom: "0.75rem" }}
       />
-      <button type="submit" className="ph-btn ph-btn-primary" disabled={!summary.trim() || busy}>
+      <button type="submit" className="ph-btn ph-btn-primary" disabled={busy}>
         {busy ? "Closing…" : "Close case"}
       </button>
     </motion.form>

@@ -135,6 +135,20 @@ public class Shelter {
     @Builder.Default
     private ShelterStatus status = ShelterStatus.PENDING;
 
+    @Column(name = "appeal_message", columnDefinition = "TEXT")
+    private String appealMessage;
+
+    @Column(name = "appeal_submitted_at")
+    private Instant appealSubmittedAt;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "appeal_state", length = 32)
+    private ShelterAppealState appealState;
+
+    @Column(name = "application_rejection_reason", length = 4000)
+    private String applicationRejectionReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

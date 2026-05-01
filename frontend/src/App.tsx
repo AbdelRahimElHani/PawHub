@@ -18,12 +18,15 @@ import { MarketMyListingsPage } from "./pages/MarketMyListingsPage";
 import { MarketNewPage } from "./pages/MarketNewPage";
 import { AdoptPage } from "./pages/AdoptPage";
 import { AdoptNewPage } from "./pages/AdoptNewPage";
+import { AdoptMyListingsPage } from "./pages/AdoptMyListingsPage";
 import { AdoptShell } from "./adopt/AdoptShell";
 import { AdoptDetail } from "./adopt/AdoptDetail";
 import { ShelterPage } from "./pages/ShelterPage";
 import { AdminSheltersPage } from "./pages/AdminSheltersPage";
 import { AdminVetReviewsPage } from "./pages/AdminVetReviewsPage";
+import { AdminPawvetVetReportsPage } from "./pages/AdminPawvetVetReportsPage";
 import { AdminShelterReviewPage } from "./pages/AdminShelterReviewPage";
+import { AdoptAdminHome } from "./pages/AdoptAdminHome";
 import { AccountPage } from "./pages/AccountPage";
 import { PeopleDirectoryPage } from "./pages/PeopleDirectoryPage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
@@ -34,7 +37,6 @@ import { FaqPage } from "./hub/pages/FaqPage";
 import { EditorialPage } from "./hub/pages/EditorialPage";
 import { CommunityFeedPage } from "./hub/pages/CommunityFeedPage";
 import { ThreadPage } from "./hub/pages/ThreadPage";
-import { PawVetAdminPage } from "./pages/PawVetAdminPage";
 import { PawVetHome } from "./pages/PawVetHome";
 import { FileCase } from "./user/FileCase";
 import { ConsultationRoom } from "./user/ConsultationRoom";
@@ -78,6 +80,11 @@ function RequireAdmin({ children }: { children: ReactElement }) {
 function LegacyChatRedirect() {
   const { threadId } = useParams();
   return <Navigate to={threadId ? `/messages/${threadId}` : "/messages"} replace />;
+}
+
+function RedirectAdoptShelterReview() {
+  const { shelterId } = useParams();
+  return <Navigate to={`/adopt/admin/shelters/${shelterId ?? ""}`} replace />;
 }
 
 function AppRoot() {
@@ -129,6 +136,13 @@ export default function App() {
           <Route index element={<AdoptPage />} />
           <Route path="shelter" element={<ShelterPage />} />
           <Route path="new" element={<AdoptNewPage />} />
+          <Route path="my-listings" element={<AdoptMyListingsPage />} />
+          <Route path="admin" element={<RequireAdmin><AdoptAdminHome /></RequireAdmin>} />
+          <Route path="admin/shelters" element={<RequireAdmin><AdminSheltersPage /></RequireAdmin>} />
+          <Route path="admin/shelters/:shelterId" element={<RequireAdmin><AdminShelterReviewPage /></RequireAdmin>} />
+          <Route path="admin/vet-verification" element={<RequireAdmin><VetVerificationQueue /></RequireAdmin>} />
+          <Route path="admin/vet-reviews" element={<RequireAdmin><AdminVetReviewsPage /></RequireAdmin>} />
+          <Route path="admin/pawvet-reports" element={<RequireAdmin><AdminPawvetVetReportsPage /></RequireAdmin>} />
           <Route path=":id" element={<AdoptDetail />} />
         </Route>
         <Route path="/inbox" element={<Navigate to="/messages" replace />} />
@@ -145,18 +159,19 @@ export default function App() {
           <Route path="community" element={<Navigate to="/hub/community/general" replace />} />
         </Route>
         <Route path="/pawvet" element={<PawVetHome />} />
-        <Route path="/pawvet/admin" element={<RequireAdmin><PawVetAdminPage /></RequireAdmin>} />
+        <Route path="/pawvet/admin" element={<RequireAdmin><Navigate to="/adopt/admin" replace /></RequireAdmin>} />
         <Route path="/pawvet/file-case" element={<FileCase />} />
         <Route path="/pawvet/case/:caseId/rate" element={<RatingScreen />} />
         <Route path="/pawvet/case/:caseId" element={<ConsultationRoom />} />
         <Route path="/vet" element={<VetDashboard />} />
         <Route path="/vet/case/:caseId/resolve" element={<CaseResolution />} />
         <Route path="/chat/:threadId" element={<LegacyChatRedirect />} />
-        <Route path="/admin" element={<RequireAdmin><Navigate to="/admin/shelters" replace /></RequireAdmin>} />
-        <Route path="/admin/vet-verification" element={<RequireAdmin><VetVerificationQueue /></RequireAdmin>} />
-        <Route path="/admin/vet-reviews" element={<RequireAdmin><AdminVetReviewsPage /></RequireAdmin>} />
-        <Route path="/admin/shelters/:shelterId" element={<RequireAdmin><AdminShelterReviewPage /></RequireAdmin>} />
-        <Route path="/admin/shelters" element={<RequireAdmin><AdminSheltersPage /></RequireAdmin>} />
+        <Route path="/admin" element={<RequireAdmin><Navigate to="/adopt/admin" replace /></RequireAdmin>} />
+        <Route path="/admin/vet-verification" element={<RequireAdmin><Navigate to="/adopt/admin/vet-verification" replace /></RequireAdmin>} />
+        <Route path="/admin/vet-reviews" element={<RequireAdmin><Navigate to="/adopt/admin/vet-reviews" replace /></RequireAdmin>} />
+        <Route path="/admin/pawvet-vet-reports" element={<RequireAdmin><Navigate to="/adopt/admin/pawvet-reports" replace /></RequireAdmin>} />
+        <Route path="/admin/shelters/:shelterId" element={<RequireAdmin><RedirectAdoptShelterReview /></RequireAdmin>} />
+        <Route path="/admin/shelters" element={<RequireAdmin><Navigate to="/adopt/admin/shelters" replace /></RequireAdmin>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

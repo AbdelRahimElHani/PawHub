@@ -9,4 +9,5 @@ public record HubFaqUpsertRequest(
         @NotBlank String question,
         @NotBlank String answer,
         boolean healthRelated,
-        int sortOrder) {}
+        int sortOrder,
+        @Size(max = 256) String sectionTitle) {}

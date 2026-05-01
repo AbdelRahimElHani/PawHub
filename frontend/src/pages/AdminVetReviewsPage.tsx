@@ -1,32 +1,57 @@
-import { ChevronDown, ChevronRight, Star } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageCircle, Star, UserX } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { VetAccountReviewsAdminDto } from "../types/pawvetConsultationReview";
 import "../pawvet/pawvet.css";
 
 export function AdminVetReviewsPage() {
+  const nav = useNavigate();
   const [rows, setRows] = useState<VetAccountReviewsAdminDto[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<number, boolean>>({});
+  const [revokingId, setRevokingId] = useState<number | null>(null);
+
+  async function load() {
+    setErr(null);
+    try {
+      const data = await api<VetAccountReviewsAdminDto[]>("/api/admin/pawvet/vet-accounts-with-reviews");
+      setRows(data);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Could not load data.");
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    setErr(null);
-    api<VetAccountReviewsAdminDto[]>("/api/admin/pawvet/vet-accounts-with-reviews")
-      .then((data) => {
-        if (!cancelled) setRows(data);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setErr(e instanceof Error ? e.message : "Could not load data.");
-      });
-    return () => {
-      cancelled = true;
-    };
+    void load();
   }, []);
 
   function toggle(id: number) {
     setOpen((o) => ({ ...o, [id]: !o[id] }));
+  }
+
+  async function openDm(userId: number) {
+    setErr(null);
+    try {
+      const r = await api<{ threadId: number }>(`/api/chat/dm/${userId}`, { method: "POST" });
+      nav(`/messages/${r.threadId}`);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Could not open messages");
+    }
+  }
+
+  async function revokeVet(vetUserId: number) {
+    if (!window.confirm("Revoke this veterinarian’s verification? Their account becomes a standard user until they re-apply.")) return;
+    setErr(null);
+    setRevokingId(vetUserId);
+    try {
+      await api(`/api/admin/vet-accounts/${vetUserId}/revoke-credentials`, { method: "POST" });
+      await load();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Revoke failed");
+    } finally {
+      setRevokingId(null);
+    }
   }
 
   return (
@@ -35,12 +60,12 @@ export function AdminVetReviewsPage() {
         <h1 style={{ fontSize: "1.45rem", color: "var(--color-primary-dark)" }}>Veterinarian reviews and comments</h1>
         <p style={{ margin: 0, color: "var(--color-muted)", maxWidth: "62ch", lineHeight: 1.55 }}>
           Every account registered as a veterinarian is listed below. Expand a row to read star ratings and written
-          comments guardians left after closed consultations.
+          comments guardians left after closed consultations. You can revoke verification from here.
         </p>
       </div>
 
       <p style={{ marginBottom: "1rem" }}>
-        <Link className="ph-btn ph-btn-ghost" to="/pawvet/admin">
+        <Link className="ph-btn ph-btn-ghost" to="/adopt/admin">
           ← PawVet admin
         </Link>
       </p>
@@ -54,7 +79,9 @@ export function AdminVetReviewsPage() {
       {rows === null && !err ? <p style={{ color: "var(--color-muted)" }}>Loading…</p> : null}
 
       {rows && rows.length === 0 ? (
-        <p className="pawvet-glass-card" style={{ padding: "1rem", color: "var(--color-muted)", margin: 0 }}>No veterinarian accounts yet.</p>
+        <p className="pawvet-glass-card" style={{ padding: "1rem", color: "var(--color-muted)", margin: 0 }}>
+          No veterinarian accounts yet.
+        </p>
       ) : null}
 
       {rows && rows.length > 0 ? (
@@ -94,6 +121,25 @@ export function AdminVetReviewsPage() {
                 </button>
                 {expanded ? (
                   <div style={{ borderTop: "1px solid var(--color-border)", padding: "1rem", background: "rgba(0,0,0,0.02)" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.85rem" }}>
+                      <Link className="ph-btn ph-btn-ghost" style={{ fontSize: "0.85rem" }} to={`/users/${v.vetUserId}`}>
+                        Profile
+                      </Link>
+                      <button type="button" className="ph-btn ph-btn-ghost" style={{ fontSize: "0.85rem" }} onClick={() => void openDm(v.vetUserId)}>
+                        <MessageCircle size={16} style={{ marginRight: 6, verticalAlign: "middle" }} aria-hidden />
+                        Message
+                      </button>
+                      <button
+                        type="button"
+                        className="ph-btn ph-btn-primary"
+                        style={{ fontSize: "0.85rem", background: "#b42318", borderColor: "#b42318" }}
+                        disabled={revokingId === v.vetUserId}
+                        onClick={() => void revokeVet(v.vetUserId)}
+                      >
+                        <UserX size={16} style={{ marginRight: 6, verticalAlign: "middle" }} aria-hidden />
+                        {revokingId === v.vetUserId ? "Revoking…" : "Revoke verification"}
+                      </button>
+                    </div>
                     {v.reviews.length === 0 ? (
                       <p style={{ margin: 0, color: "var(--color-muted)", fontSize: "0.9rem" }}>No reviews yet.</p>
                     ) : (
@@ -111,7 +157,9 @@ export function AdminVetReviewsPage() {
                             {r.comment ? (
                               <p style={{ margin: "0.5rem 0 0", fontSize: "0.9rem", lineHeight: 1.5, color: "var(--color-primary-dark)" }}>{r.comment}</p>
                             ) : (
-                              <p style={{ margin: "0.5rem 0 0", fontSize: "0.85rem", color: "var(--color-muted)", fontStyle: "italic" }}>No written comment.</p>
+                              <p style={{ margin: "0.5rem 0 0", fontSize: "0.85rem", color: "var(--color-muted)", fontStyle: "italic" }}>
+                                No written comment.
+                              </p>
                             )}
                           </li>
                         ))}

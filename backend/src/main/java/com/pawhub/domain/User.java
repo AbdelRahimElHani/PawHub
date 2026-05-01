@@ -45,7 +45,7 @@ public class User {
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "account_type", nullable = false, length = 32)
     @Builder.Default
-    private UserAccountType accountType = UserAccountType.ADOPTER;
+    private UserAccountType accountType = UserAccountType.MEMBER;
 
     @Column(name = "avatar_url", length = 1024)
     private String avatarUrl;

@@ -8,12 +8,14 @@ import com.pawhub.web.dto.ShelterDocumentKind;
 import com.pawhub.web.dto.ShelterDto;
 import com.pawhub.web.dto.ShelterProfileUpdateRequest;
 import com.pawhub.web.dto.ShelterUpsertRequest;
+import com.pawhub.web.dto.SubmitShelterAppealRequest;
 import com.pawhub.web.dto.ThreadIdResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,6 +46,12 @@ public class AdoptionController {
         return adoptionService.updateShelterProfile(req, user);
     }
 
+    @PostMapping("/shelters/mine/appeal")
+    public ShelterDto submitShelterAppeal(
+            @Valid @RequestBody SubmitShelterAppealRequest req, @AuthenticationPrincipal SecurityUser user) {
+        return adoptionService.submitShelterAppeal(req, user);
+    }
+
     @PostMapping(value = "/shelters/mine/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ShelterDto uploadShelterDocument(
             @RequestParam ShelterDocumentKind kind,
@@ -59,13 +67,22 @@ public class AdoptionController {
     }
 
     @GetMapping("/listings/{id}")
-    public AdoptionListingDto getListing(@PathVariable Long id) {
-        return adoptionService.getListing(id);
+    public AdoptionListingDto getListing(@PathVariable Long id, Authentication authentication) {
+        SecurityUser user = null;
+        if (authentication != null && authentication.getPrincipal() instanceof SecurityUser su) {
+            user = su;
+        }
+        return adoptionService.getListing(id, user);
     }
 
     @GetMapping("/listings/mine")
     public List<AdoptionListingDto> mineListings(@AuthenticationPrincipal SecurityUser user) {
         return adoptionService.mineListings(user);
+    }
+
+    @GetMapping("/listings/mine/archive")
+    public List<AdoptionListingDto> mineArchiveListings(@AuthenticationPrincipal SecurityUser user) {
+        return adoptionService.mineArchiveListings(user);
     }
 
     @PostMapping("/listings")
@@ -84,5 +101,16 @@ public class AdoptionController {
     @PostMapping("/listings/{id}/inquire")
     public ThreadIdResponse inquire(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
         return new ThreadIdResponse(adoptionService.inquire(id, user), false);
+    }
+
+    @PostMapping("/listings/{id}/mark-adopted")
+    public AdoptionListingDto markAdopted(@PathVariable long id, @AuthenticationPrincipal SecurityUser user) {
+        return adoptionService.markListingAdopted(id, user);
+    }
+
+    @DeleteMapping("/listings/{id}")
+    public ResponseEntity<Void> deleteListing(@PathVariable long id, @AuthenticationPrincipal SecurityUser user) {
+        adoptionService.deleteAdoptedListing(id, user);
+        return ResponseEntity.noContent().build();
     }
 }

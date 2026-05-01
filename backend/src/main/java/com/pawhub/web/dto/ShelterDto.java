@@ -42,4 +42,9 @@ public record ShelterDto(
         String docInsuranceUrl,
         String docProtocolsUrl,
         Instant profileCompletedAt,
-        Instant profileLastSavedAt) {}
+        Instant profileLastSavedAt,
+        String appealMessage,
+        Instant appealSubmittedAt,
+        String appealState,
+        String applicationRejectionReason,
+        String ownerAvatarUrl) {}

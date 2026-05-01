@@ -177,6 +177,11 @@ export function AdoptNewPage() {
         Tell adopters the story first—warm, honest copy helps cats move to the right home. You can add a hero photo
         right away or from the listing page later.
       </p>
+      <p style={{ marginBottom: "1rem", fontSize: "0.92rem" }}>
+        <Link to="/adopt/my-listings" style={{ fontWeight: 600 }}>
+          My listings & adopted archive
+        </Link>
+      </p>
 
       <form onSubmit={(e) => void onSubmit(e)} className="ph-grid">
         <label>

@@ -39,4 +39,7 @@ public class HubEditorialLink {
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
+
+    @Column(name = "section_title", length = 256)
+    private String sectionTitle;
 }

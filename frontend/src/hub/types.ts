@@ -18,6 +18,8 @@ export type FAQItem = {
   /** Plain text; paragraphs separated by blank lines (\n\n). */
   answer: string;
   isHealthRelated: boolean;
+  /** Optional section heading — groups items in the Learn FAQ view. */
+  sectionTitle?: string | null;
 };
 
 /** Curated external reading — opens in a new tab; no in-app article body. */
@@ -31,6 +33,7 @@ export type ExternalLinkEntry = {
   dek: string;
   imageUrl: string | null;
   featured?: boolean;
+  sectionTitle?: string | null;
 };
 
 export type UserBadge = "NEW_CAT_PARENT" | "VERIFIED_EXPERT" | "SHELTER_PARTNER" | "TOP_CONTRIBUTOR";

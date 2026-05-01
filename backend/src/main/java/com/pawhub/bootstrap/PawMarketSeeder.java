@@ -328,7 +328,7 @@ public class PawMarketSeeder implements CommandLineRunner {
                 .email(email)
                 .passwordHash(pw)
                 .displayName(name)
-                .accountType(UserAccountType.CAT_OWNER)
+                .accountType(UserAccountType.MEMBER)
                 .role(UserRole.USER)
                 .profileCity(city)
                 .profileRegion(region)

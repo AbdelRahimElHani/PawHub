@@ -5,6 +5,8 @@ export type PawvetTriageChatMessageDto = {
   sender: string;
   body: string;
   at: string;
+  attachmentUrl?: string | null;
+  attachmentKind?: string | null;
 };
 
 export type PawvetTriageCaseDto = {
@@ -74,13 +76,23 @@ export function triageDtoToMedicalCase(d: PawvetTriageCaseDto): MedicalCase {
     vetAvatarUrl: d.vetAvatarUrl ?? undefined,
     createdAt: d.createdAt,
     resolvedAt: d.resolvedAt ?? undefined,
-    messages: (d.messages ?? []).map((m) => ({
-      id: m.id,
-      caseId: String(d.id),
-      sender: m.sender as "user" | "vet" | "system",
-      body: m.body,
-      at: m.at,
-    })),
+    messages: (d.messages ?? []).map((m) => {
+      const url = m.attachmentUrl?.trim() || undefined;
+      let kind: "image" | "pdf" | undefined =
+        m.attachmentKind === "pdf" || m.attachmentKind === "image" ? m.attachmentKind : undefined;
+      if (url && !kind) {
+        kind = url.toLowerCase().includes(".pdf") ? "pdf" : "image";
+      }
+      return {
+        id: m.id,
+        caseId: String(d.id),
+        sender: m.sender as "user" | "vet" | "system",
+        body: m.body,
+        at: m.at,
+        attachmentUrl: url,
+        attachmentKind: kind,
+      };
+    }),
     summary: d.summary ?? undefined,
   };
 }

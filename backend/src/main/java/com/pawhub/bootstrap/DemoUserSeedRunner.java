@@ -44,7 +44,7 @@ public class DemoUserSeedRunner implements ApplicationRunner {
                 .email(email)
                 .passwordHash(passwordEncoder.encode(password))
                 .displayName(display)
-                .accountType(UserAccountType.ADOPTER)
+                .accountType(UserAccountType.MEMBER)
                 .role(UserRole.USER)
                 .emailVerified(true)
                 .build();

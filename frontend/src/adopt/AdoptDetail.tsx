@@ -1,14 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Baby, BadgeCheck, Dog, Home, MessageCircle } from "lucide-react";
+import { ArrowLeft, BadgeCheck, MessageCircle, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import type { AdoptionListingDto } from "../types";
-import { inferQuickFacts, vibeLabelForListing } from "./adoptPersonality";
+import { isAdminAccount } from "../auth/vetAccess";
+import type { AdoptionListingDto, ShelterDto } from "../types";
+import { useAdoptStore } from "./useAdoptStore";
+import { vibeLabelForListing } from "./adoptPersonality";
 import { AdoptPlaceholderCat } from "./AdoptPlaceholderCat";
 import "./adopt.css";
-import { useAdoptStore } from "./useAdoptStore";
 
 function ageLabel(months: number | null): string {
   if (months == null) return "—";
@@ -18,21 +19,18 @@ function ageLabel(months: number | null): string {
   return m ? `${y} yr ${m} mo` : `${y} yr`;
 }
 
-function triStateIcon(v: boolean | null) {
-  if (v === true) return "✓";
-  if (v === false) return "✗";
-  return "—";
-}
-
 export function AdoptDetail() {
   const { id } = useParams();
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [listing, setListing] = useState<AdoptionListingDto | null>(null);
+  const [shelterMine, setShelterMine] = useState<ShelterDto | null | undefined>(undefined);
   const [err, setErr] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [inquireErr, setInquireErr] = useState<string | null>(null);
+  const [manageErr, setManageErr] = useState<string | null>(null);
+  const [manageBusy, setManageBusy] = useState(false);
   const toggleFavorite = useAdoptStore((s) => s.toggleFavorite);
   const isFavorite = useAdoptStore((s) => (id ? s.isFavorite(Number(id)) : false));
 
@@ -47,8 +45,40 @@ export function AdoptDetail() {
   }, [id]);
 
   useEffect(() => {
+    if (!user || user.accountType !== "SHELTER") {
+      setShelterMine(null);
+      return;
+    }
+    let cancelled = false;
+    void api<ShelterDto | null>("/api/adopt/shelters/mine")
+      .then((s) => {
+        if (!cancelled) setShelterMine(s ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setShelterMine(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const isOwnShelterListing = Boolean(
+    user?.accountType === "SHELTER" && shelterMine && listing && listing.shelterId === shelterMine.id,
+  );
+  const isAdminUser = isAdminAccount(user);
+
+  useEffect(() => {
     if (!listing || !id) return;
     if (searchParams.get("contact") !== "1") return;
+    if (user?.accountType === "SHELTER" && shelterMine === undefined) return;
+    if (isOwnShelterListing) {
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    if (isAdminUser) {
+      setSearchParams({}, { replace: true });
+      return;
+    }
     if (!user) {
       nav(`/login?next=${encodeURIComponent(`/adopt/${id}?contact=1`)}`);
       return;
@@ -56,15 +86,47 @@ export function AdoptDetail() {
     setModalOpen(true);
     setInquireErr(null);
     setSearchParams({}, { replace: true });
-  }, [listing, id, user, nav, setSearchParams, searchParams.get("contact")]);
+  }, [listing, id, user, nav, setSearchParams, searchParams.get("contact"), shelterMine, isOwnShelterListing, isAdminUser]);
 
   function openInquiryFlow() {
+    if (isOwnShelterListing || isAdminUser) return;
     setInquireErr(null);
     if (!user) {
       nav(`/login?next=${encodeURIComponent(`/adopt/${id}?contact=1`)}`);
       return;
     }
     setModalOpen(true);
+  }
+
+  async function markAdopted() {
+    if (!id) return;
+    setManageErr(null);
+    setManageBusy(true);
+    try {
+      const updated = await api<AdoptionListingDto>(`/api/adopt/listings/${id}/mark-adopted`, { method: "POST" });
+      setListing(updated);
+    } catch (e: unknown) {
+      setManageErr(e instanceof Error ? e.message : "Could not update listing.");
+    } finally {
+      setManageBusy(false);
+    }
+  }
+
+  async function deleteAdoptedListing() {
+    if (!id || !listing) return;
+    const listingId = listing.id;
+    if (!window.confirm("Remove this adopted listing from PawHub? This cannot be undone.")) return;
+    setManageErr(null);
+    setManageBusy(true);
+    try {
+      await api(`/api/adopt/listings/${id}`, { method: "DELETE" });
+      if (isFavorite) toggleFavorite(listingId);
+      nav("/adopt", { replace: true });
+    } catch (e: unknown) {
+      setManageErr(e instanceof Error ? e.message : "Could not delete listing.");
+    } finally {
+      setManageBusy(false);
+    }
   }
 
   async function inquire() {
@@ -98,7 +160,6 @@ export function AdoptDetail() {
     );
   }
 
-  const facts = inferQuickFacts(listing.description);
   const story =
     listing.description?.trim() ||
     `${listing.petName ?? listing.title} is waiting to meet you. Ask the shelter about personality, medical history, and what a great home looks like for this cat.`;
@@ -162,67 +223,105 @@ export function AdoptDetail() {
           <h2 className="adopt-detail__section-title">The story</h2>
           <div className="adopt-detail__story">{story}</div>
 
-          <h2 className="adopt-detail__section-title">Quick facts</h2>
-          <div className="adopt-quick-facts">
-            <div className="adopt-quick-fact">
-              <div className="adopt-quick-fact__icon">
-                <Baby size={22} strokeWidth={1.75} aria-hidden />
-              </div>
-              <div className="adopt-quick-fact__label">Kids</div>
-              <div className="adopt-quick-fact__val" aria-label="Good with kids">
-                {triStateIcon(facts.kids)}
-              </div>
-            </div>
-            <div className="adopt-quick-fact">
-              <div className="adopt-quick-fact__icon">
-                <Dog size={22} strokeWidth={1.75} aria-hidden />
-              </div>
-              <div className="adopt-quick-fact__label">Dogs</div>
-              <div className="adopt-quick-fact__val" aria-label="Good with dogs">
-                {triStateIcon(facts.dogs)}
-              </div>
-            </div>
-            <div className="adopt-quick-fact">
-              <div className="adopt-quick-fact__icon">
-                <Home size={22} strokeWidth={1.75} aria-hidden />
-              </div>
-              <div className="adopt-quick-fact__label">Indoor</div>
-              <div className="adopt-quick-fact__val" aria-label="Indoor only">
-                {triStateIcon(facts.indoorOnly)}
-              </div>
-            </div>
-          </div>
-          <p style={{ fontSize: "0.85rem", color: "var(--color-muted)", margin: "-1.25rem 0 1.75rem", lineHeight: 1.5 }}>
-            Hints are inferred from the description when mentioned; otherwise ask the shelter.
-          </p>
+          {manageErr ? (
+            <p role="alert" style={{ color: "#b42318", fontSize: "0.9rem", marginBottom: "0.75rem" }}>
+              {manageErr}
+            </p>
+          ) : null}
 
-          <div className="adopt-detail__actions">
-            <motion.button
-              type="button"
-              className="ph-btn ph-btn-primary adopt-detail__cta-primary"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => openInquiryFlow()}
-            >
-              <MessageCircle size={18} strokeWidth={2} aria-hidden />
-              Message shelter
-            </motion.button>
-            <motion.button
-              type="button"
-              className="ph-btn ph-btn-ghost adopt-detail__cta-secondary"
-              whileTap={{ scale: 0.97 }}
-              onClick={() => toggleFavorite(listing.id)}
-            >
-              {isFavorite ? "♥ On your Love List" : "♡ Save to Love List"}
-            </motion.button>
-          </div>
+          {isOwnShelterListing ? (
+            <div className="adopt-detail__actions" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.65rem" }}>
+              <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+                This cat is listed under <strong>{listing.shelterName}</strong> (your shelter). Messaging is for adopters
+                contacting you—you can’t start a shelter inquiry with your own listing.
+              </p>
+              {listing.status === "ACTIVE" ? (
+                <motion.button
+                  type="button"
+                  className="ph-btn ph-btn-primary adopt-detail__cta-primary"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={manageBusy}
+                  onClick={() => void markAdopted()}
+                >
+                  Mark as adopted (remove from public gallery)
+                </motion.button>
+              ) : listing.status === "SOLD" ? (
+                <>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
+                    This cat is marked adopted. Delete the record when you no longer need it in PawHub.
+                  </p>
+                  <motion.button
+                    type="button"
+                    className="ph-btn ph-btn-ghost adopt-detail__cta-primary"
+                    style={{ color: "#b42318", borderColor: "color-mix(in srgb, #b42318 35%, transparent)" }}
+                    whileTap={{ scale: 0.98 }}
+                    disabled={manageBusy}
+                    onClick={() => void deleteAdoptedListing()}
+                  >
+                    <Trash2 size={18} strokeWidth={2} aria-hidden />
+                    Delete listing
+                  </motion.button>
+                </>
+              ) : null}
+              <Link to="/adopt/my-listings" className="ph-btn ph-btn-ghost" style={{ justifyContent: "center" }}>
+                My listings & archive
+              </Link>
+              <Link to="/adopt/new" className="ph-btn ph-btn-ghost" style={{ justifyContent: "center" }}>
+                Add another listing
+              </Link>
+            </div>
+          ) : isAdminUser ? (
+            <div className="adopt-detail__actions" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.65rem" }}>
+              <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+                Admin accounts use the shelter queue to review or remove listings. Messaging and Love List are disabled
+                here so verification stays separate from adopter tools.
+              </p>
+              <Link to="/adopt/admin/shelters" className="ph-btn ph-btn-ghost" style={{ justifyContent: "center" }}>
+                Shelter admin queue
+              </Link>
+            </div>
+          ) : (
+            <div className="adopt-detail__actions">
+              <motion.button
+                type="button"
+                className="ph-btn ph-btn-primary adopt-detail__cta-primary"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => openInquiryFlow()}
+              >
+                <MessageCircle size={18} strokeWidth={2} aria-hidden />
+                Message shelter
+              </motion.button>
+              <motion.button
+                type="button"
+                className="ph-btn ph-btn-ghost adopt-detail__cta-secondary"
+                whileTap={{ scale: 0.97 }}
+                onClick={() => toggleFavorite(listing.id)}
+              >
+                {isFavorite ? "♥ On your Love List" : "♡ Save to Love List"}
+              </motion.button>
+            </div>
+          )}
 
           <footer className="adopt-shelter-footer">
             <h3>About this shelter</h3>
-            <p>
-              <strong>{listing.shelterName}</strong> is a verified partner. After you tap Message shelter, you and the
-              team can chat in PawHub messages—just like Paw Market—so you can plan a meet-and-greet safely.
-            </p>
+            {isOwnShelterListing ? (
+              <p>
+                <strong>{listing.shelterName}</strong> is your organization’s verified partner profile. Use{" "}
+                <strong>Messages</strong> when adopters reach out from their accounts.
+              </p>
+            ) : isAdminUser ? (
+              <p>
+                <strong>{listing.shelterName}</strong> is the listing shelter. Use the admin shelter tools to verify
+                partners or remove listings when needed.
+              </p>
+            ) : (
+              <p>
+                <strong>{listing.shelterName}</strong> is a verified partner. After you tap Message shelter, you and the
+                team can chat in PawHub messages—just like Paw Market—so you can plan a meet-and-greet safely.
+              </p>
+            )}
           </footer>
         </div>
       </div>
@@ -250,8 +349,9 @@ export function AdoptDetail() {
             >
               <h2 id="adopt-inquiry-title">Message the shelter</h2>
               <p>
-                We’ll open a private thread with <strong>{listing.shelterName}</strong>. Ask about personality, medical
-                history, and scheduling a visit—same smooth flow as messaging a seller on Paw Market.
+                We’ll open a private thread with <strong>{listing.shelterName}</strong>. PawHub will send an opening note
+                that you’re asking about this cat with a link to the listing—then you can chat about personality,
+                medical history, and visits, just like Paw Market.
               </p>
               {inquireErr && (
                 <p style={{ color: "#b42318", marginTop: "-0.5rem" }} role="alert">

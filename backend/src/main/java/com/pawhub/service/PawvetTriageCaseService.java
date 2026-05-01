@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pawhub.domain.*;
 import com.pawhub.repository.PawvetTriageCaseRepository;
+import com.pawhub.repository.PawvetVetReportRepository;
 import com.pawhub.repository.UserRepository;
 import com.pawhub.repository.VetLicenseApplicationRepository;
 import com.pawhub.security.SecurityUser;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,9 +32,11 @@ public class PawvetTriageCaseService {
     private final PawvetTriageCaseRepository triageCaseRepository;
     private final UserRepository userRepository;
     private final VetLicenseApplicationRepository vetLicenseApplicationRepository;
+    private final PawvetVetReportRepository pawvetVetReportRepository;
     private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
     private final AppNotificationService appNotificationService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public PawvetTriageCaseDto create(SecurityUser principal, CreatePawvetTriageCaseRequest req) {
@@ -52,7 +56,9 @@ public class PawvetTriageCaseService {
                 newMsgId(),
                 "system",
                 "Case filed. A verified vet will review and may claim this case shortly.",
-                Instant.now().toString()));
+                Instant.now().toString(),
+                null,
+                null));
         String messagesJson = writeMessages(initial);
         PawvetTriageCase row = PawvetTriageCase.builder()
                 .owner(owner)
@@ -82,6 +88,46 @@ public class PawvetTriageCaseService {
         }
         requireCanFileCase(principal);
         return fileStorageService.store(file, "pawvet-case");
+    }
+
+    /** Image or PDF for an in-progress case chat (participant only). */
+    public String uploadMessageAttachment(SecurityUser principal, long caseId, MultipartFile file) throws Exception {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File is required.");
+        }
+        PawvetTriageCase row = triageCaseRepository.findById(caseId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (row.getStatus() != PawvetTriageCaseStatus.IN_PROGRESS) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Case is not active.");
+        }
+        boolean owner = row.getOwner().getId().equals(principal.getId());
+        boolean vet = row.getVet() != null && row.getVet().getId().equals(principal.getId());
+        if (!owner && !vet) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a participant in this case.");
+        }
+        String ct = file.getContentType();
+        if (ct == null || (!ct.startsWith("image/") && !"application/pdf".equalsIgnoreCase(ct))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only images and PDF files are allowed.");
+        }
+        return fileStorageService.store(file, "pawvet-case-msg");
+    }
+
+    /** Typing indicator for active consultation — owner or assigned vet only. */
+    public void broadcastTyping(SecurityUser principal, long caseId, boolean typing) {
+        PawvetTriageCase row = triageCaseRepository.findById(caseId).orElse(null);
+        if (row == null || row.getStatus() != PawvetTriageCaseStatus.IN_PROGRESS) {
+            return;
+        }
+        boolean owner = row.getOwner().getId().equals(principal.getId());
+        boolean vet = row.getVet() != null && row.getVet().getId().equals(principal.getId());
+        if (!owner && !vet) {
+            return;
+        }
+        String name = principal.getUser().getDisplayName() != null && !principal.getUser().getDisplayName().isBlank()
+                ? principal.getUser().getDisplayName().trim()
+                : principal.getUser().getEmail();
+        messagingTemplate.convertAndSend(
+                "/topic/pawvet.triage." + caseId + ".typing",
+                new PawvetTriageTypingEvent(principal.getId(), name, typing));
     }
 
     @Transactional(readOnly = true)
@@ -131,10 +177,25 @@ public class PawvetTriageCaseService {
         row.setVetAvatarUrl(vet.getAvatarUrl());
         List<PawvetTriageChatMessageDto> msgs = readMessages(row.getMessagesJson());
         msgs.add(new PawvetTriageChatMessageDto(
-                newMsgId(), "system", vetName + " has claimed this case and will assist you here.", Instant.now().toString()));
+                newMsgId(),
+                "system",
+                vetName + " has claimed this case and will assist you here.",
+                Instant.now().toString(),
+                null,
+                null));
         row.setMessagesJson(writeMessages(msgs));
         triageCaseRepository.save(row);
-        return toDto(row);
+        PawvetTriageCaseDto dto = toDto(row);
+        broadcastCaseUpdate(id, dto);
+        appNotificationService.publishWithInboxNudge(
+                row.getOwner().getId(),
+                AppNotificationKind.PAWVET_CASE_CLAIMED,
+                "A vet accepted your case",
+                vetName + " is assisting you in your PawVet consultation.",
+                "/pawvet/case/" + id,
+                "vet",
+                vet.getAvatarUrl());
+        return dto;
     }
 
     @Transactional
@@ -149,11 +210,29 @@ public class PawvetTriageCaseService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a participant in this case.");
         }
         String sender = vet ? "vet" : "user";
+        String body = req.body() == null ? "" : req.body().trim();
+        String attachmentUrl = req.attachmentUrl() == null ? null : req.attachmentUrl().trim();
+        if (attachmentUrl != null && attachmentUrl.isEmpty()) {
+            attachmentUrl = null;
+        }
+        if (body.isEmpty() && attachmentUrl == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Send a message or attach a file.");
+        }
+        if (attachmentUrl != null) {
+            if (!(attachmentUrl.startsWith("http://") || attachmentUrl.startsWith("https://"))) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid attachment URL.");
+            }
+        }
+        String attachmentKind = normalizeAttachmentKind(req.attachmentKind(), attachmentUrl);
         List<PawvetTriageChatMessageDto> msgs = readMessages(row.getMessagesJson());
-        msgs.add(new PawvetTriageChatMessageDto(newMsgId(), sender, req.body().trim(), Instant.now().toString()));
+        msgs.add(new PawvetTriageChatMessageDto(
+                newMsgId(), sender, body, Instant.now().toString(), attachmentUrl, attachmentKind));
         row.setMessagesJson(writeMessages(msgs));
         triageCaseRepository.save(row);
-        return toDto(row);
+        PawvetTriageCaseDto dto = toDto(row);
+        broadcastCaseUpdate(id, dto);
+        notifyTriageMessage(row, sender, id, body, attachmentUrl);
+        return dto;
     }
 
     @Transactional
@@ -166,18 +245,151 @@ public class PawvetTriageCaseService {
         if (row.getVet() == null || !row.getVet().getId().equals(principal.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the assigned veterinarian can close this case.");
         }
+        String summaryText = req.summary() == null || req.summary().isBlank()
+                ? "Case closed by veterinarian."
+                : req.summary().trim();
         row.setStatus(PawvetTriageCaseStatus.RESOLVED);
-        row.setSummary(req.summary().trim());
+        row.setSummary(summaryText);
         row.setResolvedAt(Instant.now());
         List<PawvetTriageChatMessageDto> msgs = readMessages(row.getMessagesJson());
         msgs.add(new PawvetTriageChatMessageDto(
                 newMsgId(),
                 "system",
-                "Case closed. Medical summary:\n\n" + req.summary().trim(),
-                Instant.now().toString()));
+                "Case closed. Medical summary:\n\n" + summaryText,
+                Instant.now().toString(),
+                null,
+                null));
         row.setMessagesJson(writeMessages(msgs));
         triageCaseRepository.save(row);
-        return toDto(row);
+        PawvetTriageCaseDto dto = toDto(row);
+        broadcastCaseUpdate(id, dto);
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PawvetTriageCaseDto> listMyResolvedArchive(SecurityUser principal) {
+        requireApprovedVet(principal);
+        return triageCaseRepository
+                .findByVet_IdAndStatusOrderByResolvedAtDesc(principal.getId(), PawvetTriageCaseStatus.RESOLVED)
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PawvetVetReportAdminDto> listVetReportsForAdmin() {
+        return pawvetVetReportRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(this::toReportDto)
+                .toList();
+    }
+
+    @Transactional
+    public void submitVetReport(SecurityUser principal, long caseId, SubmitPawvetVetReportRequest req) {
+        PawvetTriageCase row = triageCaseRepository.findById(caseId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!row.getOwner().getId().equals(principal.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the pet guardian can file this report.");
+        }
+        if (row.getVet() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This case has no assigned veterinarian.");
+        }
+        if (pawvetVetReportRepository.existsByTriageCase_IdAndReporter_Id(caseId, principal.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already submitted a report for this case.");
+        }
+        if (row.getStatus() != PawvetTriageCaseStatus.IN_PROGRESS && row.getStatus() != PawvetTriageCaseStatus.RESOLVED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This case cannot be reported.");
+        }
+        User reporter = userRepository.getReferenceById(principal.getId());
+        PawvetVetReport built = PawvetVetReport.builder()
+                .triageCase(row)
+                .vet(row.getVet())
+                .reporter(reporter)
+                .reason(req.reason().trim())
+                .build();
+        pawvetVetReportRepository.save(built);
+        appNotificationService.publishToAdmins(
+                AppNotificationKind.ADMIN_PAWVET_VET_REPORT,
+                "PawVet veterinarian report",
+                String.format(
+                        "%s reported veterinarian %s (case #%d, %s).",
+                        principal.getUser().getDisplayName(),
+                        row.getVet().getDisplayName(),
+                        row.getId(),
+                        row.getCatName()),
+                "/adopt/admin/pawvet-reports");
+    }
+
+    private void notifyTriageMessage(PawvetTriageCase row, String sender, long caseId, String body, String attachmentUrl) {
+        String preview;
+        if (body != null && !body.isEmpty()) {
+            preview = body;
+            if (preview.length() > 160) {
+                preview = preview.substring(0, 157) + "…";
+            }
+        } else if (attachmentUrl != null) {
+            preview = "Sent an attachment";
+        } else {
+            preview = "New activity";
+        }
+        if ("vet".equals(sender)) {
+            appNotificationService.publishWithInboxNudge(
+                    row.getOwner().getId(),
+                    AppNotificationKind.PAWVET_TRIAGE_MESSAGE,
+                    "New message in your PawVet case",
+                    preview,
+                    "/pawvet/case/" + caseId,
+                    "message",
+                    row.getVet() != null ? row.getVet().getAvatarUrl() : null);
+            return;
+        }
+        if ("user".equals(sender) && row.getVet() != null) {
+            appNotificationService.publishWithInboxNudge(
+                    row.getVet().getId(),
+                    AppNotificationKind.PAWVET_TRIAGE_MESSAGE,
+                    "New message from pet guardian",
+                    preview,
+                    "/pawvet/case/" + caseId,
+                    "message",
+                    row.getOwner().getAvatarUrl());
+        }
+    }
+
+    private PawvetVetReportAdminDto toReportDto(PawvetVetReport r) {
+        PawvetTriageCase c = r.getTriageCase();
+        User v = r.getVet();
+        User rep = r.getReporter();
+        return new PawvetVetReportAdminDto(
+                r.getId(),
+                c.getId(),
+                c.getCatName(),
+                v.getId(),
+                v.getDisplayName(),
+                v.getEmail(),
+                rep.getId(),
+                rep.getDisplayName(),
+                rep.getEmail(),
+                r.getReason(),
+                r.getCreatedAt());
+    }
+
+    private void broadcastCaseUpdate(long caseId, PawvetTriageCaseDto dto) {
+        messagingTemplate.convertAndSend("/topic/pawvet.triage." + caseId, dto);
+    }
+
+    private static String normalizeAttachmentKind(String kind, String url) {
+        if (kind != null && !kind.isBlank()) {
+            String k = kind.trim().toLowerCase();
+            if ("image".equals(k) || "pdf".equals(k)) {
+                return k;
+            }
+        }
+        if (url == null) {
+            return null;
+        }
+        String u = url.toLowerCase();
+        if (u.endsWith(".pdf") || u.contains(".pdf?")) {
+            return "pdf";
+        }
+        return "image";
     }
 
     private void requireCanFileCase(SecurityUser principal) {
@@ -271,7 +483,26 @@ public class PawvetTriageCaseService {
                 String sender = String.valueOf(m.getOrDefault("sender", "system"));
                 String body = String.valueOf(m.getOrDefault("body", ""));
                 String at = String.valueOf(m.getOrDefault("at", Instant.now().toString()));
-                out.add(new PawvetTriageChatMessageDto(id, sender, body, at));
+                Object au = m.get("attachmentUrl");
+                String attUrl = null;
+                if (au != null) {
+                    String s = String.valueOf(au).trim();
+                    if (!s.isEmpty() && !"null".equalsIgnoreCase(s)) {
+                        attUrl = s;
+                    }
+                }
+                Object ak = m.get("attachmentKind");
+                String attKind = null;
+                if (ak != null) {
+                    String s = String.valueOf(ak).trim().toLowerCase();
+                    if ("image".equals(s) || "pdf".equals(s)) {
+                        attKind = s;
+                    }
+                }
+                if (attUrl != null && attKind == null) {
+                    attKind = normalizeAttachmentKind(null, attUrl);
+                }
+                out.add(new PawvetTriageChatMessageDto(id, sender, body, at, attUrl, attKind));
             }
             return out;
         } catch (Exception e) {

@@ -1,46 +1,46 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { BadgeCheck, FileSearch, Shield } from "lucide-react";
 import { api } from "../api/client";
 import type { ShelterDto } from "../types";
 import "../adopt/adopt.css";
 
+type Tab = "pending" | "appeals" | "approved" | "rejected";
+
 export function AdminSheltersPage() {
+  const [tab, setTab] = useState<Tab>("pending");
   const [rows, setRows] = useState<ShelterDto[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setErr(null);
     try {
-      setRows(await api<ShelterDto[]>("/api/admin/shelters/pending"));
+      if (tab === "pending") {
+        setRows(await api<ShelterDto[]>("/api/admin/shelters/pending"));
+      } else if (tab === "appeals") {
+        setRows(await api<ShelterDto[]>("/api/admin/shelters/appeals-pending"));
+      } else if (tab === "approved") {
+        setRows(await api<ShelterDto[]>("/api/admin/shelters/by-status?status=APPROVED"));
+      } else {
+        setRows(await api<ShelterDto[]>("/api/admin/shelters/by-status?status=REJECTED"));
+      }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Failed");
+      setRows([]);
     }
-  }
+  }, [tab]);
 
   useEffect(() => {
     void load();
-  }, []);
-
-  async function approve(id: number) {
-    if (!window.confirm("Approve this shelter without opening the full dossier?")) return;
-    await api(`/api/admin/shelters/${id}/approve`, { method: "POST" });
-    await load();
-  }
-
-  async function reject(id: number) {
-    if (!window.confirm("Decline this shelter application?")) return;
-    await api(`/api/admin/shelters/${id}/reject`, { method: "POST" });
-    await load();
-  }
+  }, [load]);
 
   return (
     <div className="ph-surface" style={{ padding: "clamp(1.25rem, 3vw, 2rem)", maxWidth: 720, margin: "0 auto" }}>
       <p style={{ marginBottom: "0.75rem", display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
-        <Link to="/" style={{ fontWeight: 600 }}>
-          ← Back to app
+        <Link to="/adopt" style={{ fontWeight: 600 }}>
+          ← PawAdopt home
         </Link>
-        <Link to="/admin/vet-verification" style={{ fontWeight: 600 }}>
+        <Link className="ph-btn ph-btn-ghost" to="/adopt/admin/vet-verification" style={{ fontWeight: 600 }}>
           PawVet — vet verification queue
         </Link>
       </p>
@@ -48,13 +48,35 @@ export function AdminSheltersPage() {
       <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.35rem" }}>
         <Shield size={26} strokeWidth={1.75} aria-hidden style={{ color: "var(--color-primary-dark)" }} />
         <h1 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: "clamp(1.5rem, 3vw, 1.85rem)" }}>
-          Shelter submissions
+          Shelter administration
         </h1>
       </div>
-      <p style={{ color: "var(--color-muted)", lineHeight: 1.65, margin: "0 0 1.75rem" }}>
-        Submitted dossiers appear first (oldest first). Some rows may be <strong>legacy pending</strong> without a
-        dossier timestamp—still review before approving. Use <em>Review application</em> for the full file.
+      <p style={{ color: "var(--color-muted)", lineHeight: 1.65, margin: "0 0 1rem" }}>
+        Review new dossiers, appeals after a rejection, or browse approved and declined shelters. Use{" "}
+        <em>Review application</em> for the full file and adoption listings tied to a shelter.
       </p>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", marginBottom: "1.25rem" }}>
+        {(
+          [
+            ["pending", "Pending queue"],
+            ["appeals", "Appeals"],
+            ["approved", "Approved"],
+            ["rejected", "Rejected"],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            className="ph-btn ph-btn-ghost"
+            style={{ fontWeight: tab === k ? 700 : 500 }}
+            data-active={tab === k}
+            onClick={() => setTab(k)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {err && (
         <p style={{ color: "#b42318", marginBottom: "1rem" }} role="alert">
@@ -65,10 +87,12 @@ export function AdminSheltersPage() {
       {rows.length === 0 && !err && (
         <div className="adopt-gate" style={{ textAlign: "center" }}>
           <BadgeCheck size={32} strokeWidth={1.75} aria-hidden style={{ color: "#2d6a4f", marginBottom: "0.5rem" }} />
-          <h2 style={{ margin: "0 0 0.35rem" }}>No submissions in queue</h2>
+          <h2 style={{ margin: "0 0 0.35rem" }}>Nothing here</h2>
           <p style={{ margin: 0, color: "var(--color-muted)", lineHeight: 1.55 }}>
-            When new shelters submit a complete dossier, they will show up here. If you use seed data, pending shelters
-            without a dossier timestamp may still appear for approval.
+            {tab === "pending" && "No pending submissions in this view."}
+            {tab === "appeals" && "No shelter appeals awaiting a decision."}
+            {tab === "approved" && "No approved shelter rows returned."}
+            {tab === "rejected" && "No rejected shelter rows returned."}
           </p>
         </div>
       )}
@@ -79,6 +103,20 @@ export function AdminSheltersPage() {
             <h3 style={{ marginTop: 0 }}>{s.name}</h3>
             <div className="admin-shelter-meta">
               Owner user #{s.ownerUserId}
+              <br />
+              Status: <strong>{s.status}</strong>
+              {s.appealState ? (
+                <>
+                  <br />
+                  Appeal: <strong>{s.appealState}</strong>
+                  {s.appealSubmittedAt ? (
+                    <>
+                      <br />
+                      Submitted: {new Date(s.appealSubmittedAt).toLocaleString()}
+                    </>
+                  ) : null}
+                </>
+              ) : null}
               <br />
               {[s.city, s.region].filter(Boolean).join(", ") || "Location not set"}
               <br />
@@ -92,19 +130,47 @@ export function AdminSheltersPage() {
             </div>
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.35rem" }}>
               <Link
-                to={`/admin/shelters/${s.id}`}
+                to={`/adopt/admin/shelters/${s.id}`}
                 className="ph-btn ph-btn-primary"
                 style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
               >
                 <FileSearch size={16} aria-hidden />
                 Review application
               </Link>
-              <button type="button" className="ph-btn ph-btn-ghost" onClick={() => void approve(s.id)}>
-                Quick approve
-              </button>
-              <button type="button" className="ph-btn ph-btn-ghost" onClick={() => void reject(s.id)}>
-                Quick decline
-              </button>
+              {tab === "pending" && s.status === "PENDING" && (
+                <>
+                  <button
+                    type="button"
+                    className="ph-btn ph-btn-ghost"
+                    onClick={() => {
+                      if (!window.confirm("Approve this shelter without opening the full dossier?")) return;
+                      void (async () => {
+                        await api(`/api/admin/shelters/${s.id}/approve`, { method: "POST" });
+                        await load();
+                      })();
+                    }}
+                  >
+                    Quick approve
+                  </button>
+                  <button
+                    type="button"
+                    className="ph-btn ph-btn-ghost"
+                    onClick={() => {
+                      if (!window.confirm("Decline this shelter application?")) return;
+                      const reason = window.prompt("Optional note to the shelter (or leave blank):") ?? "";
+                      void (async () => {
+                        await api(`/api/admin/shelters/${s.id}/reject`, {
+                          method: "POST",
+                          body: reason.trim() ? JSON.stringify({ reason: reason.trim() }) : undefined,
+                        });
+                        await load();
+                      })();
+                    }}
+                  >
+                    Quick decline
+                  </button>
+                </>
+              )}
             </div>
           </li>
         ))}

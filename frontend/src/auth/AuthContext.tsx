@@ -18,6 +18,9 @@ export type AuthUser = {
   /** Set for veterinarian accounts from the server */
   vetVerificationStatus?: VetVerificationStatusApi | null;
   vetRejectionReason?: string | null;
+  vetApplicationId?: number | null;
+  /** PENDING / REJECTED_FINAL from appeal workflow */
+  vetAppealState?: string | null;
 };
 
 type RegisterResult =
@@ -62,6 +65,8 @@ type AuthResponse = {
   emailVerified?: boolean;
   vetVerificationStatus?: string | null;
   vetRejectionReason?: string | null;
+  vetApplicationId?: number | null;
+  vetAppealState?: string | null;
 };
 
 function normalizeVetVerificationStatus(raw: string | null | undefined): "PENDING" | "APPROVED" | "REJECTED" | null {
@@ -85,10 +90,12 @@ function mapUser(r: AuthResponse): AuthUser {
     profileCity: r.profileCity,
     profileRegion: r.profileRegion,
     profileBio: r.profileBio,
-    emailVerified: r.emailVerified ?? true,
+    emailVerified: r.emailVerified ?? false,
     vetVerificationStatus: r.accountType === "VET" ? (vetOk ? vs : "PENDING") : null,
     vetRejectionReason:
       r.accountType === "VET" && vetOk && vs === "REJECTED" ? (r.vetRejectionReason ?? null) : null,
+    vetApplicationId: r.accountType === "VET" ? (r.vetApplicationId ?? null) : null,
+    vetAppealState: r.accountType === "VET" ? (r.vetAppealState ?? null) : null,
   };
 }
 

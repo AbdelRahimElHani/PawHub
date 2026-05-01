@@ -8,6 +8,7 @@ public record VetLicenseApplicationAdminDto(
         Long userId,
         String email,
         String displayName,
+        String avatarUrl,
         String licenseNumber,
         String university,
         Integer yearsExperience,
@@ -16,4 +17,7 @@ public record VetLicenseApplicationAdminDto(
         String status,
         String rejectionReason,
         Instant createdAt,
-        List<String> supportingDocumentUrls) {}
+        List<String> supportingDocumentUrls,
+        String appealMessage,
+        Instant appealSubmittedAt,
+        String appealState) {}

@@ -128,6 +128,32 @@ public class PawvetConsultationReviewService {
         return out;
     }
 
+    /**
+     * Downgrades a veterinarian account and marks their license application rejected so they cannot claim triage
+     * cases until they re-credential.
+     */
+    @Transactional
+    public void revokeVeterinarianCredentials(long vetUserId) {
+        User vet = userRepository
+                .findById(vetUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found."));
+        if (vet.getAccountType() != UserAccountType.VET) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "That account is not registered as a veterinarian.");
+        }
+            vet.setAccountType(UserAccountType.MEMBER);
+        userRepository.save(vet);
+        vetLicenseApplicationRepository
+                .findByUser_Id(vetUserId)
+                .ifPresent(app -> {
+                    app.setStatus(VetVerificationStatus.REJECTED);
+                    app.setRejectionReason("Verification revoked by administrator.");
+                    app.setAppealMessage(null);
+                    app.setAppealSubmittedAt(null);
+                    app.setAppealState(null);
+                    vetLicenseApplicationRepository.save(app);
+                });
+    }
+
     private PawVetConsultationReviewDto toDto(PawvetConsultationReview r) {
         User owner = r.getOwner();
         return new PawVetConsultationReviewDto(

@@ -35,6 +35,10 @@ public class HubForumRoom {
     @JoinColumn(name = "created_by_user_id")
     private User createdBy;
 
+    @Column(name = "admin_only_posts", nullable = false)
+    @Builder.Default
+    private boolean adminOnlyPosts = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

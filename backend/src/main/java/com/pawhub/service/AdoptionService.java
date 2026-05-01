@@ -1,20 +1,24 @@
 package com.pawhub.service;
 
+import com.pawhub.config.PawhubProperties;
 import com.pawhub.domain.*;
 import com.pawhub.repository.*;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.AdoptionListingDto;
-import java.util.Optional;
 import com.pawhub.web.dto.AdoptionListingUpsertRequest;
+import com.pawhub.web.dto.MessageDto;
 import com.pawhub.web.dto.ShelterDocumentKind;
 import com.pawhub.web.dto.ShelterDto;
 import com.pawhub.web.dto.ShelterDtoMapper;
 import com.pawhub.web.dto.ShelterProfileUpdateRequest;
 import com.pawhub.web.dto.ShelterUpsertRequest;
+import com.pawhub.web.dto.SubmitShelterAppealRequest;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,6 +35,10 @@ public class AdoptionService {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final AppNotificationService appNotificationService;
+    private final MessageRepository messageRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final PawhubProperties pawhubProperties;
+    private final AiCatCheckService aiCatCheckService;
 
     @Transactional
     public ShelterDto applyShelter(ShelterUpsertRequest req, SecurityUser principal) {
@@ -53,7 +61,7 @@ public class AdoptionService {
                 AppNotificationKind.ADMIN_SHELTER_REGISTERED,
                 "New shelter application",
                 String.format("%s registered a shelter profile (pending review).", s.getName()),
-                "/admin/shelters");
+                "/adopt/admin/shelters");
         return ShelterDtoMapper.fromEntity(s);
     }
 
@@ -78,7 +86,7 @@ public class AdoptionService {
                         String.format(
                                 "%s submitted a complete shelter dossier. It is ready for admin verification.",
                                 s.getName()),
-                        "/admin/shelters/" + s.getId());
+                        "/adopt/admin/shelters/" + s.getId());
             }
         }
         return ShelterDtoMapper.fromEntity(s);
@@ -104,9 +112,13 @@ public class AdoptionService {
     }
 
     @Transactional(readOnly = true)
-    public AdoptionListingDto getListing(Long id) {
+    public AdoptionListingDto getListing(Long id, SecurityUser principal) {
         AdoptionListing l = adoptionListingRepository.findById(id).orElseThrow();
-        if (l.getShelter().getStatus() != ShelterStatus.APPROVED || l.getStatus() != ListingStatus.ACTIVE) {
+        boolean shelterOwner = principal != null && isShelterOwnerOfListing(principal, l);
+        if (l.getShelter().getStatus() != ShelterStatus.APPROVED && !shelterOwner) {
+            throw new IllegalStateException("Listing not available");
+        }
+        if (l.getStatus() != ListingStatus.ACTIVE && !shelterOwner) {
             throw new IllegalStateException("Listing not available");
         }
         return toAdoptionDto(l);
@@ -125,6 +137,16 @@ public class AdoptionService {
         requireVerifiedShelterPublisher(principal);
         Shelter s = shelterRepository.findByUserId(principal.getId()).orElseThrow();
         return adoptionListingRepository.findByShelterIdAndStatusOrderByCreatedAtDesc(s.getId(), ListingStatus.ACTIVE)
+                .stream()
+                .map(this::toAdoptionDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdoptionListingDto> mineArchiveListings(SecurityUser principal) {
+        requireVerifiedShelterPublisher(principal);
+        Shelter s = shelterRepository.findByUserId(principal.getId()).orElseThrow();
+        return adoptionListingRepository.findByShelterIdAndStatusOrderByCreatedAtDesc(s.getId(), ListingStatus.SOLD)
                 .stream()
                 .map(this::toAdoptionDto)
                 .toList();
@@ -167,6 +189,16 @@ public class AdoptionService {
         if (!l.getShelter().getUser().getId().equals(principal.getId())) {
             throw new IllegalArgumentException("Not your listing");
         }
+        if (l.getStatus() != ListingStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot update a listing that is no longer active.");
+        }
+        if (aiCatCheckService.isCatCheckEnabled()) {
+            com.pawhub.web.dto.CatCheckResponse cat =
+                    aiCatCheckService.verifyAdoptionListingCatPhoto(photo.getBytes(), photo.getContentType());
+            if (!cat.isCatRelated()) {
+                throw new AiCatCheckService.CatCheckFailedException(cat.reason());
+            }
+        }
         l.setPhotoUrl(fileStorageService.store(photo, "adopt"));
         adoptionListingRepository.save(l);
         return toAdoptionDto(l);
@@ -174,8 +206,15 @@ public class AdoptionService {
 
     @Transactional
     public Long inquire(Long listingId, SecurityUser principal) {
+        if (principal.getUser().getRole() == UserRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Admin accounts cannot message shelters from Paw Adopt.");
+        }
         AdoptionListing listing = adoptionListingRepository.findById(listingId).orElseThrow();
         if (listing.getShelter().getStatus() != ShelterStatus.APPROVED) {
+            throw new IllegalStateException("Listing not available");
+        }
+        if (listing.getStatus() != ListingStatus.ACTIVE) {
             throw new IllegalStateException("Listing not available");
         }
         User shelterOwner = listing.getShelter().getUser();
@@ -185,7 +224,9 @@ public class AdoptionService {
         Optional<AdoptionInquiry> existing =
                 adoptionInquiryRepository.findByAdoptionListingIdAndUserId(listingId, principal.getId());
         if (existing.isPresent()) {
-            return existing.get().getThread().getId();
+            ChatThread t = existing.get().getThread();
+            ensureAdoptionIntroMessage(listing, userRepository.getReferenceById(principal.getId()), shelterOwner, t);
+            return t.getId();
         }
         User inquirer = userRepository.getReferenceById(principal.getId());
         User p1 = inquirer.getId() < shelterOwner.getId() ? inquirer : shelterOwner;
@@ -204,6 +245,7 @@ public class AdoptionService {
         adoptionInquiryRepository.save(inq);
         thread.setAdoptionInquiryId(inq.getId());
         chatThreadRepository.save(thread);
+        ensureAdoptionIntroMessage(listing, inquirer, shelterOwner, thread);
         String petLabel = listing.getPetName() != null && !listing.getPetName().isBlank()
                 ? "'" + listing.getPetName().trim() + "'"
                 : "\"" + listing.getTitle().trim() + "\"";
@@ -211,7 +253,10 @@ public class AdoptionService {
                 shelterOwner.getId(),
                 AppNotificationKind.ADOPTION_INQUIRY,
                 "New adoption inquiry",
-                String.format("New inquiry for %s from %s.", petLabel, inquirer.getDisplayName()),
+                String.format(
+                        "%s is asking about adopting %s and opened a message thread.",
+                        inquirer.getDisplayName(),
+                        petLabel),
                 "/messages/" + thread.getId(),
                 "message",
                 inquirer.getAvatarUrl());
@@ -226,6 +271,127 @@ public class AdoptionService {
                 "shelter",
                 null);
         return inq.getThread().getId();
+    }
+
+    @Transactional
+    public AdoptionListingDto markListingAdopted(long listingId, SecurityUser principal) {
+        requireVerifiedShelterPublisher(principal);
+        Shelter s = shelterRepository.findByUserId(principal.getId()).orElseThrow();
+        AdoptionListing l = adoptionListingRepository.findById(listingId).orElseThrow();
+        if (!l.getShelter().getId().equals(s.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your listing");
+        }
+        if (l.getStatus() != ListingStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only active listings can be marked adopted.");
+        }
+        l.setStatus(ListingStatus.SOLD);
+        adoptionListingRepository.save(l);
+        return toAdoptionDto(l);
+    }
+
+    @Transactional
+    public void deleteAdoptedListing(long listingId, SecurityUser principal) {
+        requireVerifiedShelterPublisher(principal);
+        Shelter s = shelterRepository.findByUserId(principal.getId()).orElseThrow();
+        AdoptionListing l = adoptionListingRepository.findById(listingId).orElseThrow();
+        if (!l.getShelter().getId().equals(s.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your listing");
+        }
+        if (l.getStatus() != ListingStatus.SOLD) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Only adopted listings can be removed. Mark the cat as adopted first, then delete.");
+        }
+        adoptionListingRepository.delete(l);
+    }
+
+    @Transactional
+    public ShelterDto submitShelterAppeal(SubmitShelterAppealRequest req, SecurityUser principal) {
+        requireShelterAccount(principal);
+        Shelter s = shelterRepository.findByUserId(principal.getId()).orElseThrow();
+        if (s.getStatus() != ShelterStatus.REJECTED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only rejected applications can submit an appeal.");
+        }
+        if (s.getAppealState() == ShelterAppealState.PENDING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have a pending appeal.");
+        }
+        if (s.getAppealState() == ShelterAppealState.REJECTED_FINAL) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Appeals are not available for this application.");
+        }
+        s.setAppealMessage(req.message().trim());
+        s.setAppealSubmittedAt(Instant.now());
+        s.setAppealState(ShelterAppealState.PENDING);
+        shelterRepository.save(s);
+        appNotificationService.publishToAdmins(
+                AppNotificationKind.ADMIN_SHELTER_APPEAL_PENDING,
+                "Shelter appeal submitted",
+                String.format("%s submitted an appeal after rejection. Review in the shelter queue.", s.getName()),
+                "/adopt/admin/shelters/" + s.getId());
+        return ShelterDtoMapper.fromEntity(s);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdoptionListingDto> adminListAdoptionListingsForShelter(long shelterId) {
+        if (!shelterRepository.existsById(shelterId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shelter not found: " + shelterId);
+        }
+        return adoptionListingRepository.findByShelter_IdOrderByCreatedAtDesc(shelterId).stream()
+                .map(this::toAdoptionDto)
+                .toList();
+    }
+
+    @Transactional
+    public void adminRemoveAdoptionListing(long listingId) {
+        AdoptionListing l = adoptionListingRepository.findById(listingId).orElseThrow();
+        User shelterUser = l.getShelter().getUser();
+        String petLabel = l.getPetName() != null && !l.getPetName().isBlank()
+                ? "'" + l.getPetName().trim().replace("\"", "'") + "'"
+                : "\"" + l.getTitle().trim().replace("\"", "'") + "\"";
+        adoptionListingRepository.delete(l);
+        appNotificationService.publish(
+                shelterUser.getId(),
+                AppNotificationKind.ADOPTION_LISTING_REMOVED_ADMIN,
+                "Adoption listing removed",
+                String.format(
+                        "An administrator removed your adoption listing for %s from Paw Adopt.",
+                        petLabel),
+                "/adopt/shelter",
+                "shelter",
+                null);
+    }
+
+    private void ensureAdoptionIntroMessage(
+            AdoptionListing listing, User inquirer, User shelterOwner, ChatThread thread) {
+        if (messageRepository.countByThreadId(thread.getId()) > 0) {
+            return;
+        }
+        String listingUrl = pawhubProperties.adoptionListingPageUrl(listing.getId());
+        String petTitle = listing.getPetName() != null && !listing.getPetName().isBlank()
+                ? listing.getPetName().trim()
+                : listing.getTitle().trim();
+        String intro = String.format(
+                "\uD83D\uDC3E %s is asking about adopting %s and wants to learn more.\n\nView this cat: %s",
+                inquirer.getDisplayName(), petTitle, listingUrl);
+        Message msg = Message.builder()
+                .thread(thread)
+                .sender(inquirer)
+                .body(intro)
+                .build();
+        messageRepository.save(msg);
+        MessageDto dto = new MessageDto(
+                msg.getId(), inquirer.getId(), msg.getBody(), msg.getCreatedAt(), msg.getAttachmentUrl());
+        messagingTemplate.convertAndSend("/topic/threads." + thread.getId(), dto);
+    }
+
+    private boolean isShelterOwnerOfListing(SecurityUser principal, AdoptionListing l) {
+        if (principal.getUser().getAccountType() != UserAccountType.SHELTER) {
+            return false;
+        }
+        return shelterRepository
+                .findByUserId(principal.getId())
+                .map(shelter -> shelter.getId().equals(l.getShelter().getId()))
+                .orElse(false);
     }
 
     private static void applyProfileRequest(Shelter s, ShelterProfileUpdateRequest req) {
@@ -321,9 +487,10 @@ public class AdoptionService {
     }
 
     private AdoptionListingDto toAdoptionDto(AdoptionListing l) {
+        var sh = l.getShelter();
         return new AdoptionListingDto(
                 l.getId(),
-                l.getShelter().getId(),
+                sh.getId(),
                 l.getTitle(),
                 l.getPetName(),
                 l.getDescription(),
@@ -331,7 +498,9 @@ public class AdoptionService {
                 l.getAgeMonths(),
                 l.getPhotoUrl(),
                 l.getStatus().name(),
-                l.getShelter().getName());
+                sh.getName(),
+                sh.getUser().getId(),
+                sh.getUser().getAvatarUrl());
     }
 
     /**

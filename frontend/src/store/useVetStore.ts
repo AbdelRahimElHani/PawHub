@@ -27,6 +27,8 @@ export type CaseChatMessage = {
   sender: "user" | "vet" | "system";
   body: string;
   at: string;
+  attachmentUrl?: string;
+  attachmentKind?: "image" | "pdf";
 };
 
 /** Cat profile copied into the case at filing time (sanctuary cat or manual entry). */

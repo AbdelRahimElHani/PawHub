@@ -11,7 +11,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import type { MessageDto } from "../types";
 import { useNotificationStore } from "../store/useNotificationStore";
-import { createStompClient, sendChatTyping } from "./stomp";
+import { createStompClient, sendChatTyping, sendTriageTyping as stompSendTriageTyping } from "./stomp";
 
 export type ChatInboxPayload = { type: "MESSAGE"; threadId: number; message: MessageDto };
 
@@ -20,10 +20,18 @@ export type ActiveThreadHandlers = {
   onTyping: (rawBody: string) => void;
 };
 
+export type ActiveTriageCaseHandlers = {
+  onCaseUpdate: (rawBody: string) => void;
+  onTyping: (rawBody: string) => void;
+};
+
 type ChatStompContextValue = {
   /** Re-subscribe when opening a thread; pass null to clear. */
   setActiveThread: (threadId: number | null, opts: ActiveThreadHandlers | null) => void;
   sendTyping: (threadId: number, typing: boolean) => void;
+  /** PawVet triage case room — realtime messages + typing (same STOMP connection as messaging). */
+  setActiveTriageCase: (caseId: number | null, opts: ActiveTriageCaseHandlers | null) => void;
+  sendTriageTyping: (caseId: number, typing: boolean) => void;
   registerInbox: (cb: (p: ChatInboxPayload) => void) => () => void;
   connected: boolean;
 };
@@ -35,6 +43,11 @@ const noopHandlers: ActiveThreadHandlers = {
   onTyping: () => {},
 };
 
+const noopTriageHandlers: ActiveTriageCaseHandlers = {
+  onCaseUpdate: () => {},
+  onTyping: () => {},
+};
+
 export function ChatStompProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
   const clientRef = useRef<Client | null>(null);
@@ -42,8 +55,12 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
   const appNotifSubRef = useRef<{ unsubscribe: () => void } | null>(null);
   const threadSubRef = useRef<{ unsubscribe: () => void } | null>(null);
   const typingSubRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const triageSubRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const triageTypingSubRef = useRef<{ unsubscribe: () => void } | null>(null);
   const activeThreadIdRef = useRef<number | null>(null);
   const threadHandlersRef = useRef<ActiveThreadHandlers>(noopHandlers);
+  const activeTriageCaseIdRef = useRef<number | null>(null);
+  const triageHandlersRef = useRef<ActiveTriageCaseHandlers>(noopTriageHandlers);
   const inboxListenersRef = useRef<Set<(p: ChatInboxPayload) => void>>(new Set());
   const [connected, setConnected] = useState(false);
 
@@ -61,6 +78,13 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
     typingSubRef.current = null;
   }, []);
 
+  const clearTriageSubscriptions = useCallback(() => {
+    triageSubRef.current?.unsubscribe();
+    triageSubRef.current = null;
+    triageTypingSubRef.current?.unsubscribe();
+    triageTypingSubRef.current = null;
+  }, []);
+
   const attachThreadSubscriptions = useCallback((c: Client) => {
     clearThreadSubscriptions();
     const tid = activeThreadIdRef.current;
@@ -71,6 +95,22 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
     threadSubRef.current = c.subscribe(`/topic/threads.${tid}`, (msg: IMessage) => h.onMessage(msg.body));
     typingSubRef.current = c.subscribe(`/topic/threads.${tid}.typing`, (msg: IMessage) => h.onTyping(msg.body));
   }, [clearThreadSubscriptions]);
+
+  const attachTriageSubscriptions = useCallback(
+    (c: Client) => {
+      clearTriageSubscriptions();
+      const cid = activeTriageCaseIdRef.current;
+      if (cid == null || !Number.isFinite(cid) || cid <= 0) {
+        return;
+      }
+      const h = triageHandlersRef.current;
+      triageSubRef.current = c.subscribe(`/topic/pawvet.triage.${cid}`, (msg: IMessage) => h.onCaseUpdate(msg.body));
+      triageTypingSubRef.current = c.subscribe(`/topic/pawvet.triage.${cid}.typing`, (msg: IMessage) =>
+        h.onTyping(msg.body),
+      );
+    },
+    [clearTriageSubscriptions],
+  );
 
   const setActiveThread = useCallback(
     (threadId: number | null, opts: ActiveThreadHandlers | null) => {
@@ -93,10 +133,32 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setActiveTriageCase = useCallback(
+    (caseId: number | null, opts: ActiveTriageCaseHandlers | null) => {
+      activeTriageCaseIdRef.current = caseId;
+      triageHandlersRef.current = opts ?? noopTriageHandlers;
+      const c = clientRef.current;
+      if (c?.connected) {
+        attachTriageSubscriptions(c);
+      } else {
+        clearTriageSubscriptions();
+      }
+    },
+    [attachTriageSubscriptions, clearTriageSubscriptions],
+  );
+
+  const sendTriageTyping = useCallback((caseId: number, typing: boolean) => {
+    const c = clientRef.current;
+    if (c) {
+      stompSendTriageTyping(c, caseId, typing);
+    }
+  }, []);
+
   useEffect(() => {
     if (!token) {
       setConnected(false);
       clearThreadSubscriptions();
+      clearTriageSubscriptions();
       inboxSubRef.current?.unsubscribe();
       inboxSubRef.current = null;
       appNotifSubRef.current?.unsubscribe();
@@ -131,6 +193,7 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
           void useNotificationStore.getState().refreshItemsSilent();
         });
         attachThreadSubscriptions(c);
+        attachTriageSubscriptions(c);
       },
       () => {
         setConnected(false);
@@ -138,6 +201,8 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
         appNotifSubRef.current = null;
         threadSubRef.current = null;
         typingSubRef.current = null;
+        triageSubRef.current = null;
+        triageTypingSubRef.current = null;
       },
     );
     clientRef.current = client;
@@ -145,6 +210,7 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
     return () => {
       setConnected(false);
       clearThreadSubscriptions();
+      clearTriageSubscriptions();
       inboxSubRef.current?.unsubscribe();
       inboxSubRef.current = null;
       appNotifSubRef.current?.unsubscribe();
@@ -152,11 +218,13 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
       client.deactivate();
       clientRef.current = null;
     };
-  }, [token, attachThreadSubscriptions, clearThreadSubscriptions]);
+  }, [token, attachThreadSubscriptions, attachTriageSubscriptions, clearThreadSubscriptions, clearTriageSubscriptions]);
 
   const value: ChatStompContextValue = {
     setActiveThread,
     sendTyping,
+    setActiveTriageCase,
+    sendTriageTyping,
     registerInbox,
     connected,
   };

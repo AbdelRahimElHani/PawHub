@@ -21,12 +21,26 @@ public enum AppNotificationKind {
     MARKET_LISTING_REMOVED_ADMIN,
     /** Shelter’s adoption listing is live on PawHub. */
     ADOPTION_LISTING_PUBLISHED,
+    /** An adoption listing was removed by an administrator. */
+    ADOPTION_LISTING_REMOVED_ADMIN,
+    /** Shelter verification was revoked by an administrator. */
+    SHELTER_VERIFICATION_REVOKED,
+    /** Admin queue: shelter submitted an appeal after rejection. */
+    ADMIN_SHELTER_APPEAL_PENDING,
     /** Guardian’s inquiry was delivered to the shelter (confirmation). */
     ADOPTION_INQUIRY_SUBMITTED,
     /** Shelter application was not approved. */
     SHELTER_APPLICATION_REJECTED,
     /** New PawVet triage case open for claim (notified to approved veterinarians). */
     PAWVET_NEW_TRIAGE_CASE,
+    /** Guardian: a vet claimed your triage case. */
+    PAWVET_CASE_CLAIMED,
+    /** New message in an active PawVet triage consultation (owner or assigned vet). */
+    PAWVET_TRIAGE_MESSAGE,
+    /** Admin: user reported a veterinarian from a triage case. */
+    ADMIN_PAWVET_VET_REPORT,
+    /** Admin: veterinarian submitted an appeal after rejection. */
+    ADMIN_VET_LICENSE_APPEAL_PENDING,
     FORUM_REPLY,
     /** Someone replied directly to your forum comment. */
     FORUM_COMMENT_REPLY,
