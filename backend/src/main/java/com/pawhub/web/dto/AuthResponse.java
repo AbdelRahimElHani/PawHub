@@ -19,4 +19,6 @@ public record AuthResponse(
         /** Database id of vet license application when accountType is VET */
         Long vetApplicationId,
         /** PENDING / REJECTED_FINAL when accountType is VET; otherwise null */
-        String vetAppealState) {}
+        String vetAppealState,
+        /** True when the user cannot buy or sell on Paw Market. */
+        boolean pawMarketBanned) {}

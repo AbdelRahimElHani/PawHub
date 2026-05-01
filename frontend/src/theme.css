@@ -1735,7 +1735,10 @@ a:hover {
 /* ── Layout shell ────────────────────────────────────────────────────── */
 .ph-msg-layout {
   display: flex;
+  align-items: stretch;
   min-height: calc(100vh - 8rem);
+  height: calc(100vh - 8rem);
+  max-height: calc(100vh - 8rem);
   max-width: 1060px;
   margin: 0 auto;
   border-radius: 14px;
@@ -2056,6 +2059,8 @@ a:hover {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: #fff;
 }
 
@@ -2067,6 +2072,7 @@ a:hover {
   border-bottom: 1px solid #ebebeb;
   background: #fff;
   flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .ph-msg-main-head-left {
@@ -2147,12 +2153,15 @@ a:hover {
 /* message scroll area */
 .ph-msg-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.25rem 1.25rem 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* bubbles */
@@ -2431,6 +2440,7 @@ a:hover {
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
   padding: 0.65rem 1rem;
   background: linear-gradient(105deg, rgba(61, 139, 122, 0.1), rgba(61, 139, 122, 0.04));
   border-bottom: 1px solid rgba(61, 139, 122, 0.18);
@@ -2472,6 +2482,7 @@ a:hover {
 
 /* ── Composer ────────────────────────────────────────────────────────── */
 .ph-msg-compose {
+  flex-shrink: 0;
   border-top: 1px solid #ebebeb;
   padding: 0.75rem 1rem;
   background: #fff;

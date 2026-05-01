@@ -364,7 +364,8 @@ public class AuthService {
                 vetStatus,
                 vetReject,
                 vetAppId,
-                vetAppeal);
+                vetAppeal,
+                user.isPawMarketBanned());
     }
 
     private static String trimToNull(String s) {

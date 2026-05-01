@@ -150,6 +150,7 @@ public class AppNotificationService {
                     PAWVET_CASE_CLAIMED,
                     ADMIN_VET_LICENSE_APPEAL_PENDING -> "vet";
             case MARKET_ORDER_BUYER, MARKET_ORDER_SELLER, MARKET_LISTING_REMOVED_ADMIN -> "package";
+            case ADMIN_PAW_MARKET_USER_WARNED, ADMIN_PAW_MARKET_USER_BANNED -> "urgent";
             case FORUM_REPLY, FORUM_COMMENT_REPLY -> "forum";
             case FORUM_SCORE_MILESTONE -> "forum";
             case SYSTEM_ANNOUNCEMENT -> "system";

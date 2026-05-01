@@ -1,6 +1,8 @@
 import type { ReactElement } from "react";
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
+import { RequireNonAdminMyCats } from "./auth/RequireNonAdminMyCats";
+import { RequireNonAdminMarket } from "./auth/RequireNonAdminMarket";
 import { Layout } from "./shell/Layout";
 import { GuestLanding, Home } from "./pages/Home";
 import { Login } from "./pages/Login";
@@ -121,16 +123,38 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route path="/cats" element={<CatsPage />} />
-        <Route path="/cats/:catId" element={<CatDetailPage />} />
+        <Route
+          path="/cats"
+          element={
+            <RequireNonAdminMyCats>
+              <CatsPage />
+            </RequireNonAdminMyCats>
+          }
+        />
+        <Route
+          path="/cats/:catId"
+          element={
+            <RequireNonAdminMyCats>
+              <CatDetailPage />
+            </RequireNonAdminMyCats>
+          }
+        />
         <Route path="/pawmatch" element={<PawMatchPage />} />
         <Route path="/matches" element={<MatchesPage />} />
         <Route path="/market" element={<MarketHubLayout />}>
           <Route index element={<MarketBrowsePage />} />
           <Route path="selling" element={<MarketMyListingsPage />} />
         </Route>
-        <Route path="/market/new" element={<MarketNewPage />} />
-        <Route path="/market/:id/edit" element={<MarketEditPage />} />
+        <Route path="/market/new" element={
+          <RequireNonAdminMarket>
+            <MarketNewPage />
+          </RequireNonAdminMarket>
+        } />
+        <Route path="/market/:id/edit" element={
+          <RequireNonAdminMarket>
+            <MarketEditPage />
+          </RequireNonAdminMarket>
+        } />
         <Route path="/market/:id" element={<MarketDetailPage />} />
         <Route path="/adopt" element={<AdoptShell />}>
           <Route index element={<AdoptPage />} />

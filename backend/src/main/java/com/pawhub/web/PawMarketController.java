@@ -1,5 +1,6 @@
 package com.pawhub.web;
 
+import com.pawhub.domain.UserRole;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.service.AiCatCheckService;
 import com.pawhub.service.PawMarketService;
@@ -53,7 +54,8 @@ public class PawMarketController {
             @RequestParam(required = false) String city,
             @RequestParam(required = false) String region,
             @AuthenticationPrincipal SecurityUser user) {
-        Long excludeSellerId = user != null ? user.getId() : null;
+        Long excludeSellerId =
+                user != null && user.getUser().getRole() != UserRole.ADMIN ? user.getId() : null;
         return pawMarketService.browse(category, isFree, city, region, excludeSellerId);
     }
 
@@ -124,6 +126,32 @@ public class PawMarketController {
         } catch (IllegalStateException | IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
+    }
+
+    @GetMapping("/orders/thread/{threadId}")
+    public PawMarketOrderThreadDto orderForThread(
+            @PathVariable Long threadId, @AuthenticationPrincipal SecurityUser user) {
+        return pawMarketService.getMarketOrderForThread(threadId, user);
+    }
+
+    @PostMapping("/orders/{orderId}/confirm")
+    public PawMarketOrderThreadDto confirmOrder(
+            @PathVariable Long orderId, @AuthenticationPrincipal SecurityUser user) {
+        return pawMarketService.sellerConfirmOrder(orderId, user);
+    }
+
+    @PostMapping("/orders/{orderId}/decline")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void declineOrder(@PathVariable Long orderId, @AuthenticationPrincipal SecurityUser user) {
+        pawMarketService.sellerDeclineOrder(orderId, user);
+    }
+
+    @PatchMapping("/orders/{orderId}/quantity")
+    public PawMarketOrderThreadDto patchOrderQuantity(
+            @PathVariable Long orderId,
+            @Valid @RequestBody PawOrderQuantityPatchRequest body,
+            @AuthenticationPrincipal SecurityUser user) {
+        return pawMarketService.sellerUpdateOrderQuantity(orderId, body.quantity(), user);
     }
 
     // ── Reviews ───────────────────────────────────────────────────────────

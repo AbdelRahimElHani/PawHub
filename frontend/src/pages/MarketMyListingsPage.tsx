@@ -1,7 +1,8 @@
 import { BadgeCheck, Edit3, ExternalLink, Gift, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { HubConfirmDialog } from "../hub/components/HubConfirmDialog";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
 import type { PawListingDto } from "../types";
@@ -18,6 +19,8 @@ function StatusPill({ status }: { status: PawListingDto["pawStatus"] }) {
 }
 
 export function MarketMyListingsPage() {
+  const { user } = useAuth();
+  const nav = useNavigate();
   const [rows, setRows] = useState<PawListingDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -25,6 +28,12 @@ export function MarketMyListingsPage() {
   const [markSoldId, setMarkSoldId] = useState<number | null>(null);
   const [markSoldLoading, setMarkSoldLoading] = useState(false);
   const { listingUnreadCount } = useThreadNotifications();
+
+  useEffect(() => {
+    if (user?.role === "ADMIN") {
+      nav("/market", { replace: true });
+    }
+  }, [user?.role, nav]);
 
   const load = useCallback(() => {
     setLoading(true);

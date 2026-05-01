@@ -6,8 +6,10 @@ import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.SwipeRequest;
 import com.pawhub.web.dto.SwipeResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,11 @@ public class SwipeService {
         Cat target = catRepository.findById(req.targetCatId()).orElseThrow();
         if (myCat.getId().equals(target.getId())) {
             throw new IllegalArgumentException("Cannot swipe yourself");
+        }
+        if (!pawMatchPreferencesAllow(myCat, target)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "These cats cannot interact on PawMatch (preferences or same-gender rule).");
         }
         if (swipeRepository.findByCatIdAndTargetCatId(myCat.getId(), target.getId()).isPresent()) {
             throw new IllegalArgumentException("Already swiped");
@@ -103,10 +110,22 @@ public class SwipeService {
 
     /**
      * Tinder-style reciprocal filters: both cats must fit each other's gender, age, behavior, and breed
-     * preferences.
+     * preferences. Additionally, when both cats have a recorded {@link CatGender}, same-gender pairs are
+     * excluded (they never see each other and cannot swipe).
      */
     private boolean pawMatchPreferencesAllow(Cat viewer, Cat target) {
+        if (sameGenderExcluded(viewer, target)) {
+            return false;
+        }
         return preferenceAllows(viewer, target) && preferenceAllows(target, viewer);
+    }
+
+    /** True when both genders are known and equal — those cats never appear in each other's deck. */
+    private static boolean sameGenderExcluded(Cat a, Cat b) {
+        if (a.getGender() == null || b.getGender() == null) {
+            return false;
+        }
+        return a.getGender() == b.getGender();
     }
 
     private boolean preferenceAllows(Cat viewer, Cat target) {

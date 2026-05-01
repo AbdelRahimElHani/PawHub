@@ -12,6 +12,7 @@ import com.pawhub.repository.UserRepository;
 import com.pawhub.security.SecurityUser;
 import com.pawhub.web.dto.CatDto;
 import com.pawhub.web.dto.CatUpsertRequest;
+import com.pawhub.web.dto.CatVisionProfileDto;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class CatService {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final AppNotificationService appNotificationService;
+    private final CatVisionService catVisionService;
 
     @Transactional(readOnly = true)
     public List<CatDto> mine(SecurityUser principal) {
@@ -112,6 +114,15 @@ public class CatService {
     public CatDto addPhoto(Long catId, MultipartFile file, SecurityUser principal) throws Exception {
         Cat cat = catRepository.findById(catId).orElseThrow();
         assertOwner(cat, principal);
+        byte[] bytes = file.getBytes();
+        CatVisionProfileDto vision = catVisionService.analyzePhoto(bytes, file.getContentType());
+        if (!vision.isDomesticCat()) {
+            String note = vision.notes() != null && !vision.notes().isBlank() ? vision.notes().trim() : "";
+            String suffix = note.isEmpty() ? "" : " " + note;
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "This photo must clearly show a domestic cat as the main subject." + suffix);
+        }
         String url = fileStorageService.store(file, "cat");
         int order = cat.getPhotos().stream().mapToInt(CatPhoto::getSortOrder).max().orElse(-1) + 1;
         CatPhoto photo = CatPhoto.builder().cat(cat).url(url).sortOrder(order).build();

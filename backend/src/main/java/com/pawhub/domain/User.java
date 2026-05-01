@@ -74,6 +74,11 @@ public class User {
     @Builder.Default
     private UserRole role = UserRole.USER;
 
+    @Column(name = "paw_market_banned", nullable = false)
+    @JdbcTypeCode(SqlTypes.TINYINT)
+    @Builder.Default
+    private boolean pawMarketBanned = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

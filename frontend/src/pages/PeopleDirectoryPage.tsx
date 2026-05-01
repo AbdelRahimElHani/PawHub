@@ -312,11 +312,18 @@ export function PeopleDirectoryPage() {
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <UserChip userId={d.userId} displayName={d.displayName} avatarUrl={d.avatarUrl} />
-                      <div style={{ fontSize: "0.78rem", color: "var(--color-muted)", marginTop: "0.2rem" }}>
-                        Score {d.score}
-                        {d.mutualFriendsCount > 0 ? ` · ${d.mutualFriendsCount} mutual friend${d.mutualFriendsCount !== 1 ? "s" : ""}` : null}
-                        {d.relationship === "INCOMING_PENDING" ? " · sent you a request" : null}
-                      </div>
+                      {d.mutualFriendsCount > 0 || d.relationship === "INCOMING_PENDING" ? (
+                        <div style={{ fontSize: "0.78rem", color: "var(--color-muted)", marginTop: "0.2rem" }}>
+                          {[
+                            d.mutualFriendsCount > 0
+                              ? `${d.mutualFriendsCount} mutual friend${d.mutualFriendsCount !== 1 ? "s" : ""}`
+                              : null,
+                            d.relationship === "INCOMING_PENDING" ? "sent you a request" : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
+                      ) : null}
                     </div>
                     <button
                       type="button"

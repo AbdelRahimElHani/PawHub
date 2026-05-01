@@ -10,6 +10,8 @@ public interface PawOrderRepository extends JpaRepository<PawOrder, Long> {
 
     Optional<PawOrder> findByListingIdAndBuyerId(Long listingId, Long buyerId);
 
+    Optional<PawOrder> findFirstByThreadIdOrderByCreatedAtDesc(Long threadId);
+
     boolean existsByListingId(Long listingId);
 
     @Query("SELECT COALESCE(SUM(o.quantity), 0) FROM PawOrder o WHERE o.listing.id = :listingId")

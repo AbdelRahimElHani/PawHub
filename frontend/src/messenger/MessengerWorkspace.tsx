@@ -1,12 +1,12 @@
-import { ImagePlus, MessagesSquare, MessageSquarePlus, Send, X } from "lucide-react";
+import { Camera, ImagePlus, MessagesSquare, MessageSquarePlus, Send, X } from "lucide-react";
 import { CopyMessageButton } from "../components/CopyMessageButton";
 import { type ReactNode, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
 import { useChatStomp } from "../chat/ChatStompContext";
-import type { MessageDto, ThreadSummaryDto } from "../types";
+import type { MessageDto, PawMarketOrderThreadDto, ThreadSummaryDto } from "../types";
 import { ListingShareEmbed } from "./ListingShareEmbed";
 import { parseListingShareFromMessage } from "./listingShareMessage";
 import { PeerTypingIndicator } from "./PeerTypingIndicator";
@@ -104,6 +104,7 @@ export function MessengerWorkspace({
 }: MessengerWorkspaceProps) {
   const { token, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { refresh: refreshGlobalThreads } = useThreadNotifications();
   const { setActiveThread, sendTyping, registerInbox } = useChatStomp();
 
@@ -117,6 +118,7 @@ export function MessengerWorkspace({
   const [sendErr, setSendErr] = useState<string | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const newChatPopRef = useRef<HTMLDivElement>(null);
   const composeBtnRef = useRef<HTMLButtonElement>(null);
   const listEndRef = useRef<HTMLDivElement | null>(null);
@@ -124,6 +126,13 @@ export function MessengerWorkspace({
   const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const peerClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [peerTyping, setPeerTyping] = useState<string | null>(null);
+
+  const [pawMarketCtx, setPawMarketCtx] = useState<PawMarketOrderThreadDto | null>(null);
+  const [pawMarketErr, setPawMarketErr] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [qtyDraft, setQtyDraft] = useState("");
 
   const sorted = useMemo(
     () => [...messages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
@@ -151,12 +160,33 @@ export function MessengerWorkspace({
   const loadThreads = useCallback(() => {
     void api<ThreadSummaryDto[]>("/api/chat/threads")
       .then(setThreads)
-      .catch((e: unknown) => setListErr(e instanceof Error ? e.message : "Failed to load threads"));
+      .catch((e: unknown) => setListErr(e instanceof Error ? e.message : "Failed to load conversations"));
   }, []);
+
+  const loadPawMarketCtx = useCallback(async () => {
+    if (!token || !validTid || !activeThread || activeThread.type !== "LISTING") {
+      setPawMarketCtx(null);
+      setPawMarketErr(null);
+      return;
+    }
+    try {
+      setPawMarketErr(null);
+      const d = await api<PawMarketOrderThreadDto>(`/api/paw/orders/thread/${tid}`);
+      setPawMarketCtx(d);
+      setQtyDraft(d.quantity > 0 ? String(d.quantity) : "");
+    } catch (e: unknown) {
+      setPawMarketCtx(null);
+      setPawMarketErr(e instanceof Error ? e.message : "Could not load order status");
+    }
+  }, [token, validTid, tid, activeThread?.type, activeThread?.id]);
 
   useEffect(() => {
     loadThreads();
   }, [loadThreads]);
+
+  useEffect(() => {
+    void loadPawMarketCtx();
+  }, [loadPawMarketCtx]);
 
   useEffect(() => {
     if (!token || !Number.isFinite(tid) || tid <= 0) {
@@ -184,6 +214,17 @@ export function MessengerWorkspace({
   useEffect(() => {
     tidRef.current = tid;
   }, [tid]);
+
+  useEffect(() => {
+    if (!validTid) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get("compose") !== "more-details") return;
+    const preset = "Hi — can I know more details about this listing before I place an order?";
+    setCompose((prev) => (prev.trim() ? prev : preset));
+    params.delete("compose");
+    const q = params.toString();
+    navigate({ pathname: location.pathname, search: q ? `?${q}` : "" }, { replace: true });
+  }, [validTid, tid, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (!token) return;
@@ -354,6 +395,7 @@ export function MessengerWorkspace({
       setPendingFile(null);
       setPendingPreview(null);
       if (fileRef.current) fileRef.current.value = "";
+      if (cameraRef.current) cameraRef.current.value = "";
       loadThreads();
       refreshGlobalThreads();
     } catch (ex: unknown) {
@@ -383,12 +425,83 @@ export function MessengerWorkspace({
     }
   }
 
-  function onPickImage() {
-    if (dmLocked) {
-      if (fileRef.current) fileRef.current.value = "";
+  async function pawMarketConfirm() {
+    if (!pawMarketCtx?.orderId) return;
+    setPawMarketErr(null);
+    try {
+      const d = await api<PawMarketOrderThreadDto>(`/api/paw/orders/${pawMarketCtx.orderId}/confirm`, {
+        method: "POST",
+      });
+      setPawMarketCtx(d);
+      await loadThreads();
+    } catch (ex: unknown) {
+      setPawMarketErr(ex instanceof Error ? ex.message : "Could not confirm.");
+    }
+  }
+
+  async function pawMarketDecline() {
+    if (!pawMarketCtx?.orderId) return;
+    setPawMarketErr(null);
+    try {
+      await api(`/api/paw/orders/${pawMarketCtx.orderId}/decline`, { method: "POST" });
+      await loadPawMarketCtx();
+      await loadThreads();
+    } catch (ex: unknown) {
+      setPawMarketErr(ex instanceof Error ? ex.message : "Could not decline.");
+    }
+  }
+
+  async function pawMarketSaveQuantity() {
+    if (!pawMarketCtx?.orderId) return;
+    const n = Number(qtyDraft);
+    if (!Number.isFinite(n) || n < 1) {
+      setPawMarketErr("Enter a valid quantity.");
       return;
     }
-    const f = fileRef.current?.files?.[0];
+    setPawMarketErr(null);
+    try {
+      const d = await api<PawMarketOrderThreadDto>(`/api/paw/orders/${pawMarketCtx.orderId}/quantity`, {
+        method: "PATCH",
+        body: JSON.stringify({ quantity: Math.floor(n) }),
+      });
+      setPawMarketCtx(d);
+      setQtyDraft(String(d.quantity));
+      await loadThreads();
+    } catch (ex: unknown) {
+      setPawMarketErr(ex instanceof Error ? ex.message : "Could not update quantity.");
+    }
+  }
+
+  async function pawMarketSubmitReview() {
+    if (!pawMarketCtx?.orderId || !activeThread) return;
+    setPawMarketErr(null);
+    setReviewBusy(true);
+    try {
+      await api("/api/paw/reviews", {
+        method: "POST",
+        body: JSON.stringify({
+          orderId: pawMarketCtx.orderId,
+          targetUserId: activeThread.otherUserId,
+          rating: reviewRating,
+          comment: reviewComment.trim() || null,
+        }),
+      });
+      setReviewComment("");
+      await loadPawMarketCtx();
+      await loadThreads();
+    } catch (ex: unknown) {
+      setPawMarketErr(ex instanceof Error ? ex.message : "Could not submit review.");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
+  function applyPickedImageFile(f: File | undefined) {
+    if (dmLocked) {
+      if (fileRef.current) fileRef.current.value = "";
+      if (cameraRef.current) cameraRef.current.value = "";
+      return;
+    }
     if (!f) {
       setPendingFile(null);
       setPendingPreview(null);
@@ -396,6 +509,16 @@ export function MessengerWorkspace({
     }
     setPendingFile(f);
     setPendingPreview(URL.createObjectURL(f));
+  }
+
+  function onPickImageFromGallery() {
+    const f = fileRef.current?.files?.[0];
+    applyPickedImageFile(f);
+  }
+
+  function onPickImageFromCamera() {
+    const f = cameraRef.current?.files?.[0];
+    applyPickedImageFile(f);
   }
 
   if (!token || !user) {
@@ -431,7 +554,7 @@ export function MessengerWorkspace({
                 </button>
               </div>
             </div>
-            {variant === "page" ? <p className="ph-msg-sub">All your threads in one place.</p> : null}
+            {variant === "page" ? <p className="ph-msg-sub">Your conversations in one place.</p> : null}
           </div>
 
           {newChatOpen ? (
@@ -443,12 +566,9 @@ export function MessengerWorkspace({
                 </button>
               </div>
               <div className="ph-msg-new-pop-body">
-                <p className="ph-msg-hint" style={{ marginTop: 0 }}>
-                  Start a chat from your <strong>People</strong> list: open <strong>Friends</strong> and tap Message, or use{" "}
-                  <strong>Discover</strong> to find people to connect with first.
-                </p>
-                <p className="ph-msg-hint" style={{ marginBottom: "0.75rem" }}>
-                  Existing threads (Paw Market, PawMatch, etc.) stay here — you don&apos;t need a numeric user ID.
+                <p className="ph-msg-hint" style={{ marginTop: 0, marginBottom: "0.75rem" }}>
+                  Go to <strong>People</strong> to message someone you&apos;re connected with (Friends), or meet people in{" "}
+                  <strong>Discover</strong> first.
                 </p>
                 <Link
                   to="/people"
@@ -540,17 +660,13 @@ export function MessengerWorkspace({
                           View profile
                         </button>
                       </h3>
-                      {peerTyping ? (
-                        <PeerTypingIndicator layout="header" displayName={peerTyping} />
-                      ) : (
-                        <div className="ph-msg-sub">Thread #{tid}</div>
-                      )}
+                      {peerTyping ? <PeerTypingIndicator layout="header" displayName={peerTyping} /> : null}
                     </div>
                   </>
                 ) : (
                   <div>
                     <h3 className="ph-msg-title" style={{ margin: 0 }}>
-                      Thread #{tid}
+                      Conversation
                     </h3>
                     {peerTyping ? <PeerTypingIndicator layout="header" displayName={peerTyping} /> : null}
                   </div>
@@ -613,6 +729,113 @@ export function MessengerWorkspace({
               </div>
             ) : null}
 
+            {!dmLocked &&
+            user?.role !== "ADMIN" &&
+            activeThread?.type === "LISTING" &&
+            pawMarketCtx?.orderId != null ? (
+              <div
+                className="ph-msg-request-bar"
+                role="region"
+                aria-label="Paw Market order"
+                style={{ flexDirection: "column", alignItems: "stretch", gap: "0.55rem" }}
+              >
+                <span className="ph-msg-request-bar-text">
+                  <strong>Paw Market</strong>
+                  {pawMarketCtx.listingTitle ? ` — ${pawMarketCtx.listingTitle}` : ""} · Qty {pawMarketCtx.quantity}
+                  {pawMarketCtx.sellerStatus === "PENDING_SELLER"
+                    ? " · Awaiting seller confirmation"
+                    : " · Confirmed"}
+                </span>
+                {pawMarketErr ? (
+                  <span style={{ color: "#b42318", fontSize: "0.82rem" }}>{pawMarketErr}</span>
+                ) : null}
+                {pawMarketCtx.viewerIsSeller && pawMarketCtx.sellerStatus === "PENDING_SELLER" ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="ph-btn ph-btn-primary"
+                      style={{ fontSize: "0.8rem", padding: "0.28rem 0.75rem" }}
+                      onClick={() => void pawMarketConfirm()}
+                    >
+                      Confirm sale
+                    </button>
+                    <button
+                      type="button"
+                      className="ph-btn ph-btn-ghost"
+                      style={{ fontSize: "0.8rem", padding: "0.28rem 0.75rem" }}
+                      onClick={() => void pawMarketDecline()}
+                    >
+                      Decline
+                    </button>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.8rem" }}>
+                      Qty
+                      <input
+                        className="ph-input"
+                        style={{ width: 56, padding: "0.2rem 0.35rem", fontSize: "0.8rem" }}
+                        value={qtyDraft}
+                        onChange={(e) => setQtyDraft(e.target.value)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="ph-btn ph-btn-ghost"
+                      style={{ fontSize: "0.8rem", padding: "0.28rem 0.75rem" }}
+                      onClick={() => void pawMarketSaveQuantity()}
+                    >
+                      Update qty
+                    </button>
+                  </div>
+                ) : null}
+                {pawMarketCtx.viewerIsBuyer && pawMarketCtx.sellerStatus === "PENDING_SELLER" ? (
+                  <span style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                    Waiting for the seller to confirm this order before you can leave a review.
+                  </span>
+                ) : null}
+                {pawMarketCtx.buyerCanReview ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem", fontSize: "0.82rem" }}>
+                    <span>
+                      <strong>Rate the seller</strong>
+                    </span>
+                    <div style={{ display: "flex", gap: "0.15rem" }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            cursor: "pointer",
+                            fontSize: "1.15rem",
+                            color: s <= reviewRating ? "var(--color-primary-dark)" : "var(--color-muted)",
+                          }}
+                          onClick={() => setReviewRating(s)}
+                          aria-label={`${s} stars`}
+                        >
+                          {s <= reviewRating ? "★" : "☆"}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      className="ph-input"
+                      rows={2}
+                      placeholder="Optional comment"
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="ph-btn ph-btn-primary"
+                      style={{ fontSize: "0.8rem", padding: "0.28rem 0.75rem", alignSelf: "flex-start" }}
+                      disabled={reviewBusy}
+                      onClick={() => void pawMarketSubmitReview()}
+                    >
+                      {reviewBusy ? "Sending…" : "Submit review"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="ph-msg-scroll">
               {sorted.map((m) => {
                 const mine = m.senderId === user.userId;
@@ -665,6 +888,7 @@ export function MessengerWorkspace({
                       setPendingFile(null);
                       setPendingPreview(null);
                       if (fileRef.current) fileRef.current.value = "";
+                      if (cameraRef.current) cameraRef.current.value = "";
                     }}
                   >
                     <X size={15} />
@@ -673,13 +897,30 @@ export function MessengerWorkspace({
               )}
               {sendErr && <p className="ph-msg-err">{sendErr}</p>}
               <div className="ph-msg-compose-row">
-                <input ref={fileRef} type="file" accept="image/*" className="ph-msg-file" onChange={onPickImage} />
+                <input ref={fileRef} type="file" accept="image/*" className="ph-msg-file" onChange={onPickImageFromGallery} />
+                <input
+                  ref={cameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="ph-msg-file"
+                  onChange={onPickImageFromCamera}
+                />
+                <button
+                  type="button"
+                  className="ph-msg-icon-btn"
+                  disabled={dmLocked}
+                  onClick={() => cameraRef.current?.click()}
+                  title="Take a photo"
+                >
+                  <Camera size={18} strokeWidth={1.8} />
+                </button>
                 <button
                   type="button"
                   className="ph-msg-icon-btn"
                   disabled={dmLocked}
                   onClick={() => fileRef.current?.click()}
-                  title="Attach image"
+                  title="Attach image from gallery"
                 >
                   <ImagePlus size={18} strokeWidth={1.8} />
                 </button>
@@ -741,7 +982,7 @@ export function MessengerWorkspace({
               <MessagesSquare size={28} strokeWidth={1.5} />
             </div>
             <h3>Select a conversation</h3>
-            <p>Choose a thread on the left, or tap the compose button to start a new chat.</p>
+            <p>Pick someone on the left, or tap + and open People to start a chat.</p>
           </div>
         ) : (
           chatPanel

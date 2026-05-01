@@ -194,6 +194,18 @@ export type PlaceOrderResponse = {
   threadId: number;
 };
 
+/** Active Paw Market order in a listing thread (from GET /api/paw/orders/thread/{threadId}). */
+export type PawMarketOrderThreadDto = {
+  orderId: number | null;
+  listingId: number | null;
+  listingTitle: string | null;
+  quantity: number;
+  sellerStatus: string | null;
+  viewerIsBuyer: boolean;
+  viewerIsSeller: boolean;
+  buyerCanReview: boolean;
+};
+
 export type AdoptionListingDto = {
   id: number;
   shelterId: number;

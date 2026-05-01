@@ -21,6 +21,8 @@ export type AuthUser = {
   vetApplicationId?: number | null;
   /** PENDING / REJECTED_FINAL from appeal workflow */
   vetAppealState?: string | null;
+  /** When true, user cannot list or buy on Paw Market. */
+  pawMarketBanned?: boolean;
 };
 
 type RegisterResult =
@@ -67,6 +69,7 @@ type AuthResponse = {
   vetRejectionReason?: string | null;
   vetApplicationId?: number | null;
   vetAppealState?: string | null;
+  pawMarketBanned?: boolean;
 };
 
 function normalizeVetVerificationStatus(raw: string | null | undefined): "PENDING" | "APPROVED" | "REJECTED" | null {
@@ -96,6 +99,7 @@ function mapUser(r: AuthResponse): AuthUser {
       r.accountType === "VET" && vetOk && vs === "REJECTED" ? (r.vetRejectionReason ?? null) : null,
     vetApplicationId: r.accountType === "VET" ? (r.vetApplicationId ?? null) : null,
     vetAppealState: r.accountType === "VET" ? (r.vetAppealState ?? null) : null,
+    pawMarketBanned: Boolean(r.pawMarketBanned),
   };
 }
 
