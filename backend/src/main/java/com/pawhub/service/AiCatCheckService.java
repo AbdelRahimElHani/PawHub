@@ -11,7 +11,6 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -108,53 +107,6 @@ public class AiCatCheckService {
             In "reason" give a short human-readable note.
             """;
 
-    /**
-     * Paw Adopt: hero photo must show a real cat, and the listing text must plausibly describe the same cat / context
-     * (no bait-and-switch). Same Gemini pipeline as Paw Market’s image+text check, adoption-specific rules.
-     */
-    private static final String ADOPTION_PHOTO_MATCH_PROMPT =
-            """
-            You are the final reviewer for a cat adoption listing (Paw Adopt).
-
-            You receive: (1) a PHOTO, (2) LISTING FIELDS: headline/title, optional cat name, optional description,
-            optional breed guess, optional age in months.
-
-            Set isCatRelated=true ONLY if ALL of the following hold:
-
-            A) IMAGE — The photo clearly shows one or more real, live domestic cats as the main subject (clearly visible).
-               Reject cartoons, AI-generated cats, memes, logos, human-only, dogs-only (no cat visible), product-only,
-               empty rooms, landscapes, or stock graphics.
-
-            B) TITLE — Must be about adopting a cat / this cat (not unrelated topics). It must plausibly match what is
-               visible in the photo (same general adoption story). Minor wording differences OK; blatant mismatch is NOT
-               (e.g. photo shows orange tabby kitten but title says "Senior black cat only").
-
-            C) CAT NAME — If provided and visible context suggests a single featured cat, the name should not contradict
-               obvious cues (e.g. title says "Meet Luna" ok if not contradicted). If empty, skip.
-
-            D) DESCRIPTION — If non-empty, it must agree with the image and title (same cat/context). Must not describe a
-               different species, or claim colors/patterns clearly absent from the photo. If empty, judge image + title only.
-
-            E) BREED — If provided, it must be plausible for what is visible (exact pedigree not required; obviously wrong
-               breeds fail — e.g. "Sphynx hairless" when only a long-haired fluffy cat is visible). If empty, skip.
-
-            F) AGE — If age_months is provided as a number, it should not blatantly contradict visible life stage
-               (e.g. claims 2 months but cat is clearly adult). If unclear from photo, do not fail on age alone.
-
-            G) TEXT QUALITY — Set isCatRelated=false if title or description are placeholder / junk: mostly digits or symbols,
-               sequences of single-character tokens (e.g. "1 1 1"), keyboard mashing with no real adoption meaning, or text
-               that clearly does not describe the cat shown (including random numbers instead of a story). The listing must
-               read as a genuine shelter/rescue adoption post matched to this photo.
-
-            Set isCatRelated=false if any check fails. In "reason", name the first failed rule briefly.
-
-            TITLE: "%s"
-            CAT_NAME: "%s"
-            DESCRIPTION: "%s"
-            BREED: "%s"
-            AGE_MONTHS: "%s"
-            """;
-
     private static final Pattern IS_CAT =
             Pattern.compile("\"isCatRelated\"\\s*:\\s*(true|false)", Pattern.CASE_INSENSITIVE);
     private static final Pattern REASON =
@@ -183,34 +135,6 @@ public class AiCatCheckService {
     /** My Cats profile / gallery photo — same criteria as adoption hero (real domestic cat, main subject). */
     public CatCheckResponse verifyMyCatProfilePhoto(byte[] imageBytes, String mimeType) {
         return verifyAdoptionListingCatPhoto(imageBytes, mimeType);
-    }
-
-    /**
-     * Paw Adopt upload / publish path: photo must show a real cat and listing fields must align with the image
-     * (same Gemini stack as Paw Market text+image verification).
-     */
-    public CatCheckResponse verifyAdoptionListingPhotoMatchesText(
-            byte[] imageBytes,
-            String mimeType,
-            String title,
-            String petName,
-            String description,
-            String breed,
-            Integer ageMonths) {
-        Optional<String> textReject =
-                AdoptionListingTextValidator.rejectReason(title, petName, description, breed);
-        if (textReject.isPresent()) {
-            return new CatCheckResponse(false, textReject.get());
-        }
-        String agePart =
-                ageMonths != null ? String.valueOf(ageMonths) : "";
-        String prompt = ADOPTION_PHOTO_MATCH_PROMPT.formatted(
-                promptChunk(title, 600),
-                promptChunk(petName, 200),
-                promptChunk(description, 1200),
-                promptChunk(breed, 200),
-                promptChunk(agePart, 32));
-        return verifyWithTextPrompt(prompt, imageBytes, mimeType);
     }
 
     private static String promptChunk(String s, int max) {

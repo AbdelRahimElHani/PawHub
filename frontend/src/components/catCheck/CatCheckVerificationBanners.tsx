@@ -42,18 +42,6 @@ export const CAT_CHECK_COPY_ADOPT_IMAGE: CatCheckBannerCopy = {
   skippedSub: "Your photo will still be checked when you publish (if AI is enabled on the server).",
 };
 
-/** Paw Adopt: image matches headline & story (Step 2). */
-export const CAT_CHECK_COPY_ADOPT_MATCH: CatCheckBannerCopy = {
-  checkingTitle: "Matching photo to your listing…",
-  checkingSub: "Gemini is checking that your text describes the same cat shown in the photo.",
-  passedTitle: "✅ Photo matches your listing",
-  failedTitle: "🚫 Listing doesn’t match this photo",
-  failedHint:
-    "Adjust your headline, cat’s name, story, or breed so they honestly describe the cat in the photo, then try again.",
-  skippedTitle: "Match check skipped",
-  skippedSub: "Verification will run again when you publish.",
-};
-
 export function CatCheckVerificationBanners({
   catCheck,
   copy,

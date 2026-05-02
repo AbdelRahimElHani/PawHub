@@ -8,7 +8,6 @@ import {
   CatCheckVerificationBanners,
   type CatCheckUiState,
   CAT_CHECK_COPY_ADOPT_IMAGE,
-  CAT_CHECK_COPY_ADOPT_MATCH,
 } from "../components/catCheck/CatCheckVerificationBanners";
 import "../adopt/adopt.css";
 
@@ -25,8 +24,6 @@ export function AdoptNewPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const [catCheck, setCatCheck] = useState<CatCheckUiState>({ state: "idle" });
-  const [alignPhase, setAlignPhase] = useState<"idle" | "matching" | "failed">("idle");
-  const [alignReason, setAlignReason] = useState<string | null>(null);
 
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,14 +91,10 @@ export function AdoptNewPage() {
     if (!file) {
       setPreviewUrl(null);
       setCatCheck({ state: "idle" });
-      setAlignPhase("idle");
-      setAlignReason(null);
       return;
     }
     setCatCheck({ state: "checking" });
     setPreviewUrl(URL.createObjectURL(file));
-    setAlignPhase("idle");
-    setAlignReason(null);
   }
 
   async function onSubmit(e: FormEvent) {
@@ -113,43 +106,8 @@ export function AdoptNewPage() {
 
     setErr(null);
     setBusy(true);
-    setAlignPhase("idle");
-    setAlignReason(null);
 
     try {
-      if (file) {
-        setAlignPhase("matching");
-        const token = getToken();
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("title", title);
-        fd.append("petName", petName.trim());
-        fd.append("description", description.trim());
-        fd.append("breed", breed.trim());
-        const ageNum = age.trim() ? Math.floor(Number(age)) : NaN;
-        if (Number.isFinite(ageNum) && ageNum >= 0) fd.append("ageMonths", String(ageNum));
-
-        const matchRes = await fetch(apiUrl("/api/adopt/cat-check-match"), {
-          method: "POST",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          body: fd,
-        });
-        setAlignPhase("idle");
-
-        if (matchRes.ok) {
-          const matchData = (await matchRes.json()) as { isCatRelated: boolean; reason: string };
-          const skipped = matchData.reason?.toLowerCase().includes("skipped");
-          if (!skipped && !matchData.isCatRelated) {
-            setAlignPhase("failed");
-            setAlignReason(matchData.reason);
-            setErr("Your headline, story, and photo couldn’t be verified to match. Update the fields or choose another photo.");
-            setBusy(false);
-            return;
-          }
-        }
-        /* If match endpoint errors, server upload still enforces — continue */
-      }
-
       const ageMonths =
         age.trim() && Number.isFinite(Math.floor(Number(age))) ? Math.floor(Number(age)) : null;
 
@@ -201,16 +159,10 @@ export function AdoptNewPage() {
       setErr(ex instanceof Error ? ex.message : "Failed");
     } finally {
       setBusy(false);
-      setAlignPhase("idle");
     }
   }
 
-  const canSubmit =
-    canPublish &&
-    catCheck.state !== "failed" &&
-    catCheck.state !== "checking" &&
-    alignPhase !== "matching" &&
-    !busy;
+  const canSubmit = canPublish && catCheck.state !== "failed" && catCheck.state !== "checking" && !busy;
 
   if (authLoading || (user && shelter === undefined)) {
     return (
@@ -313,9 +265,9 @@ export function AdoptNewPage() {
       </div>
       <h1>List a cat for adoption</h1>
       <p className="adopt-form-lede">
-        <strong>Step 1</strong> — When you choose a hero photo, we scan it with the same Gemini Cat-Check as Paw Market
-        (tuned for <em>real cats</em>). <strong>Step 2</strong> — When you publish with a photo, we verify your headline
-        and story match that photo.
+        When you add a hero photo, we use Gemini to verify it shows a <em>real cat</em> as the main subject (not
+        drawings, unrelated images, or merchandise-only shots). Headline and story are not scored by AI—we still require
+        sensible text with the usual validation.
       </p>
       {user?.pawAdoptBanned ? (
         <p
@@ -422,33 +374,6 @@ export function AdoptNewPage() {
 
         {err && <div style={{ color: "#b42318", fontSize: "0.95rem" }}>{err}</div>}
 
-        {alignPhase === "matching" && (
-          <div className="pm-ai-banner" style={{ marginTop: "0.2rem" }}>
-            <span className="pm-paw-spin">🐾</span>
-            <div>
-              <strong style={{ fontSize: "0.9rem" }}>{CAT_CHECK_COPY_ADOPT_MATCH.checkingTitle}</strong>
-              <p style={{ margin: "0.1rem 0 0", fontSize: "0.82rem", color: "var(--color-muted)" }}>
-                {CAT_CHECK_COPY_ADOPT_MATCH.checkingSub}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {alignPhase === "failed" && alignReason ? (
-          <div
-            style={{
-              background: "#fff1f0",
-              border: "1.5px solid #fca5a5",
-              borderRadius: 10,
-              padding: "0.75rem 1rem",
-              fontSize: "0.85rem",
-              color: "#7f1d1d",
-            }}
-          >
-            <strong>Step 2:</strong> {alignReason}
-          </div>
-        ) : null}
-
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem" }}>
           <button className="ph-btn ph-btn-primary" type="submit" disabled={!canSubmit}>
             {catCheck.state === "checking" ? (
@@ -457,13 +382,6 @@ export function AdoptNewPage() {
                   🐾
                 </span>{" "}
                 Scanning image…
-              </>
-            ) : alignPhase === "matching" ? (
-              <>
-                <span className="pm-paw-spin" style={{ fontSize: "1rem" }}>
-                  🐾
-                </span>{" "}
-                Verifying match…
               </>
             ) : catCheck.state === "failed" ? (
               "Fix the photo first"

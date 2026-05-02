@@ -32,27 +32,10 @@ public class AdoptionController {
     private final AdoptionService adoptionService;
     private final AiCatCheckService aiCatCheckService;
 
-    /** Step 1 preview: adoption hero photo must show a real cat (same Gemini path as upload screening). */
+    /** Preview: adoption hero photo must show a real cat (same Gemini path as {@link AdoptionService#uploadListingPhoto}). */
     @PostMapping(value = "/cat-check-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CatCheckResponse adoptCatCheckImage(@RequestPart("file") MultipartFile file) throws Exception {
         return aiCatCheckService.verifyAdoptionListingCatPhoto(file.getBytes(), file.getContentType());
-    }
-
-    /**
-     * Step 2 preview: image + listing fields must match (same rules as {@link AdoptionService#uploadListingPhoto} AI
-     * gate).
-     */
-    @PostMapping(value = "/cat-check-match", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public CatCheckResponse adoptCatCheckMatch(
-            @RequestPart("file") MultipartFile file,
-            @RequestParam(required = false) String title,
-            @RequestParam(required = false) String petName,
-            @RequestParam(required = false) String description,
-            @RequestParam(required = false) String breed,
-            @RequestParam(required = false) Integer ageMonths)
-            throws Exception {
-        return aiCatCheckService.verifyAdoptionListingPhotoMatchesText(
-                file.getBytes(), file.getContentType(), title, petName, description, breed, ageMonths);
     }
 
     @PostMapping("/shelters")

@@ -232,14 +232,8 @@ public class AdoptionService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot update a listing that is no longer active.");
         }
         if (aiCatCheckService.isCatCheckEnabled()) {
-            com.pawhub.web.dto.CatCheckResponse cat = aiCatCheckService.verifyAdoptionListingPhotoMatchesText(
-                    photo.getBytes(),
-                    photo.getContentType(),
-                    l.getTitle(),
-                    l.getPetName(),
-                    l.getDescription(),
-                    l.getBreed(),
-                    l.getAgeMonths());
+            com.pawhub.web.dto.CatCheckResponse cat =
+                    aiCatCheckService.verifyAdoptionListingCatPhoto(photo.getBytes(), photo.getContentType());
             if (!cat.isCatRelated()) {
                 throw new AiCatCheckService.CatCheckFailedException(cat.reason());
             }
