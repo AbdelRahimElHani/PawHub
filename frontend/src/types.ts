@@ -206,6 +206,16 @@ export type PawMarketOrderThreadDto = {
   buyerCanReview: boolean;
 };
 
+/** From GET /api/paw/orders/review-prompts — confirmed orders the buyer has not reviewed yet. */
+export type PawMarketReviewPromptDto = {
+  orderId: number;
+  listingId: number;
+  listingTitle: string;
+  sellerUserId: number;
+  sellerDisplayName: string;
+  threadId: number;
+};
+
 export type AdoptionListingDto = {
   id: number;
   shelterId: number;

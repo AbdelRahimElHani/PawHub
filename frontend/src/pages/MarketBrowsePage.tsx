@@ -1,5 +1,5 @@
 import { Gift, MapPin, Search, Sliders, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -7,7 +7,7 @@ import { AdminMarketRemoveDialog } from "../market/AdminMarketRemoveDialog";
 import { haversineKm, formatDistance } from "../market/haversine";
 import { useCountriesCitiesCatalog } from "../market/useCountriesCitiesCatalog";
 import { useGeolocation } from "../market/useGeolocation";
-import type { PawCategory, PawListingDto } from "../types";
+import type { PawCategory, PawListingDto, PawMarketReviewPromptDto } from "../types";
 import { PAW_CATEGORIES } from "../types";
 
 function StarRating({ value }: { value: number }) {
@@ -147,6 +147,121 @@ function ListingCard({
   );
 }
 
+function ReviewAfterPurchaseModal({
+  prompt,
+  onDismiss,
+  onSubmitted,
+}: {
+  prompt: PawMarketReviewPromptDto;
+  onDismiss: () => void;
+  onSubmitted: () => void;
+}) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      await api("/api/paw/reviews", {
+        method: "POST",
+        body: JSON.stringify({
+          orderId: prompt.orderId,
+          targetUserId: prompt.sellerUserId,
+          rating,
+          comment: comment.trim() || null,
+        }),
+      });
+      onSubmitted();
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : "Could not submit review.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="pm-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pm-review-title"
+      onClick={onDismiss}
+    >
+      <div className="pm-modal" onClick={(e) => e.stopPropagation()}>
+        <h3
+          id="pm-review-title"
+          style={{
+            margin: "0 0 0.25rem",
+            fontFamily: "var(--font-display)",
+            color: "var(--color-primary-dark)",
+          }}
+        >
+          Rate your purchase
+        </h3>
+        <p style={{ margin: "0 0 1rem", color: "var(--color-muted)", fontSize: "0.9rem", lineHeight: 1.45 }}>
+          How was <strong>{prompt.listingTitle}</strong> from <strong>{prompt.sellerDisplayName}</strong>? Your
+          review helps other cat parents on Paw Market.
+        </p>
+        <form onSubmit={submit} className="ph-grid">
+          <div>
+            <span className="ph-label">Rating</span>
+            <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap", marginTop: "0.35rem" }}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={`ph-btn${rating === s ? " ph-btn-primary" : " ph-btn-ghost"}`}
+                  style={{ minWidth: "2.25rem", padding: "0.35rem 0.5rem" }}
+                  onClick={() => setRating(s)}
+                  aria-pressed={rating === s}
+                >
+                  {s}★
+                </button>
+              ))}
+            </div>
+          </div>
+          <label>
+            <span className="ph-label">Comments (optional)</span>
+            <textarea
+              className="ph-input"
+              style={{ minHeight: "5rem", resize: "vertical" }}
+              maxLength={4000}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Delivery, condition, communication…"
+            />
+          </label>
+          {err && (
+            <p style={{ margin: 0, fontSize: "0.85rem", color: "#b42318" }} role="alert">
+              {err}
+            </p>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
+            <button type="submit" className="ph-btn ph-btn-primary" disabled={busy}>
+              {busy ? "Sending…" : "Submit review"}
+            </button>
+            <button type="button" className="ph-btn ph-btn-ghost" disabled={busy} onClick={onDismiss}>
+              Not now
+            </button>
+            <Link
+              to={`/messages/${prompt.threadId}`}
+              className="ph-btn ph-btn-ghost"
+              style={{ marginLeft: "auto" }}
+              onClick={onDismiss}
+            >
+              Open chat
+            </Link>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 const LS_MARKET_CITY = "pawhub_market_buyer_city";
 const LS_MARKET_REGION = "pawhub_market_buyer_region";
 const LS_MARKET_COUNTRY = "pawhub_market_buyer_country";
@@ -181,6 +296,8 @@ export function MarketBrowsePage() {
   const [appliedCity, setAppliedCity] = useState(() => localStorage.getItem(LS_MARKET_CITY) ?? "");
   const [appliedRegion, setAppliedRegion] = useState(() => localStorage.getItem(LS_MARKET_REGION) ?? "");
 
+  const [reviewQueue, setReviewQueue] = useState<PawMarketReviewPromptDto[]>([]);
+
   const { position } = useGeolocation();
   const { countries, getCities, loading: catalogLoading, error: catalogError, hasData } = useCountriesCitiesCatalog();
 
@@ -209,6 +326,24 @@ export function MarketBrowsePage() {
   useEffect(() => {
     void loadListings();
   }, [loadListings]);
+
+  useEffect(() => {
+    if (!user || user.role === "ADMIN") {
+      setReviewQueue([]);
+      return;
+    }
+    let cancelled = false;
+    void api<PawMarketReviewPromptDto[]>("/api/paw/orders/review-prompts")
+      .then((rows) => {
+        if (!cancelled) setReviewQueue(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setReviewQueue([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   function applyBuyerLocation() {
     setAreaApplyHint(null);
@@ -256,8 +391,20 @@ export function MarketBrowsePage() {
     return true;
   });
 
+  const reviewPrompt = reviewQueue[0] ?? null;
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: "1.5rem", alignItems: "start" }}>
+      {reviewPrompt && (
+        <ReviewAfterPurchaseModal
+          key={reviewPrompt.orderId}
+          prompt={reviewPrompt}
+          onDismiss={() => setReviewQueue((q) => q.slice(1))}
+          onSubmitted={() =>
+            setReviewQueue((q) => q.filter((p) => p.orderId !== reviewPrompt.orderId))
+          }
+        />
+      )}
       <aside className="ph-surface pm-sidebar" style={{ padding: "1.25rem" }}>
         <div className="pm-filter-section">
           <span className="pm-filter-label">Search</span>

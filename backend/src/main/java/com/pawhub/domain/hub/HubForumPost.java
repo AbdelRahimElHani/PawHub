@@ -41,6 +41,10 @@ public class HubForumPost {
     @Column(name = "helpful_comment_id")
     private Long helpfulCommentId;
 
+    /** When true, new comments are rejected (admins may still post for moderation). */
+    @Column(name = "no_replies", nullable = false)
+    private boolean noReplies;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

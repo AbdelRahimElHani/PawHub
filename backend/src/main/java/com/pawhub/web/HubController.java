@@ -66,7 +66,7 @@ public class HubController {
             @PathVariable Long postId,
             @Valid @RequestBody ForumNewCommentRequest req,
             @AuthenticationPrincipal SecurityUser user) {
-        return hubForumService.addComment(postId, user.getId(), req);
+        return hubForumService.addComment(postId, user.getId(), user.getUser().getRole(), req);
     }
 
     @PostMapping("/forum/upload-image")

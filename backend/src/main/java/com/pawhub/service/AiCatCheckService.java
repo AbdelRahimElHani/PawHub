@@ -132,6 +132,11 @@ public class AiCatCheckService {
         return verifyWithTextPrompt(ADOPTION_LISTING_CAT_PHOTO_PROMPT, imageBytes, mimeType);
     }
 
+    /** My Cats profile / gallery photo — same criteria as adoption hero (real domestic cat, main subject). */
+    public CatCheckResponse verifyMyCatProfilePhoto(byte[] imageBytes, String mimeType) {
+        return verifyAdoptionListingCatPhoto(imageBytes, mimeType);
+    }
+
     /**
      * Second step: image + title + description must match (no bait-and-switch). Used at publish and
      * when editing a live listing’s text.

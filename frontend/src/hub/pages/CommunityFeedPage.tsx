@@ -32,6 +32,7 @@ export function CommunityFeedPage() {
 
   const [postTitle, setPostTitle] = useState("");
   const [postBody, setPostBody] = useState("");
+  const [postNoReplies, setPostNoReplies] = useState(false);
   const [postErr, setPostErr] = useState<string | null>(null);
 
   const [delRoomId, setDelRoomId] = useState<number | null>(null);
@@ -108,10 +109,11 @@ export function CommunityFeedPage() {
     try {
       await api(`/api/hub/forum/rooms/${encodeURIComponent(slug)}/posts`, {
         method: "POST",
-        body: JSON.stringify({ title: t, body: b }),
+        body: JSON.stringify({ title: t, body: b, noReplies: postNoReplies }),
       });
       setPostTitle("");
       setPostBody("");
+      setPostNoReplies(false);
       loadPosts();
     } catch (ex) {
       setPostErr(ex instanceof Error ? ex.message : "Could not post thread.");
@@ -229,6 +231,12 @@ export function CommunityFeedPage() {
           <input className="ph-input" value={postTitle} onChange={(e) => setPostTitle(e.target.value)} placeholder="What’s on your mind?" />
           <label style={{ display: "block", fontWeight: 600, margin: "0.65rem 0 0.35rem", fontSize: "0.88rem" }}>Body</label>
           <textarea className="ph-textarea" rows={5} value={postBody} onChange={(e) => setPostBody(e.target.value)} placeholder="Text (supports long questions)" />
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.65rem", fontSize: "0.88rem", cursor: "pointer" }}>
+            <input type="checkbox" checked={postNoReplies} onChange={(e) => setPostNoReplies(e.target.checked)} />
+            <span>
+              <strong>No replies</strong> — read-only thread (comments disabled for members; admins can still post if needed).
+            </span>
+          </label>
           {postErr && <p style={{ color: "#b42318", fontSize: "0.88rem", margin: "0.5rem 0 0" }}>{postErr}</p>}
           <button type="submit" className="ph-btn ph-btn-primary" style={{ marginTop: "0.65rem" }}>
             Post thread
@@ -266,10 +274,15 @@ export function CommunityFeedPage() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "flex-start" }}>
-                  <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.05rem" }}>
+                  <h2 style={{ margin: "0 0 0.35rem", fontSize: "1.05rem", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem" }}>
                     <Link to={`/hub/community/${p.roomSlug}/p/${p.id}`} style={{ color: "var(--hub-charcoal)", fontWeight: 700 }}>
                       {p.title}
                     </Link>
+                    {p.noReplies && (
+                      <span className="hub-room-pill" title="This thread does not accept new comments">
+                        No replies
+                      </span>
+                    )}
                   </h2>
                   {isAdmin && (
                     <button

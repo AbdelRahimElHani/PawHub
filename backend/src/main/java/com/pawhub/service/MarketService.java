@@ -142,6 +142,45 @@ public class MarketService {
         return thread.getId();
     }
 
+    /**
+     * Opens the listing thread with the buyer and posts exactly one short inquiry message (used from Paw Market
+     * listing detail).
+     */
+    @Transactional
+    public Long openListingThreadWithMoreDetailsMessage(Long listingId, SecurityUser principal) {
+        MarketListing listing = listingRepository.findById(listingId).orElseThrow();
+        if (listing.getUser().getId().equals(principal.getId())) {
+            throw new IllegalArgumentException("Cannot message yourself");
+        }
+        User buyer = userRepository.getReferenceById(principal.getId());
+        User seller = listing.getUser();
+        User p1 = buyer.getId() < seller.getId() ? buyer : seller;
+        User p2 = buyer.getId() < seller.getId() ? seller : buyer;
+        ChatThread thread = chatThreadRepository
+                .findListingThread(listingId, buyer.getId(), seller.getId())
+                .orElseGet(
+                        () -> {
+                            ChatThread t = ChatThread.builder()
+                                    .type(ThreadType.LISTING)
+                                    .participantOne(p1)
+                                    .participantTwo(p2)
+                                    .marketListingId(listingId)
+                                    .build();
+                            return chatThreadRepository.save(t);
+                        });
+
+        String body = "Can I know more details?";
+        Message msg = messageRepository.save(Message.builder()
+                .thread(thread)
+                .sender(buyer)
+                .body(body)
+                .build());
+        MessageDto dto = new MessageDto(
+                msg.getId(), buyer.getId(), msg.getBody(), msg.getCreatedAt(), msg.getAttachmentUrl());
+        messagingTemplate.convertAndSend("/topic/threads." + thread.getId(), dto);
+        return thread.getId();
+    }
+
     private MarketListingDto toDto(MarketListing l) {
         return new MarketListingDto(
                 l.getId(),

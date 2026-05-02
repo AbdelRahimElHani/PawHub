@@ -44,6 +44,8 @@ export type ForumPostJson = {
   score: number;
   commentCount: number;
   helpfulCommentId: number | null;
+  /** When true, only admins may add new comments. */
+  noReplies: boolean;
 };
 
 export type ForumCommentJson = {

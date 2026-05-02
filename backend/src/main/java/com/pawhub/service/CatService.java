@@ -2,6 +2,7 @@ package com.pawhub.service;
 
 import com.pawhub.domain.AppNotificationKind;
 import com.pawhub.domain.Cat;
+import com.pawhub.domain.CatGender;
 import com.pawhub.domain.CatPhoto;
 import com.pawhub.domain.MatchBehaviorPreference;
 import com.pawhub.domain.MatchGenderPreference;
@@ -32,6 +33,7 @@ public class CatService {
     private final FileStorageService fileStorageService;
     private final AppNotificationService appNotificationService;
     private final CatVisionService catVisionService;
+    private final AiCatCheckService aiCatCheckService;
 
     @Transactional(readOnly = true)
     public List<CatDto> mine(SecurityUser principal) {
@@ -50,6 +52,7 @@ public class CatService {
     @Transactional
     public CatDto create(CatUpsertRequest req, SecurityUser principal) {
         validateCatPreferences(req.prefMinAgeMonths(), req.prefMaxAgeMonths());
+        validateGenderPreferenceVsCatGender(req.gender(), req.prefLookingForGender());
         User user = userRepository.getReferenceById(principal.getId());
         MatchGenderPreference prefGender =
                 req.prefLookingForGender() != null ? req.prefLookingForGender() : MatchGenderPreference.ANY;
@@ -86,6 +89,7 @@ public class CatService {
     @Transactional
     public CatDto update(Long id, CatUpsertRequest req, SecurityUser principal) {
         validateCatPreferences(req.prefMinAgeMonths(), req.prefMaxAgeMonths());
+        validateGenderPreferenceVsCatGender(req.gender(), req.prefLookingForGender());
         Cat cat = catRepository.findById(id).orElseThrow();
         assertOwner(cat, principal);
         cat.setName(req.name());
@@ -115,6 +119,15 @@ public class CatService {
         Cat cat = catRepository.findById(catId).orElseThrow();
         assertOwner(cat, principal);
         byte[] bytes = file.getBytes();
+        if (aiCatCheckService.isCatCheckEnabled()) {
+            var check = aiCatCheckService.verifyMyCatProfilePhoto(bytes, file.getContentType());
+            if (!check.isCatRelated()) {
+                throw new AiCatCheckService.CatCheckFailedException(
+                        check.reason() != null && !check.reason().isBlank()
+                                ? check.reason()
+                                : "Photo must clearly show a real domestic cat as the main subject.");
+            }
+        }
         CatVisionProfileDto vision = catVisionService.analyzePhoto(bytes, file.getContentType());
         if (!vision.isDomesticCat()) {
             String note = vision.notes() != null && !vision.notes().isBlank() ? vision.notes().trim() : "";
@@ -141,6 +154,22 @@ public class CatService {
         if (minAge != null && maxAge != null && minAge > maxAge) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "PawMatch age range: minimum cannot be greater than maximum");
+        }
+    }
+
+    /**
+     * PawMatch never shows same-gender cats to each other when both genders are known; disallow a preference that
+     * explicitly asks only for that same gender (would always be empty and is confusing).
+     */
+    private static void validateGenderPreferenceVsCatGender(CatGender catGender, MatchGenderPreference pref) {
+        if (catGender == null || pref == null || pref == MatchGenderPreference.ANY) {
+            return;
+        }
+        if ((pref == MatchGenderPreference.MALE && catGender == CatGender.MALE)
+                || (pref == MatchGenderPreference.FEMALE && catGender == CatGender.FEMALE)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "PawMatch cannot target only the same gender as this cat. Choose “Any gender” or the opposite sex.");
         }
     }
 

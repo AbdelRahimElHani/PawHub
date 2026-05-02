@@ -186,8 +186,11 @@ export function MarketDetailPage() {
   async function openSellerThread(presetMoreDetails: boolean) {
     if (!id) return;
     try {
-      const r = await api<ThreadIdResponse>(`/api/market/listings/${id}/thread`, { method: "POST" });
-      nav(`/messages/${r.threadId}${presetMoreDetails ? "?compose=more-details" : ""}`);
+      const path = presetMoreDetails
+        ? `/api/market/listings/${id}/thread/more-details`
+        : `/api/market/listings/${id}/thread`;
+      const r = await api<ThreadIdResponse>(path, { method: "POST" });
+      nav(`/messages/${r.threadId}`);
     } catch {
       setErr("Could not open messages.");
     }

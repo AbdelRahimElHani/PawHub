@@ -386,15 +386,6 @@ public class PawMarketSeeder implements CommandLineRunner {
                 .build());
 
         int qty = 1;
-        int newStock = listing.getStockQuantity() - qty;
-        listing.setStockQuantity(newStock);
-        if (newStock <= 0) {
-            listing.setPawStatus(PawListingStatus.Sold);
-            listing.setStatus(ListingStatus.SOLD);
-        } else {
-            listing.setPawStatus(PawListingStatus.Available);
-        }
-        listingRepo.save(listing);
 
         return orderRepo.save(PawOrder.builder()
                 .listing(listing)

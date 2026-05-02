@@ -12,6 +12,12 @@ const PREF_LOOKING_LABEL: Record<MatchGenderPreference, string> = {
   FEMALE: "♀ Female cats only",
 };
 
+function prefGenderChoices(catGender: CatDto["gender"]): MatchGenderPreference[] {
+  const all: MatchGenderPreference[] = ["ANY", "MALE", "FEMALE"];
+  if (!catGender) return all;
+  return all.filter((k) => k === "ANY" || k !== catGender);
+}
+
 const BEHAVIOR_LABEL: Record<CatBehavior, string> = {
   PLAYFUL: "Playful / energetic",
   CALM: "Calm / easygoing",
@@ -76,6 +82,15 @@ function CatPawMatchPrefsForm({ cat, onSaved }: { cat: CatDto; onSaved: () => vo
     cat.prefBreed,
   ]);
 
+  useEffect(() => {
+    if (
+      (cat.gender === "MALE" && cat.prefLookingForGender === "MALE") ||
+      (cat.gender === "FEMALE" && cat.prefLookingForGender === "FEMALE")
+    ) {
+      setPrefGender("ANY");
+    }
+  }, [cat.gender, cat.prefLookingForGender, cat.id]);
+
   async function onSavePrefs(e: FormEvent) {
     e.preventDefault();
     setLocalErr(null);
@@ -111,8 +126,8 @@ function CatPawMatchPrefsForm({ cat, onSaved }: { cat: CatDto; onSaved: () => vo
         PawMatch — profile &amp; filters
       </div>
       <p style={{ gridColumn: "1 / -1", fontSize: "0.82rem", color: "var(--color-muted)", margin: 0, lineHeight: 1.45 }}>
-        When both cats have a gender set, <strong>same-gender pairs never appear</strong> in discovery (in addition to
-        your filters below).
+        When both cats have a gender set, <strong>same-gender pairs never appear</strong> in discovery. You cannot set
+        &quot;Show me&quot; to the same gender as this cat — use Any or the opposite sex.
       </p>
       <label style={{ gridColumn: "1 / -1" }}>
         This cat is usually…
@@ -128,7 +143,7 @@ function CatPawMatchPrefsForm({ cat, onSaved }: { cat: CatDto; onSaved: () => vo
       <label style={{ gridColumn: "1 / -1" }}>
         Show me (gender)
         <select className="ph-select" value={prefGender} onChange={(e) => setPrefGender(e.target.value as MatchGenderPreference)}>
-          {(Object.keys(PREF_LOOKING_LABEL) as MatchGenderPreference[]).map((k) => (
+          {prefGenderChoices(cat.gender).map((k) => (
             <option key={k} value={k}>
               {PREF_LOOKING_LABEL[k]}
             </option>
@@ -260,8 +275,9 @@ function CatDetailModal({
           </div>
         </div>
         <p style={{ fontSize: "0.82rem", color: "var(--color-muted)", margin: "1rem 0 0", lineHeight: 1.45 }}>
-          Photos are verified with AI when Gemini is enabled: the image must clearly show a <strong>domestic cat</strong>{" "}
-          as the main subject.
+          When Gemini Cat-Check is enabled, photos are verified as a <strong>real domestic cat</strong> (main subject),
+          same rules as adoption listings. When vision is on, the image must also read as a domestic cat for your 3D
+          sanctuary.
         </p>
         <div style={{ marginTop: "0.65rem" }}>
           <label style={{ fontSize: "0.88rem", fontWeight: 600 }}>
@@ -479,10 +495,12 @@ export function CatsPage() {
         <h3 style={{ marginTop: 0 }}>Add a cat</h3>
         <p style={{ marginTop: 0, fontSize: "0.9rem", color: "var(--color-muted)" }}>
           PawMatch matches on gender, age, <strong>vibe</strong>, and optional <strong>breed</strong>. Both cats must fit each other&apos;s filters.
-          Same-gender pairs never see each other when both genders are set.
+          Same-gender pairs never see each other when both genders are set. You can&apos;t pick &quot;Show me&quot;
+          only the same gender as your cat.
         </p>
         <p style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginTop: "0.35rem" }}>
-          First photo (if any) is checked with AI when Gemini is on — must show your cat clearly.
+          First photo (if any) is checked with AI when Gemini Cat-Check is on — must show a real domestic cat clearly.
+          Vision may also require a clear cat when enabled.
         </p>
         <form onSubmit={onCreate} className="ph-grid">
           <div style={{ gridColumn: "1 / -1", display: "flex", flexWrap: "wrap", gap: "1rem", alignItems: "center" }}>
@@ -537,7 +555,13 @@ export function CatsPage() {
           </label>
           <label>
             Gender
-            <select className="ph-select" value={gender} onChange={(e) => setGender(e.target.value as "MALE" | "FEMALE" | "")}>
+            <select className="ph-select" value={gender} onChange={(e) => {
+              const g = e.target.value as "MALE" | "FEMALE" | "";
+              setGender(g);
+              if ((g === "MALE" && prefGender === "MALE") || (g === "FEMALE" && prefGender === "FEMALE")) {
+                setPrefGender("ANY");
+              }
+            }}>
               <option value="">Not specified</option>
               <option value="MALE">♂ Male</option>
               <option value="FEMALE">♀ Female</option>
@@ -562,7 +586,7 @@ export function CatsPage() {
           <label style={{ gridColumn: "1 / -1" }}>
             Show me (gender)
             <select className="ph-select" value={prefGender} onChange={(e) => setPrefGender(e.target.value as MatchGenderPreference)}>
-              {(Object.keys(PREF_LOOKING_LABEL) as MatchGenderPreference[]).map((k) => (
+              {prefGenderChoices(gender || null).map((k) => (
                 <option key={k} value={k}>
                   {PREF_LOOKING_LABEL[k]}
                 </option>
