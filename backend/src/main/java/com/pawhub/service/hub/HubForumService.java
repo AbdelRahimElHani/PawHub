@@ -122,17 +122,21 @@ public class HubForumService {
                 .body(req.body().trim())
                 .score(0)
                 .commentCount(0)
+                .noReplies(Boolean.TRUE.equals(req.noReplies()))
                 .build();
         return toPostDto(postRepository.save(post));
     }
 
     @Transactional
-    public ForumCommentDto addComment(long postId, Long userId, ForumNewCommentRequest req) {
+    public ForumCommentDto addComment(long postId, Long userId, UserRole role, ForumNewCommentRequest req) {
         HubForumPost post =
                 postRepository.findById(postId).orElseThrow(() -> new NoSuchElementException("Post not found"));
         assertPostActiveForCommunity(post);
         User author =
                 userRepository.findById(userId).orElseThrow(() -> new NoSuchElementException("User not found"));
+        if (post.isNoReplies() && role != UserRole.ADMIN) {
+            throw new IllegalStateException("This thread does not accept comments.");
+        }
         String body = req.body() == null ? "" : req.body().trim();
         String att = req.attachmentUrl() == null || req.attachmentUrl().isBlank() ? null : req.attachmentUrl().trim();
         if (body.isEmpty() && att == null) {
@@ -389,7 +393,8 @@ public class HubForumService {
                 p.getScore(),
                 p.getCommentCount(),
                 p.getHelpfulCommentId(),
-                p.isRemovedByAdmin());
+                p.isRemovedByAdmin(),
+                p.isNoReplies());
     }
 
     private static void assertPostActiveForCommunity(HubForumPost post) {

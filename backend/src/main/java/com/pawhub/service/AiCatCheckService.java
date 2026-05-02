@@ -180,6 +180,11 @@ public class AiCatCheckService {
         return verifyWithTextPrompt(ADOPTION_LISTING_CAT_PHOTO_PROMPT, imageBytes, mimeType);
     }
 
+    /** My Cats profile / gallery photo — same criteria as adoption hero (real domestic cat, main subject). */
+    public CatCheckResponse verifyMyCatProfilePhoto(byte[] imageBytes, String mimeType) {
+        return verifyAdoptionListingCatPhoto(imageBytes, mimeType);
+    }
+
     /**
      * Paw Adopt upload / publish path: photo must show a real cat and listing fields must align with the image
      * (same Gemini stack as Paw Market text+image verification).

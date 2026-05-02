@@ -1,5 +1,7 @@
 import Fuse from "fuse.js";
 import clsx from "clsx";
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import * as Dialog from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
@@ -38,20 +40,39 @@ function groupFaqBySection(items: FAQItem[]): { key: string; label: string | nul
   return keys.map((key) => ({ key, label: key ? key : null, items: m.get(key)! }));
 }
 
-function mergeFaqOrder(all: HubFaqJson[], cat: string | null, fromId: string, toId: string): string[] {
+function sectionKeyOf(it: FAQItem): string {
+  return (it.sectionTitle ?? "").trim();
+}
+
+/** Replace one contiguous block of items sharing `sectionKey` with `newRun` (same ids, new order). */
+function replaceSectionRun(flat: FAQItem[], sectionKey: string, newRun: FAQItem[]): FAQItem[] {
+  const k = sectionKey.trim();
+  const match = (it: FAQItem) => {
+    const sk = sectionKeyOf(it);
+    return k === "" ? sk === "" : sk === k;
+  };
+  const out: FAQItem[] = [];
+  let i = 0;
+  while (i < flat.length) {
+    const it = flat[i]!;
+    if (!match(it)) {
+      out.push(it);
+      i++;
+      continue;
+    }
+    while (i < flat.length && match(flat[i]!)) i++;
+    out.push(...newRun);
+  }
+  return out;
+}
+
+function mergeOrderFromViewSequence(all: HubFaqJson[], cat: string | null, viewSequenceIds: string[]): string[] {
   const F = [...all].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
   const inView = (x: HubFaqJson) => !cat || x.categoryId === cat;
-  const viewIds = F.filter(inView).map((x) => x.id);
-  const fromI = viewIds.indexOf(fromId);
-  const toI = viewIds.indexOf(toId);
-  if (fromI < 0 || toI < 0) return F.map((x) => x.id);
-  const next = [...viewIds];
-  next.splice(fromI, 1);
-  next.splice(toI, 0, fromId);
   const merged: string[] = [];
   let vi = 0;
   for (const x of F) {
-    if (inView(x)) merged.push(next[vi++]!);
+    if (inView(x)) merged.push(viewSequenceIds[vi++]!);
     else merged.push(x.id);
   }
   return merged;
@@ -70,6 +91,8 @@ export function FaqPage() {
   const [deleteTarget, setDeleteTarget] = useState<FAQItem | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<HubFaqJson | null>(null);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const reload = useCallback(() => {
     setLoadErr(null);
@@ -177,11 +200,32 @@ export function FaqPage() {
     reload();
   }
 
-  async function onReorder(fromId: string, toId: string) {
+  async function handleFaqDragEnd(event: DragEndEvent) {
     if (!isAdmin) return;
-    const orderedIds = mergeFaqOrder(apiItems, cat, fromId, toId);
-    await api("/api/admin/hub/faq/reorder", { method: "POST", body: JSON.stringify({ orderedIds }) });
-    reload();
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    const flat = displayItems;
+    const a = flat.find((x) => x.id === activeId);
+    const o = flat.find((x) => x.id === overId);
+    if (!a || !o) return;
+    const skA = sectionKeyOf(a);
+    const skO = sectionKeyOf(o);
+    if (skA !== skO) return;
+    const inSec = flat.filter((it) => sectionKeyOf(it) === skA);
+    const oldIdx = inSec.findIndex((x) => x.id === activeId);
+    const newIdx = inSec.findIndex((x) => x.id === overId);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const nextSec = arrayMove(inSec, oldIdx, newIdx);
+    const newFlat = replaceSectionRun(flat, skA, nextSec);
+    const orderedIds = mergeOrderFromViewSequence(apiItems, cat, newFlat.map((x) => x.id));
+    try {
+      await api("/api/admin/hub/faq/reorder", { method: "POST", body: JSON.stringify({ orderedIds }) });
+      reload();
+    } catch {
+      /* ignore */
+    }
   }
 
   const sectioned = useMemo(() => groupFaqBySection(displayItems), [displayItems]);
@@ -315,35 +359,37 @@ export function FaqPage() {
 
       {isAdmin && (
         <p style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginBottom: "0.75rem" }}>
-          Drag the handle beside a question to reorder within this topic view (order is saved for the whole knowledge base).
+          Drag the grip beside a question to reorder within its section. Order is saved for the whole knowledge base while respecting
+          your topic filter.
         </p>
       )}
 
-      {sectioned.map((g) => (
-        <section key={g.key || "__ungrouped__"} style={{ marginBottom: "1.5rem" }}>
-          {g.label && (
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "1.1rem",
-                margin: "0 0 0.65rem",
-                color: "var(--hub-charcoal)",
-                borderBottom: "1px solid var(--color-border)",
-                paddingBottom: "0.35rem",
-              }}
-            >
-              {g.label}
-            </h2>
-          )}
-          <FaqAccordion
-            items={g.items}
-            openValues={openValues}
-            onOpenChange={setOpenValues}
-            adminReorder={isAdmin}
-            onReorder={onReorder}
-            headerExtra={
-              isAdmin
-                ? (item) => (
+      {isAdmin ? (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleFaqDragEnd(e)}>
+          {sectioned.map((g) => (
+            <section key={g.key || "__ungrouped__"} style={{ marginBottom: "1.5rem" }}>
+              {g.label && (
+                <h2
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "1.1rem",
+                    margin: "0 0 0.65rem",
+                    color: "var(--hub-charcoal)",
+                    borderBottom: "1px solid var(--color-border)",
+                    paddingBottom: "0.35rem",
+                  }}
+                >
+                  {g.label}
+                </h2>
+              )}
+              <SortableContext id={`faq-sec-${g.key || "__ungrouped__"}`} items={g.items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                <FaqAccordion
+                  items={g.items}
+                  allItemsForRelated={displayItems}
+                  openValues={openValues}
+                  onOpenChange={setOpenValues}
+                  sortable
+                  headerExtra={(item) => (
                     <>
                       <button
                         type="button"
@@ -369,12 +415,38 @@ export function FaqPage() {
                         <Trash2 size={16} />
                       </button>
                     </>
-                  )
-                : undefined
-            }
-          />
-        </section>
-      ))}
+                  )}
+                />
+              </SortableContext>
+            </section>
+          ))}
+        </DndContext>
+      ) : (
+        sectioned.map((g) => (
+          <section key={g.key || "__ungrouped__"} style={{ marginBottom: "1.5rem" }}>
+            {g.label && (
+              <h2
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "1.1rem",
+                  margin: "0 0 0.65rem",
+                  color: "var(--hub-charcoal)",
+                  borderBottom: "1px solid var(--color-border)",
+                  paddingBottom: "0.35rem",
+                }}
+              >
+                {g.label}
+              </h2>
+            )}
+            <FaqAccordion
+              items={g.items}
+              allItemsForRelated={displayItems}
+              openValues={openValues}
+              onOpenChange={setOpenValues}
+            />
+          </section>
+        ))
+      )}
 
       <HubConfirmDialog
         open={deleteTarget != null}

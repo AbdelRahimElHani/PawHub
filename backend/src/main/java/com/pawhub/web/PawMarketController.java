@@ -134,6 +134,11 @@ public class PawMarketController {
         return pawMarketService.getMarketOrderForThread(threadId, user);
     }
 
+    @GetMapping("/orders/review-prompts")
+    public List<PawMarketReviewPromptDto> reviewPrompts(@AuthenticationPrincipal SecurityUser user) {
+        return pawMarketService.listBuyerReviewPrompts(user);
+    }
+
     @PostMapping("/orders/{orderId}/confirm")
     public PawMarketOrderThreadDto confirmOrder(
             @PathVariable Long orderId, @AuthenticationPrincipal SecurityUser user) {

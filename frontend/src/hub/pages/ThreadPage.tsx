@@ -116,6 +116,7 @@ export function ThreadPage() {
   const p = detail.post;
   const myVote = detail.myVote;
   const isOpViewer = user != null && user.userId === p.authorUserId;
+  const replyGloballyDisabled = Boolean(p.noReplies) && !isAdmin;
 
   return (
     <div>
@@ -187,7 +188,14 @@ export function ThreadPage() {
             </button>
           </div>
           <div style={{ flex: 1 }}>
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.45rem", margin: "0 0 0.75rem", lineHeight: 1.25 }}>{p.title}</h1>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.45rem", margin: "0 0 0.75rem", lineHeight: 1.25, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
+              {p.title}
+              {p.noReplies && (
+                <span className="hub-room-pill" title="This thread does not accept new comments from members">
+                  No replies
+                </span>
+              )}
+            </h1>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
               <UserChip userId={p.authorUserId} displayName={p.authorDisplayName} avatarUrl={null} size="sm" />
               <time dateTime={p.createdAt} style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginLeft: "auto" }}>
@@ -210,7 +218,28 @@ export function ThreadPage() {
           Discussion <span style={{ color: "var(--color-muted)", fontWeight: 500 }}>({p.commentCount})</span>
         </h2>
 
-        {user && !p.removedByAdmin ? <CompactCommentBar postId={numericId} parentId={null} onDone={reload} /> : null}
+        {user && !p.removedByAdmin && replyGloballyDisabled && (
+          <p
+            className="ph-surface"
+            style={{
+              padding: "0.75rem 1rem",
+              marginBottom: "0.75rem",
+              fontSize: "0.9rem",
+              color: "var(--color-muted)",
+              borderLeft: "4px solid var(--hub-sage)",
+            }}
+          >
+            <strong style={{ color: "var(--hub-charcoal)" }}>Read-only thread.</strong> The author chose not to accept new comments here.
+          </p>
+        )}
+        {user && !p.removedByAdmin && p.noReplies && isAdmin && (
+          <p style={{ fontSize: "0.82rem", color: "var(--color-muted)", margin: "0 0 0.5rem" }}>
+            As a moderator you can still post a comment if needed (e.g. official notice).
+          </p>
+        )}
+        {user && !p.removedByAdmin && !replyGloballyDisabled && (
+          <CompactCommentBar postId={numericId} parentId={null} onDone={reload} />
+        )}
 
         <ul style={{ listStyle: "none", padding: 0, margin: "1rem 0 0" }}>
           {detail.comments.map((c) => (
@@ -225,6 +254,7 @@ export function ThreadPage() {
               isOpViewer={isOpViewer}
               isAdmin={isAdmin}
               threadRemoved={Boolean(p.removedByAdmin)}
+              commentsLocked={replyGloballyDisabled}
               onThreadUpdated={(d) => setDetail(d)}
               onReload={reload}
               onMarkHelpful={markHelpful}
@@ -315,6 +345,7 @@ function CommentBranch({
   isOpViewer,
   isAdmin,
   threadRemoved,
+  commentsLocked,
   onThreadUpdated,
   onReload,
   onMarkHelpful,
@@ -329,6 +360,8 @@ function CommentBranch({
   isOpViewer: boolean;
   isAdmin: boolean;
   threadRemoved: boolean;
+  /** When true, member cannot add new replies (read-only thread). */
+  commentsLocked: boolean;
   onThreadUpdated: (d: ForumPostDetailJson) => void;
   onReload: () => void;
   onMarkHelpful: (id: number) => void;
@@ -362,7 +395,10 @@ function CommentBranch({
     return (
       <li style={{ marginBottom: "0.75rem" }}>
         <article
-          className={clsx(depth > 0 && "hub-forum-comment-nested")}
+          className={clsx(
+            "hub-forum-comment-card",
+            depth > 0 && "hub-forum-comment-card--nested hub-forum-comment-nested",
+          )}
           style={depth > 0 ? { ["--indent-color" as string]: indent } : undefined}
         >
           <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--color-muted)", fontStyle: "italic" }}>
@@ -383,6 +419,7 @@ function CommentBranch({
                 isOpViewer={isOpViewer}
                 isAdmin={isAdmin}
                 threadRemoved={threadRemoved}
+                commentsLocked={commentsLocked}
                 onThreadUpdated={onThreadUpdated}
                 onReload={onReload}
                 onMarkHelpful={onMarkHelpful}
@@ -398,7 +435,10 @@ function CommentBranch({
   return (
     <li style={{ marginBottom: "0.75rem" }}>
       <article
-        className={clsx(depth > 0 && "hub-forum-comment-nested")}
+        className={clsx(
+          "hub-forum-comment-card",
+          depth > 0 && "hub-forum-comment-card--nested hub-forum-comment-nested",
+        )}
         style={depth > 0 ? { ["--indent-color" as string]: indent } : undefined}
       >
         <header style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.35rem" }}>
@@ -463,7 +503,7 @@ function CommentBranch({
           <p style={{ margin: "0 0 0.5rem", lineHeight: 1.55, fontSize: "0.92rem" }}>{node.body}</p>
         )}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
-          {currentUserId && !editing && !threadRemoved && (
+          {currentUserId && !editing && !threadRemoved && !commentsLocked && (
             <button type="button" className="ph-btn ph-btn-ghost" style={{ padding: "0.2rem 0.5rem", fontSize: "0.78rem" }} onClick={() => setReplyOpen((v) => !v)}>
               {replyOpen ? "Cancel" : "Reply"}
             </button>
@@ -502,7 +542,7 @@ function CommentBranch({
             </button>
           )}
         </div>
-        {replyOpen && currentUserId && !threadRemoved && (
+        {replyOpen && currentUserId && !threadRemoved && !commentsLocked && (
           <div style={{ marginTop: "0.65rem" }}>
             <CompactCommentBar
               postId={postId}
@@ -529,6 +569,7 @@ function CommentBranch({
               isOpViewer={isOpViewer}
               isAdmin={isAdmin}
               threadRemoved={threadRemoved}
+              commentsLocked={commentsLocked}
               onThreadUpdated={onThreadUpdated}
               onReload={onReload}
               onMarkHelpful={onMarkHelpful}

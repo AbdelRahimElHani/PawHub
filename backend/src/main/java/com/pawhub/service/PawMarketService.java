@@ -266,7 +266,7 @@ public class PawMarketService {
         l.setLongitude(req.longitude());
 
         if (req.stockQuantity() != null) {
-            long sold = orderRepository.sumQuantityByListingId(id);
+            long sold = orderRepository.sumQuantityByListingIdAndSellerStatus(id, PawOrderSellerStatus.CONFIRMED);
             if (req.stockQuantity() < sold) {
                 throw new IllegalArgumentException(
                         "Stock cannot be less than units already sold (" + sold + ").");
@@ -349,7 +349,7 @@ public class PawMarketService {
         l.setLongitude(req.longitude());
 
         if (req.stockQuantity() != null) {
-            long sold = orderRepository.sumQuantityByListingId(id);
+            long sold = orderRepository.sumQuantityByListingIdAndSellerStatus(id, PawOrderSellerStatus.CONFIRMED);
             if (req.stockQuantity() < sold) {
                 throw new IllegalArgumentException(
                         "Stock cannot be less than units already sold (" + sold + ").");
@@ -382,10 +382,16 @@ public class PawMarketService {
         User adminUser = userRepository.findById(admin.getId()).orElseThrow();
         List<ChatThread> threads =
                 chatThreadRepository.findByTypeAndMarketListingId(ThreadType.LISTING, id);
-        String adminMsg = "⚠️ Moderation: Your listing \""
-                + titleShort.replace("\"", "'")
-                + "\" was removed.\nReason: "
-                + reasonShort;
+        StringBuilder adminMsg = new StringBuilder(
+                "⚠️ Moderation: Your listing \"" + titleShort.replace("\"", "'") + "\" was removed.\nReason: "
+                        + reasonShort);
+        if (body.warnSeller()) {
+            adminMsg.append("\n\nA formal Paw Market warning was recorded on your account.");
+        }
+        if (body.banSeller()) {
+            adminMsg.append("\n\nYour account was banned from Paw Market (you can no longer list or buy items).");
+        }
+        String adminMsgText = adminMsg.toString();
         Set<Long> postedThreads = new HashSet<>();
         for (ChatThread t : threads) {
             if (!postedThreads.add(t.getId())) {
@@ -394,7 +400,7 @@ public class PawMarketService {
             Message m = messageRepository.save(Message.builder()
                     .thread(t)
                     .sender(adminUser)
-                    .body(adminMsg)
+                    .body(adminMsgText)
                     .build());
             MessageDto dto = new MessageDto(
                     m.getId(),
@@ -535,15 +541,6 @@ public class PawMarketService {
                         .marketListingId(listing.getId())
                         .build()));
 
-        int newStock = listing.getStockQuantity() - quantity;
-        listing.setStockQuantity(newStock);
-        if (newStock <= 0) {
-            listing.setPawStatus(PawListingStatus.Sold);
-            listing.setStatus(ListingStatus.SOLD);
-        } else {
-            listing.setPawStatus(PawListingStatus.Available);
-        }
-
         PawOrder order = orderRepository.save(PawOrder.builder()
                 .listing(listing)
                 .buyer(buyer)
@@ -557,7 +554,7 @@ public class PawMarketService {
         String qtyNote = quantity > 1 ? " (quantity: " + quantity + ")" : "";
         String body = String.format(
                 "\uD83D\uDC3E Meow! %s wants to buy \"%s\"%s. Contact them at %s.\n\nView listing: %s\n\n"
-                        + "Seller: confirm this sale, adjust quantity, or decline — use the Paw Market actions in this thread.",
+                        + "Seller: confirm this sale, adjust quantity, or decline — stock is not deducted until you confirm.",
                 buyer.getDisplayName(), listing.getTitle(), qtyNote, phone, listingUrl);
 
         Message msg = messageRepository.save(Message.builder()
@@ -583,13 +580,35 @@ public class PawMarketService {
                 AppNotificationKind.MARKET_ORDER_BUYER,
                 "Order placed",
                 String.format(
-                        "Your order for \"%s\" is in motion — message the seller in your thread for shipping updates.",
+                        "Your order for \"%s\" is pending — the seller must confirm before stock is reserved.",
                         listing.getTitle()),
                 "/messages/" + thread.getId(),
                 "package",
                 null);
 
         return new PlaceOrderResponse(order.getId(), thread.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PawMarketReviewPromptDto> listBuyerReviewPrompts(SecurityUser principal) {
+        if (principal.getUser().getRole() == UserRole.ADMIN) {
+            return List.of();
+        }
+        List<PawOrder> orders =
+                orderRepository.findByBuyerIdAndSellerStatusOrderByCreatedAtDesc(principal.getId(), PawOrderSellerStatus.CONFIRMED);
+        return orders.stream()
+                .filter(o -> !reviewRepository.existsByOrderIdAndReviewerId(o.getId(), principal.getId()))
+                .map(o -> {
+                    MarketListing l = o.getListing();
+                    return new PawMarketReviewPromptDto(
+                            o.getId(),
+                            l.getId(),
+                            l.getTitle() != null ? l.getTitle() : "Purchase",
+                            l.getUser().getId(),
+                            l.getUser().getDisplayName(),
+                            o.getThreadId());
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -622,13 +641,27 @@ public class PawMarketService {
     public PawMarketOrderThreadDto sellerConfirmOrder(Long orderId, SecurityUser principal) {
         ensureUserAllowedOnPawMarket(principal);
         PawOrder order = orderRepository.findById(orderId).orElseThrow();
-        MarketListing listing = order.getListing();
+        MarketListing listing = listingRepository.findByIdForUpdate(order.getListing().getId()).orElseThrow();
         if (!listing.getUser().getId().equals(principal.getId())) {
             throw new IllegalArgumentException("Only the seller can confirm this order.");
         }
         if (order.getSellerStatus() != PawOrderSellerStatus.PENDING_SELLER) {
             throw new IllegalStateException("This order is not awaiting confirmation.");
         }
+        int qty = order.getQuantity();
+        if (listing.getStockQuantity() < qty) {
+            throw new IllegalStateException(
+                    "Not enough stock remains to confirm this order (only " + listing.getStockQuantity() + " left).");
+        }
+        int newStock = listing.getStockQuantity() - qty;
+        listing.setStockQuantity(newStock);
+        if (newStock <= 0) {
+            listing.setPawStatus(PawListingStatus.Sold);
+            listing.setStatus(ListingStatus.SOLD);
+        } else {
+            listing.setPawStatus(PawListingStatus.Available);
+        }
+        listingRepository.save(listing);
         order.setSellerStatus(PawOrderSellerStatus.CONFIRMED);
         orderRepository.save(order);
         ChatThread thread = chatThreadRepository.findById(order.getThreadId()).orElseThrow();
@@ -649,26 +682,19 @@ public class PawMarketService {
     public void sellerDeclineOrder(Long orderId, SecurityUser principal) {
         ensureUserAllowedOnPawMarket(principal);
         PawOrder order = orderRepository.findById(orderId).orElseThrow();
-        MarketListing listing = listingRepository.findByIdForUpdate(order.getListing().getId()).orElseThrow();
+        MarketListing listing = order.getListing();
         if (!listing.getUser().getId().equals(principal.getId())) {
             throw new IllegalArgumentException("Only the seller can decline this order.");
         }
         if (order.getSellerStatus() != PawOrderSellerStatus.PENDING_SELLER) {
             throw new IllegalStateException("This order is not awaiting confirmation.");
         }
-        int qty = order.getQuantity();
         Long tid = order.getThreadId();
-        listing.setStockQuantity(listing.getStockQuantity() + qty);
-        if (listing.getPawStatus() == PawListingStatus.Sold && listing.getStockQuantity() > 0) {
-            listing.setPawStatus(PawListingStatus.Available);
-            listing.setStatus(ListingStatus.ACTIVE);
-        }
-        listingRepository.save(listing);
         User seller = userRepository.getReferenceById(principal.getId());
         orderRepository.delete(order);
         ChatThread thread = chatThreadRepository.findById(tid).orElseThrow();
         String body = "❌ " + seller.getDisplayName()
-                + " declined this Paw Market offer. Units were returned to the listing stock.";
+                + " declined this Paw Market offer. No stock was deducted.";
         Message msg = messageRepository.save(Message.builder()
                 .thread(thread)
                 .sender(seller)
@@ -698,20 +724,12 @@ public class PawMarketService {
         if (newQuantity == old) {
             return getMarketOrderForThread(order.getThreadId(), principal);
         }
-        int maxAllowed = old + listing.getStockQuantity();
-        if (newQuantity > maxAllowed) {
+        if (newQuantity > listing.getStockQuantity()) {
             throw new IllegalArgumentException(
-                    "Quantity cannot exceed reserved units plus current stock (" + maxAllowed + ").");
-        }
-        int delta = old - newQuantity;
-        listing.setStockQuantity(listing.getStockQuantity() + delta);
-        if (listing.getPawStatus() == PawListingStatus.Sold && listing.getStockQuantity() > 0) {
-            listing.setPawStatus(PawListingStatus.Available);
-            listing.setStatus(ListingStatus.ACTIVE);
+                    "Quantity cannot exceed current stock (" + listing.getStockQuantity() + ").");
         }
         order.setQuantity(newQuantity);
         orderRepository.save(order);
-        listingRepository.save(listing);
         ChatThread thread = chatThreadRepository.findById(order.getThreadId()).orElseThrow();
         User seller = userRepository.getReferenceById(principal.getId());
         String body = "📦 " + seller.getDisplayName() + " updated this order to quantity " + newQuantity + ".";
@@ -811,7 +829,7 @@ public class PawMarketService {
         double avg = reviewRepository.averageRatingForUser(l.getUser().getId());
         long cnt = reviewRepository.countByTargetUserId(l.getUser().getId());
         List<String> imgs = l.getImageUrls() != null ? l.getImageUrls() : List.of();
-        long soldQty = orderRepository.sumQuantityByListingId(l.getId());
+        long soldQty = orderRepository.sumQuantityByListingIdAndSellerStatus(l.getId(), PawOrderSellerStatus.CONFIRMED);
         String expiresAt = null;
         if (l.getCreatedAt() != null) {
             expiresAt = l.getCreatedAt()

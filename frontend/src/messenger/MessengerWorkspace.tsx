@@ -1,7 +1,7 @@
 import { Camera, ImagePlus, MessagesSquare, MessageSquarePlus, Send, X } from "lucide-react";
 import { CopyMessageButton } from "../components/CopyMessageButton";
 import { type ReactNode, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api, apiUrl, getToken } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useThreadNotifications } from "../notifications/ThreadNotificationContext";
@@ -122,7 +122,6 @@ export function MessengerWorkspace({
 }: MessengerWorkspaceProps) {
   const { token, user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const { refresh: refreshGlobalThreads } = useThreadNotifications();
   const { setActiveThread, sendTyping, registerInbox } = useChatStomp();
   const { openMedia } = useMediaLightbox();
@@ -274,17 +273,6 @@ export function MessengerWorkspace({
   useEffect(() => {
     tidRef.current = tid;
   }, [tid]);
-
-  useEffect(() => {
-    if (!validTid) return;
-    const params = new URLSearchParams(location.search);
-    if (params.get("compose") !== "more-details") return;
-    const preset = "Hi — can I know more details about this listing before I place an order?";
-    setCompose((prev) => (prev.trim() ? prev : preset));
-    params.delete("compose");
-    const q = params.toString();
-    navigate({ pathname: location.pathname, search: q ? `?${q}` : "" }, { replace: true });
-  }, [validTid, tid, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (!token) return;

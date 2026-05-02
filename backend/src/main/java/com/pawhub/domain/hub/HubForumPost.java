@@ -49,6 +49,12 @@ public class HubForumPost {
     @Builder.Default
     private boolean removedByAdmin = false;
 
+    /** When true, new comments are rejected (admins may still post for moderation). */
+    @Column(name = "no_replies", nullable = false)
+    @JdbcTypeCode(SqlTypes.TINYINT)
+    @Builder.Default
+    private boolean noReplies = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

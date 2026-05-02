@@ -44,7 +44,10 @@ export type ForumPostJson = {
   score: number;
   commentCount: number;
   helpfulCommentId: number | null;
+  /** When true, thread is hidden from room lists but may still load by link. */
   removedByAdmin?: boolean;
+  /** When true, only admins may add new comments. */
+  noReplies: boolean;
 };
 
 export type ForumCommentJson = {

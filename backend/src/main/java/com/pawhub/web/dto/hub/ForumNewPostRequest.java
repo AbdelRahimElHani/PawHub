@@ -4,4 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record ForumNewPostRequest(
-        @NotBlank @Size(max = 512) String title, @NotBlank String body) {}
+        @NotBlank @Size(max = 512) String title,
+        @NotBlank String body,
+        /** When true, the thread is read-only for members (no new comments). */
+        Boolean noReplies) {}

@@ -11,4 +11,5 @@ public record ForumPostDto(
         int score,
         int commentCount,
         Long helpfulCommentId,
-        boolean removedByAdmin) {}
+        boolean removedByAdmin,
+        boolean noReplies) {}

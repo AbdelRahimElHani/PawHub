@@ -56,6 +56,12 @@ public class MarketController {
         return marketService.uploadPhoto(id, file, user);
     }
 
+    @PostMapping("/listings/{id}/thread/more-details")
+    public ThreadIdResponse moreDetailsMessage(
+            @PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
+        return new ThreadIdResponse(marketService.openListingThreadWithMoreDetailsMessage(id, user), false);
+    }
+
     @PostMapping("/listings/{id}/thread")
     public ThreadIdResponse openThread(@PathVariable Long id, @AuthenticationPrincipal SecurityUser user) {
         return new ThreadIdResponse(marketService.openOrGetListingThread(id, user), false);
