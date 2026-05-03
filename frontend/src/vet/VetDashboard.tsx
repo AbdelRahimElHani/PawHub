@@ -169,6 +169,9 @@ export function VetDashboard() {
   const vetStatus = user.vetVerificationStatus;
   const pending = vetStatus === "PENDING";
   const rejected = vetStatus === "REJECTED";
+  const revokedNotice = Boolean(
+    rejected && user.vetRejectionReason?.toLowerCase().includes("revoked"),
+  );
 
   return (
     <div className="pawvet-shell">
@@ -213,7 +216,9 @@ export function VetDashboard() {
           className="pawvet-glass-card"
           style={{ padding: "1rem", marginBottom: "1rem", border: "1px solid #fecaca", background: "#fef2f2" }}
         >
-          <strong style={{ color: "#b42318" }}>Application not approved</strong>
+          <strong style={{ color: "#b42318" }}>
+            {revokedNotice ? "Verification revoked" : "Application not approved"}
+          </strong>
           <p style={{ margin: "0.35rem 0 0", fontSize: "0.9rem", color: "var(--color-muted)" }}>
             {user.vetRejectionReason
               ? user.vetRejectionReason

@@ -35,6 +35,8 @@ public enum AppNotificationKind {
     ADMIN_PAW_ADOPT_SHELTER_BANNED,
     /** Shelter verification was revoked by an administrator. */
     SHELTER_VERIFICATION_REVOKED,
+    /** PawVet veterinarian verification was revoked by an administrator (account remains a vet; re-approval or appeal required to claim cases). */
+    VET_VERIFICATION_REVOKED,
     /** Admin queue: shelter submitted an appeal after rejection. */
     ADMIN_SHELTER_APPEAL_PENDING,
     /** Guardian’s inquiry was delivered to the shelter (confirmation). */

@@ -683,9 +683,25 @@ public class AdoptionService {
                 l.getAgeMonths(),
                 l.getPhotoUrl(),
                 l.getStatus().name(),
-                sh.getName(),
+                adoptionShelterPartnerDisplayName(sh),
                 sh.getUser().getId(),
                 sh.getUser().getAvatarUrl());
+    }
+
+    /**
+     * Label shown as the listing’s “shelter partner”: the signed-in shelter account’s display name first, so bogus
+     * or placeholder {@link Shelter#getName()} rows (e.g. “1 1”) don’t replace the real Paw Adopt profile name.
+     */
+    private static String adoptionShelterPartnerDisplayName(Shelter sh) {
+        String account = sh.getUser().getDisplayName();
+        if (account != null && !account.isBlank()) {
+            return account.trim();
+        }
+        String org = sh.getName();
+        if (org != null && !org.isBlank()) {
+            return org.trim();
+        }
+        return "Shelter";
     }
 
     /**

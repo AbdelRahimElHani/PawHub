@@ -35,6 +35,10 @@ public class AppNotificationService {
     private final VetLicenseApplicationRepository vetLicenseApplicationRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
+    /**
+     * Persist one in-app notification and STOMP-nudge that user (after commit) so open sessions refresh the
+     * bell, unread badge, and toast stack without opening the drawer.
+     */
     @Transactional
     public void publish(
             Long userId,
@@ -62,9 +66,10 @@ public class AppNotificationService {
                 .avatarUrl(avatarUrl != null ? trunc(avatarUrl, 1024) : null)
                 .build();
         appNotificationRepository.save(row);
+        scheduleAppNotificationPushToEmails(List.of(user.getEmail()));
     }
 
-    /** Persist notification and STOMP-nudge that user (open sessions refresh the bell). */
+    /** Same as {@link #publish}; kept for call sites that emphasize inbox refresh. */
     @Transactional
     public void publishWithInboxNudge(
             Long userId,
@@ -75,10 +80,6 @@ public class AppNotificationService {
             String iconKind,
             String avatarUrl) {
         publish(userId, kind, title, body, deepLink, iconKind, avatarUrl);
-        User user = userRepository.findById(userId).orElse(null);
-        if (user != null) {
-            scheduleAppNotificationPushToEmails(List.of(user.getEmail()));
-        }
     }
 
     @Transactional(readOnly = true)
@@ -154,6 +155,7 @@ public class AppNotificationService {
             case ADMIN_VET_LICENSE_SUBMITTED,
                     VET_LICENSE_VERIFIED,
                     VET_LICENSE_APPLICATION_REJECTED,
+                    VET_VERIFICATION_REVOKED,
                     VET_NEW_REVIEW,
                     PAWVET_NEW_TRIAGE_CASE,
                     PAWVET_CASE_CLAIMED,
@@ -190,25 +192,21 @@ public class AppNotificationService {
         return n;
     }
 
-    /**
-     * In-app notification for every admin user, plus a STOMP nudge (after DB commit) so open admin sessions
-     * refresh the bell without a manual reload.
-     */
+    /** In-app notification for every admin user; each {@link #publish} sends its own STOMP nudge after commit. */
     @Transactional
     public void publishToAdmins(AppNotificationKind kind, String title, String body, String deepLink) {
         List<User> admins = userRepository.findByRole(UserRole.ADMIN);
         if (admins.isEmpty()) {
             return;
         }
-        List<String> emails = admins.stream().map(User::getEmail).toList();
         for (User admin : admins) {
             publish(admin.getId(), kind, title, body, deepLink, null, null);
         }
-        scheduleAppNotificationPushToEmails(emails);
     }
 
     /**
-     * Approved veterinarians (PawVet credentialing) — e.g. new triage case on the board.
+     * Approved veterinarians (PawVet credentialing) — e.g. new triage case on the board. Each {@link #publish}
+     * nudges that vet's open sessions.
      */
     @Transactional
     public void publishToApprovedVeterinarians(AppNotificationKind kind, String title, String body, String deepLink) {
@@ -221,8 +219,6 @@ public class AppNotificationService {
             User u = app.getUser();
             publish(u.getId(), kind, title, body, deepLink, null, null);
         }
-        List<String> emails = apps.stream().map(a -> a.getUser().getEmail()).toList();
-        scheduleAppNotificationPushToEmails(emails);
     }
 
     private void scheduleAppNotificationPushToEmails(List<String> emails) {

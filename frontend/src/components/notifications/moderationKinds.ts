@@ -7,6 +7,7 @@ const MODERATION_DETAIL_KINDS = new Set([
   "MARKET_LISTING_REMOVED_ADMIN",
   "ADOPTION_LISTING_REMOVED_ADMIN",
   "VET_LICENSE_APPLICATION_REJECTED",
+  "VET_VERIFICATION_REVOKED",
   "FORUM_POST_REMOVED_ADMIN",
 ]);
 
@@ -27,6 +28,7 @@ export function moderationNoticeLabel(kind: string): string {
     case "ADOPTION_LISTING_REMOVED_ADMIN":
       return "Listing removed";
     case "VET_LICENSE_APPLICATION_REJECTED":
+    case "VET_VERIFICATION_REVOKED":
       return "Vet application";
     case "FORUM_POST_REMOVED_ADMIN":
       return "Thread removed";

@@ -129,8 +129,9 @@ public class PawvetConsultationReviewService {
     }
 
     /**
-     * Downgrades a veterinarian account and marks their license application rejected so they cannot claim triage
-     * cases until they re-credential.
+     * Revokes PawVet verification for a veterinarian: keeps {@link UserAccountType#VET}, sets license application to
+     * {@link VetVerificationStatus#REJECTED}, clears appeal state so they may submit one appeal (same pattern as shelter
+     * verification revoke). Triage case access remains gated on {@code APPROVED} elsewhere.
      */
     @Transactional
     public void revokeVeterinarianCredentials(long vetUserId) {
@@ -140,18 +141,29 @@ public class PawvetConsultationReviewService {
         if (vet.getAccountType() != UserAccountType.VET) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "That account is not registered as a veterinarian.");
         }
-            vet.setAccountType(UserAccountType.MEMBER);
-        userRepository.save(vet);
-        vetLicenseApplicationRepository
+        VetLicenseApplication app = vetLicenseApplicationRepository
                 .findByUser_Id(vetUserId)
-                .ifPresent(app -> {
-                    app.setStatus(VetVerificationStatus.REJECTED);
-                    app.setRejectionReason("Verification revoked by administrator.");
-                    app.setAppealMessage(null);
-                    app.setAppealSubmittedAt(null);
-                    app.setAppealState(null);
-                    vetLicenseApplicationRepository.save(app);
-                });
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT, "No veterinarian license application on file for this account."));
+        app.setStatus(VetVerificationStatus.REJECTED);
+        app.setRejectionReason(
+                "Your PawVet verification was revoked by a PawHub administrator. Your account remains a veterinarian "
+                        + "profile, but you cannot claim triage cases until credentials are approved again. Open your vet "
+                        + "dashboard to read this notice—you may submit one appeal there if you believe this should be "
+                        + "reconsidered.");
+        app.setAppealMessage(null);
+        app.setAppealSubmittedAt(null);
+        app.setAppealState(null);
+        vetLicenseApplicationRepository.save(app);
+
+        appNotificationService.publishWithInboxNudge(
+                vetUserId,
+                AppNotificationKind.VET_VERIFICATION_REVOKED,
+                "PawVet verification ended",
+                app.getRejectionReason(),
+                "/vet",
+                "vet",
+                null);
     }
 
     private PawVetConsultationReviewDto toDto(PawvetConsultationReview r) {
