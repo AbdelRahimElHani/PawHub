@@ -13,9 +13,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Seeds rich Paw Market demo data: 6 users, 14 listings (all categories),
+ * Seeds rich Paw Market demo data: 6 users, 14 listings in Beirut (all categories),
  * 5 orders, 6 reviews, and 2 Verified Meow sellers.
  * Runs once — skipped if any Paw Market demo user already exists (avoids partial re-run duplicates).
+ * To re-seed after a US run: remove users with emails in {@link #PAW_MARKET_USER_EMAILS} (and dependent rows) or use a fresh DB.
  */
 @Slf4j
 @Component
@@ -59,52 +60,52 @@ public class PawMarketSeeder implements CommandLineRunner {
 
         // ── Users ─────────────────────────────────────────────────────────
 
-        User luna = user(pw, "Luna Pawsworth",   "luna@pawhub.local",    "New York",     "NY",
+        User luna = user(pw, "Luna Pawsworth",   "luna@pawhub.local",    "Beirut",     "",
                 "Cat behaviour coach & passionate feline curator. 🐾",
                 "https://api.dicebear.com/8.x/adventurer/svg?seed=Luna");
         luna.setVerifiedMeow(true);
         luna.setCompletedSales(6);
         luna = userRepo.save(luna);
 
-        User oliver = user(pw, "Oliver Whisker",  "oliver@pawhub.local",  "Los Angeles",  "CA",
+        User oliver = user(pw, "Oliver Whisker",  "oliver@pawhub.local",  "Beirut",  "",
                 "PawHub veteran seller. Every item is hand-picked for the discerning cat.",
                 "https://api.dicebear.com/8.x/adventurer/svg?seed=Oliver");
         oliver.setVerifiedMeow(true);
         oliver.setCompletedSales(9);
         oliver = userRepo.save(oliver);
 
-        User mochi = user(pw, "Mochi Purrington",  "mochi@pawhub.local",   "Chicago",      "IL",
+        User mochi = user(pw, "Mochi Purrington",  "mochi@pawhub.local",   "Beirut",      "",
                 "Cat mum of 3. Decluttering our cat room! 😸",
                 "https://api.dicebear.com/8.x/adventurer/svg?seed=Mochi");
         mochi.setCompletedSales(2);
         mochi = userRepo.save(mochi);
 
-        User simba = user(pw, "Simba Clawson",     "simba@pawhub.local",   "Austin",       "TX",
+        User simba = user(pw, "Simba Clawson",     "simba@pawhub.local",   "Beirut",       "",
                 "DIY cat furniture enthusiast. Retired items that deserve a new home.",
                 "https://api.dicebear.com/8.x/adventurer/svg?seed=Simba");
         simba.setCompletedSales(3);
         simba = userRepo.save(simba);
 
-        User nala = user(pw, "Nala Pounce",       "nala@pawhub.local",    "Seattle",      "WA",
+        User nala = user(pw, "Nala Pounce",       "nala@pawhub.local",    "Beirut",      "",
                 "Vet tech | Cat health advocate | Sustainable pet parent 🌿",
                 "https://api.dicebear.com/8.x/adventurer/svg?seed=Nala");
         nala.setCompletedSales(4);
         nala = userRepo.save(nala);
 
-        User chester = user(pw, "Chester Meow",   "chester@pawhub.local", "Miami",        "FL",
+        User chester = user(pw, "Chester Meow",   "chester@pawhub.local", "Beirut",        "",
                 "Buyer only. Two rescue cats, always looking for quality gear.",
                 "https://api.dicebear.com/8.x/adventurer/svg?seed=Chester");
         chester = userRepo.save(chester);
 
-        // ── Listings ──────────────────────────────────────────────────────
+        // ── Listings (all Beirut, Lebanon — matches Paw Market “My area” city filter) ──
 
-        // LUNA — New York
+        // LUNA — Hamra / Downtown
         MarketListing l1 = listing(luna,
                 "Royal Canin Indoor Adult Cat Food 4kg",
                 "Premium dry food for indoor cats. Reduces hairballs and odour. " +
                 "Opened once; cat prefers wet food now. Best before Dec 2025.",
-                3599, false, PawCategory.Food, "New York", "NY",
-                "Midtown, Manhattan", 40.7589, -73.9851,
+                3599, false, PawCategory.Food, "Beirut", "", "Lebanon",
+                "Hamra, Beirut", 33.8967, 35.4823,
                 List.of(
                   "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600",
                   "https://images.unsplash.com/photo-1535268647677-300dbf3d78d1?w=600"),
@@ -114,8 +115,8 @@ public class PawMarketSeeder implements CommandLineRunner {
                 "Deluxe Window-Mount Cat Hammock",
                 "Sturdy suction-cup hammock, holds up to 15 kg. My cat moved to the sofa " +
                 "but this is in perfect condition. Fits windows 20–60 cm wide.",
-                4999, false, PawCategory.Furniture, "New York", "NY",
-                "Brooklyn, NY", 40.6892, -73.9442,
+                4999, false, PawCategory.Furniture, "Beirut", "", "Lebanon",
+                "Mar Elias, Beirut", 33.8742, 35.5031,
                 List.of(
                   "https://images.unsplash.com/photo-1548802673-380ab8ebc7b7?w=600",
                   "https://images.unsplash.com/photo-1511275539165-cc46b1ee89bf?w=600"),
@@ -125,18 +126,18 @@ public class PawMarketSeeder implements CommandLineRunner {
                 "Interactive Feather Wand Bundle (5 wands)",
                 "Set of 5 feather wands in different sizes. Cats go crazy for these! " +
                 "Giving away — just pay nothing. Purrfect for kittens.",
-                0, true, PawCategory.Toys, "New York", "NY",
-                "Upper East Side, Manhattan", 40.7736, -73.9566,
+                0, true, PawCategory.Toys, "Beirut", "", "Lebanon",
+                "Badaro, Beirut", 33.8733, 35.5192,
                 List.of("https://images.unsplash.com/photo-1615789591457-74a63395c990?w=600"),
                 1);
 
-        // OLIVER — Los Angeles
+        // OLIVER — Ashrafieh / Gemmayze
         MarketListing l4 = listing(oliver,
                 "Organic Freeze-Dried Cat Treats – Salmon & Chicken",
                 "100% natural, no fillers. 3 sealed bags × 80g. Great for training. " +
                 "Shelf life 18 months from today.",
-                1899, false, PawCategory.Food, "Los Angeles", "CA",
-                "Santa Monica, CA", 34.0195, -118.4912,
+                1899, false, PawCategory.Food, "Beirut", "", "Lebanon",
+                "Ashrafieh, Beirut", 33.8886, 35.5167,
                 List.of(
                   "https://images.unsplash.com/photo-1607923432780-7a9c30adcb73?w=600",
                   "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=600"),
@@ -146,8 +147,8 @@ public class PawMarketSeeder implements CommandLineRunner {
                 "Corner Self-Grooming Brush (wall-mount)",
                 "Cats rub against it to groom themselves. Reduces shedding by 40%. " +
                 "Used 6 months, cleaned and sanitised. Infused catnip refill included.",
-                2499, false, PawCategory.Health, "Los Angeles", "CA",
-                "Silver Lake, LA", 34.0868, -118.2702,
+                2499, false, PawCategory.Health, "Beirut", "", "Lebanon",
+                "Gemmayze, Beirut", 33.8961, 35.5094,
                 List.of("https://images.unsplash.com/photo-1606214174585-fe31582dc6ee?w=600"),
                 1);
 
@@ -155,8 +156,8 @@ public class PawMarketSeeder implements CommandLineRunner {
                 "Plush Donut Cat Cave Bed – Washable",
                 "Luxury faux-fur donut bed, 55 cm diameter. Machine washable cover. " +
                 "My senior cat passed so this is now surplus — pristine condition.",
-                6500, false, PawCategory.Furniture, "Los Angeles", "CA",
-                "West Hollywood, CA", 34.0900, -118.3617,
+                6500, false, PawCategory.Furniture, "Beirut", "", "Lebanon",
+                "Sodeco, Beirut", 33.8912, 35.5128,
                 List.of(
                   "https://images.unsplash.com/photo-1574158622682-e40e69881006?w=600",
                   "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?w=600"),
@@ -166,18 +167,18 @@ public class PawMarketSeeder implements CommandLineRunner {
                 "Handcrafted Leather Cat Collar + Gold Bell",
                 "Genuine leather, adjustable 22–32 cm. Safety breakaway clasp. " +
                 "Engraving on request. From a small local artisan.",
-                1299, false, PawCategory.Apparel, "Los Angeles", "CA",
-                "Venice Beach, CA", 33.9850, -118.4695,
+                1299, false, PawCategory.Apparel, "Beirut", "", "Lebanon",
+                "Monnot, Beirut", 33.8944, 35.5062,
                 List.of("https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=600"),
                 1);
 
-        // MOCHI — Chicago
+        // MOCHI — Verdun / Ras Beirut
         MarketListing l8 = listing(mochi,
                 "Catnip-Stuffed Mice Set (10 pack)",
                 "Organic catnip inside each mouse. Different colours and textures. " +
                 "Bought 3 packs for my cats but they only play with 2 at a time. Sealed.",
-                999, false, PawCategory.Toys, "Chicago", "IL",
-                "Wicker Park, Chicago", 41.9087, -87.6774,
+                999, false, PawCategory.Toys, "Beirut", "", "Lebanon",
+                "Verdun, Beirut", 33.8897, 35.4856,
                 List.of(
                   "https://images.unsplash.com/photo-1625794084867-8ddd239946b1?w=600",
                   "https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=600"),
@@ -187,18 +188,18 @@ public class PawMarketSeeder implements CommandLineRunner {
                 "Ceramic Elevated Cat Bowl Set (raised stand)",
                 "Raised stand reduces neck strain. Dishwasher-safe ceramic bowls. " +
                 "Set of 2. Minimalist white design goes with any kitchen.",
-                3499, false, PawCategory.Food, "Chicago", "IL",
-                "Lincoln Park, Chicago", 41.9217, -87.6383,
+                3499, false, PawCategory.Food, "Beirut", "", "Lebanon",
+                "Ras Beirut", 33.9021, 35.4788,
                 List.of("https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600"),
                 1);
 
-        // SIMBA — Austin
+        // SIMBA — Mar Mikhael / Jounieh pickup note in desc — still Beirut city
         MarketListing l10 = listing(simba,
                 "Adjustable Cat Harness + Retractable Leash",
                 "Escape-proof figure-8 harness, size M (4–6 kg). Padded for comfort. " +
                 "Includes 5-metre retractable leash. Used twice, cat refused 😂.",
-                2199, false, PawCategory.Apparel, "Austin", "TX",
-                "South Congress, Austin", 30.2500, -97.7488,
+                2199, false, PawCategory.Apparel, "Beirut", "", "Lebanon",
+                "Mar Mikhael, Beirut", 33.9019, 35.5344,
                 List.of("https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600"),
                 2);
 
@@ -206,18 +207,18 @@ public class PawMarketSeeder implements CommandLineRunner {
                 "Automated Laser Cat Toy – 360° rotation",
                 "Plugs into USB. 3 speed settings, auto shut-off after 15 min. " +
                 "Barely used — we got a second cat and they play with each other now!",
-                0, true, PawCategory.Toys, "Austin", "TX",
-                "East Austin, TX", 30.2623, -97.7151,
+                0, true, PawCategory.Toys, "Beirut", "", "Lebanon",
+                "Achrafieh, Beirut", 33.8879, 35.5201,
                 List.of("https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=600"),
                 1);
 
-        // NALA — Seattle
+        // NALA — Raouché / Manara
         MarketListing l12 = listing(nala,
                 "Veterinary-Grade Cat Dental Gel Kit",
                 "3-piece kit: enzymatic gel, dual-head brush, finger brush. " +
                 "As recommended by vets. Helps prevent gingivitis. Unopened kit.",
-                1699, false, PawCategory.Health, "Seattle", "WA",
-                "Capitol Hill, Seattle", 47.6235, -122.3208,
+                1699, false, PawCategory.Health, "Beirut", "", "Lebanon",
+                "Raouché, Beirut", 33.9011, 35.4789,
                 List.of("https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600"),
                 1);
 
@@ -225,8 +226,8 @@ public class PawMarketSeeder implements CommandLineRunner {
                 "Cat Water Fountain – Silent Pump, 2.5L",
                 "Whisper-quiet pump. Carbon filter included (6 spare filters). " +
                 "Keeps water oxygenated and fresh. Thoroughly cleaned and disinfected.",
-                4500, false, PawCategory.Health, "Seattle", "WA",
-                "Fremont, Seattle", 47.6511, -122.3496,
+                4500, false, PawCategory.Health, "Beirut", "", "Lebanon",
+                "Manara, Beirut", 33.9033, 35.4759,
                 List.of(
                   "https://images.unsplash.com/photo-1596854273338-cbf078ec7071?w=600",
                   "https://images.unsplash.com/photo-1548802673-380ab8ebc7b7?w=600"),
@@ -236,8 +237,8 @@ public class PawMarketSeeder implements CommandLineRunner {
                 "Luxury Cat Backpack Carrier – Bubble Window",
                 "Airline-friendly, bubble window for curious cats. " +
                 "Ventilated sides, fleece mat inside. Up to 7 kg. Used 4× — like new.",
-                8999, false, PawCategory.Other, "Seattle", "WA",
-                "Queen Anne, Seattle", 47.6365, -122.3565,
+                8999, false, PawCategory.Other, "Beirut", "", "Lebanon",
+                "Zaitunay Bay, Beirut", 33.9045, 35.5188,
                 List.of("https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600"),
                 1);
 
@@ -317,7 +318,7 @@ public class PawMarketSeeder implements CommandLineRunner {
             reviewRepo.save(extraR2);
         }
 
-        log.info("✅ Paw Market seeded: 6 users | 14 listings | 5 orders | 6+ reviews | 2 Verified Meow sellers");
+        log.info("✅ Paw Market seeded: 6 users | 14 Beirut listings | 5 orders | 6+ reviews | 2 Verified Meow sellers");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
@@ -341,7 +342,7 @@ public class PawMarketSeeder implements CommandLineRunner {
     private MarketListing listing(User seller, String title, String description,
                                    long priceCents, boolean isFree,
                                    PawCategory category,
-                                   String city, String region, String cityText,
+                                   String city, String region, String country, String cityText,
                                    double lat, double lng,
                                    List<String> images,
                                    int stockQuantity) {
@@ -354,7 +355,7 @@ public class PawMarketSeeder implements CommandLineRunner {
                 .category(category)
                 .city(city)
                 .region(region)
-                .country(null)
+                .country(country != null && !country.isBlank() ? country : null)
                 .cityText(cityText)
                 .latitude(lat)
                 .longitude(lng)

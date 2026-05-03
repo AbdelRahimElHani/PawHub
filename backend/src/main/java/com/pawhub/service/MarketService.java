@@ -169,7 +169,8 @@ public class MarketService {
                             return chatThreadRepository.save(t);
                         });
 
-        String body = "Can I know more details?";
+        String listingUrl = pawhubProperties.listingPageUrl(listing.getId());
+        String body = "Can I know more details?\n\nView listing: " + listingUrl;
         Message msg = messageRepository.save(Message.builder()
                 .thread(thread)
                 .sender(buyer)

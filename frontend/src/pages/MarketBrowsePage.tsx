@@ -278,6 +278,8 @@ function ReviewAfterPurchaseModal({
 const LS_MARKET_CITY = "pawhub_market_buyer_city";
 const LS_MARKET_REGION = "pawhub_market_buyer_region";
 const LS_MARKET_COUNTRY = "pawhub_market_buyer_country";
+/** When "1", client filters by haversine vs device GPS (default off so distant listings still show). */
+const LS_MARKET_NEARBY = "pawhub_market_nearby_distance";
 
 function readSavedBuyerArea() {
   const city = (localStorage.getItem(LS_MARKET_CITY) ?? "").trim();
@@ -300,6 +302,9 @@ export function MarketBrowsePage() {
   const [activeCategory, setActiveCategory] = useState<PawCategory | "">("");
   const [freeOnly, setFreeOnly] = useState(false);
   const [maxDistKm, setMaxDistKm] = useState(100);
+  const [useNearbyDistance, setUseNearbyDistance] = useState(
+    () => (typeof localStorage !== "undefined" ? localStorage.getItem(LS_MARKET_NEARBY) === "1" : false),
+  );
 
   const initLoc = useMemo(() => readSavedBuyerArea(), []);
   const [pickerCountry, setPickerCountry] = useState(initLoc.pickerCountry);
@@ -397,7 +402,12 @@ export function MarketBrowsePage() {
     if (freeOnly && !l.isFree) return false;
     if (activeCategory && l.category !== activeCategory) return false;
     if (search && !l.title.toLowerCase().includes(search.toLowerCase())) return false;
-    if (position && l.latitude != null && l.longitude != null) {
+    if (
+      useNearbyDistance &&
+      position &&
+      l.latitude != null &&
+      l.longitude != null
+    ) {
       const d = haversineKm(position.lat, position.lng, l.latitude, l.longitude);
       if (d > maxDistKm) return false;
     }
@@ -549,19 +559,38 @@ export function MarketBrowsePage() {
 
         {position && (
           <div className="pm-filter-section">
+            <label className="pm-toggle" style={{ marginBottom: "0.45rem" }}>
+              <input
+                type="checkbox"
+                checked={useNearbyDistance}
+                onChange={(e) => {
+                  const v = e.target.checked;
+                  setUseNearbyDistance(v);
+                  try {
+                    localStorage.setItem(LS_MARKET_NEARBY, v ? "1" : "0");
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              />
+              <span>
+                <strong>Near me</strong> — hide listings farther than <strong>{maxDistKm} km</strong> from this device
+              </span>
+            </label>
             <span className="pm-filter-label">
-              <Sliders size={12} style={{ verticalAlign: "middle" }} /> Distance
+              <Sliders size={12} style={{ verticalAlign: "middle" }} /> Max distance (km)
             </span>
             <input
               type="range"
               className="pm-slider"
               min={1}
-              max={100}
+              max={200}
               value={maxDistKm}
               onChange={(e) => setMaxDistKm(Number(e.target.value))}
+              disabled={!useNearbyDistance}
             />
             <span style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
-              Within {maxDistKm} km
+              {useNearbyDistance ? `Within ${maxDistKm} km of your location` : "Turn on “Near me” to use distance."}
             </span>
           </div>
         )}
@@ -592,10 +621,24 @@ export function MarketBrowsePage() {
             }}
           >
             <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🐱</div>
-            <p style={{ margin: 0, fontWeight: 600 }}>No listings match your filters.</p>
-            <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem" }}>
-              Try adjusting the category, your city filter, or distance slider.
-            </p>
+            {all.length > 0 ? (
+              <>
+                <p style={{ margin: 0, fontWeight: 600 }}>No listings match your current filters.</p>
+                <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem", maxWidth: "42ch", marginLeft: "auto", marginRight: "auto" }}>
+                  {useNearbyDistance
+                    ? "Try turning off “Near me”, widening the distance slider, or clearing search / category."
+                    : "Try clearing search, category, or “Show free only”. If you set My area to a city, use Clear — wrong spelling hides all listings."}
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: 0, fontWeight: 600 }}>No listings in this view.</p>
+                <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem", maxWidth: "46ch", marginLeft: "auto", marginRight: "auto" }}>
+                  If you expect demo data: open <strong>My area → Clear</strong> (saved city can filter everything out), then refresh.
+                  Demo listings are created on first app start when Paw Market seed runs (see backend <code className="hub-kbd">pawhub.bootstrap.paw-market-seed</code>).
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="pm-grid">

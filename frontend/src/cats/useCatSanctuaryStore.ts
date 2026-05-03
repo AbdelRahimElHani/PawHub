@@ -90,6 +90,9 @@ export const useCatSanctuaryStore = create<State>((set, get) => ({
 
   addCat: async ({ name, breed, birthday, vibe, colorPalette, photoFile, visionProfile }) => {
     set({ error: null });
+    if (!photoFile) {
+      throw new Error("Photo is required.");
+    }
     let ageMonths: number | null = null;
     if (birthday) {
       const born = new Date(birthday);
@@ -117,11 +120,9 @@ export const useCatSanctuaryStore = create<State>((set, get) => ({
       ...(visionProfile ? { visionProfile } : {}),
     };
     saveMap(map);
-    if (photoFile) {
-      const fd = new FormData();
-      fd.append("file", photoFile);
-      await api(`/api/cats/${created.id}/photos`, { method: "POST", body: fd });
-    }
+    const fd = new FormData();
+    fd.append("file", photoFile);
+    await api(`/api/cats/${created.id}/photos`, { method: "POST", body: fd });
     await get().fetchCats();
     return created.id;
   },

@@ -54,3 +54,10 @@ pawhub:
   auth:
     auto-verify-email-on-registration: false
   frontend-base-url: ${FRONTEND_URL:http://localhost:5173}
+  # Gemini — required for Paw Market Cat-Check, adopt listing photo checks, cat vision-profile, PawBot.
+  # Create a key: https://aistudio.google.com/apikey  then either:
+  #   • export PAWHUB_GEMINI_API_KEY=... (or GEMINI_API_KEY) before starting the API, or
+  #   • paste below (never commit real keys; keep application-local.yml gitignored).
+  gemini:
+    enabled: true
+    api-key: ${PAWHUB_GEMINI_API_KEY:${GEMINI_API_KEY:}}
