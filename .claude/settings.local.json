@@ -14,7 +14,8 @@
       "Bash(powershell -Command \"netstat -ano | Select-String '8080'\")",
       "Bash(echo \"PID $!\")",
       "Bash(powershell -Command \"Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force\")",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(xargs grep *)"
     ]
   }
 }
