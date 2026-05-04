@@ -5,6 +5,22 @@ import { api } from "../api/client";
 import type { VetAccountReviewsAdminDto } from "../types/pawvetConsultationReview";
 import "../pawvet/pawvet.css";
 
+function vetVerificationLabel(status: string, revokedByAdmin: boolean | undefined): string {
+  if (revokedByAdmin) return "Revoked";
+  if (status === "PENDING") return "Pending";
+  if (status === "APPROVED") return "Verified";
+  if (status === "REJECTED") return "Rejected";
+  return status;
+}
+
+function vetVerificationBadgeStyle(status: string, revokedByAdmin: boolean | undefined): { bg: string; color: string } {
+  if (revokedByAdmin || status === "REJECTED") {
+    return { bg: "rgba(180, 35, 24, 0.12)", color: "#b42318" };
+  }
+  if (status === "APPROVED") return { bg: "rgba(22, 163, 74, 0.14)", color: "#15803d" };
+  return { bg: "rgba(217, 119, 6, 0.14)", color: "#b45309" };
+}
+
 export function AdminVetReviewsPage() {
   const nav = useNavigate();
   const [rows, setRows] = useState<VetAccountReviewsAdminDto[] | null>(null);
@@ -88,6 +104,10 @@ export function AdminVetReviewsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
           {rows.map((v) => {
             const expanded = !!open[v.vetUserId];
+            const revoked = Boolean(v.verificationRevokedByAdmin);
+            const statusLabel = vetVerificationLabel(v.vetVerificationStatus, v.verificationRevokedByAdmin);
+            const badge = vetVerificationBadgeStyle(v.vetVerificationStatus, v.verificationRevokedByAdmin);
+            const canRevoke = v.vetVerificationStatus === "APPROVED";
             return (
               <div key={v.vetUserId} className="pawvet-glass-card" style={{ padding: 0, overflow: "hidden" }}>
                 <button
@@ -110,8 +130,21 @@ export function AdminVetReviewsPage() {
                     <div style={{ fontWeight: 700, color: "var(--color-primary-dark)" }}>{v.displayName}</div>
                     <div style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>{v.email}</div>
                   </div>
-                  <span style={{ fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-muted)" }}>
-                    {v.vetVerificationStatus}
+                  <span
+                    style={{
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      padding: "0.22rem 0.55rem",
+                      borderRadius: 999,
+                      background: badge.bg,
+                      color: badge.color,
+                      whiteSpace: "nowrap",
+                    }}
+                    title={revoked ? "Verification was revoked from this admin page" : undefined}
+                  >
+                    {statusLabel}
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f59e0b", fontWeight: 700 }}>
                     <Star size={16} fill="currentColor" aria-hidden />
@@ -133,11 +166,12 @@ export function AdminVetReviewsPage() {
                         type="button"
                         className="ph-btn ph-btn-primary"
                         style={{ fontSize: "0.85rem", background: "#b42318", borderColor: "#b42318" }}
-                        disabled={revokingId === v.vetUserId}
+                        disabled={revokingId === v.vetUserId || !canRevoke}
+                        title={!canRevoke ? "Only verified veterinarians can be revoked here." : undefined}
                         onClick={() => void revokeVet(v.vetUserId)}
                       >
                         <UserX size={16} style={{ marginRight: 6, verticalAlign: "middle" }} aria-hidden />
-                        {revokingId === v.vetUserId ? "Revoking…" : "Revoke verification"}
+                        {revokingId === v.vetUserId ? "Revoking…" : revoked ? "Already revoked" : "Revoke verification"}
                       </button>
                     </div>
                     {v.reviews.length === 0 ? (

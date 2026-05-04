@@ -14,6 +14,8 @@ export type VetAccountReviewsAdminDto = {
   displayName: string;
   email: string;
   vetVerificationStatus: string;
+  /** True when rejection was caused by admin revoke from reviews (not queue decline). */
+  verificationRevokedByAdmin?: boolean;
   averageStars: number;
   reviewCount: number;
   reviews: PawVetConsultationReviewDto[];

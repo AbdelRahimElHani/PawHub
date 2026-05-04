@@ -30,6 +30,18 @@ export const CAT_CHECK_COPY_MARKET_IMAGE: CatCheckBannerCopy = {
   skippedSub: "We’ll still verify this photo when you publish. You can keep editing your listing.",
 };
 
+/** My Cats profile / add-cat photo (real domestic cat as main subject). */
+export const CAT_CHECK_COPY_MYCAT_IMAGE: CatCheckBannerCopy = {
+  checkingTitle: "Scanning your cat photo…",
+  checkingSub: "Gemini is checking that this looks like a real domestic cat as the main subject. Usually 2–5 seconds.",
+  passedTitle: "✅ Cat photo OK",
+  failedTitle: "🚫 Photo check failed",
+  failedHint:
+    "Use a clear photo of your cat—real cats only, not drawings, products-only shots, or unrelated images.",
+  skippedTitle: "Live scan skipped",
+  skippedSub: "AI Cat-Check is off or unreachable on the server. Your photo is still checked on upload when AI is enabled.",
+};
+
 /** Paw Adopt hero photo (Step 1 — real cat in frame). */
 export const CAT_CHECK_COPY_ADOPT_IMAGE: CatCheckBannerCopy = {
   checkingTitle: "Scanning your adoption photo…",

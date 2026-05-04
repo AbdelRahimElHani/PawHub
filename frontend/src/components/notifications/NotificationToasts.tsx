@@ -1,8 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { type AppNotificationDto, useNotificationStore } from "../../store/useNotificationStore";
+import {
+  APP_NOTIFICATION_TOAST_EVENT,
+  type AppNotificationToastEvent,
+} from "../../notifications/appNotificationToastEvents";
 import { NotificationKindIcon, resolveNotificationIconKey } from "./notificationKindIcon";
 import { isModerationDetailKind } from "./moderationKinds";
 import { useModerationNotice } from "./ModerationNoticeContext";
@@ -40,13 +45,16 @@ function SingleToast({
   return (
     <motion.div
       className="ph-notif-toast"
-      initial={{ opacity: 0, x: 32 }}
+      initial={{ opacity: 0, x: -14 }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 24, transition: { duration: 0.18 } }}
+      exit={{ opacity: 0, x: -12, transition: { duration: 0.16 } }}
       layout
       role="status"
       aria-live="polite"
-      style={{ ["--ph-notif-toast-ms" as string]: `${TOAST_MS}ms` }}
+      style={{
+        ["--ph-notif-toast-ms" as string]: `${TOAST_MS}ms`,
+        pointerEvents: "auto",
+      }}
     >
       <div className="ph-notif-toast__row" style={{ alignItems: "stretch" }}>
         <button
@@ -59,7 +67,7 @@ function SingleToast({
               <img
                 src={n.avatarUrl}
                 alt=""
-                style={{ width: 34, height: 34, borderRadius: 8, objectFit: "cover" }}
+                style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }}
               />
             ) : (
               <NotificationKindIcon className="ph-notif-toast-ico" iconKey={resolveNotificationIconKey(n)} />
@@ -76,7 +84,7 @@ function SingleToast({
           aria-label="Dismiss"
           onClick={() => onDismiss(entryKey)}
         >
-          <X size={18} strokeWidth={2.25} aria-hidden />
+          <X size={17} strokeWidth={2.25} aria-hidden />
         </button>
       </div>
       <div className="ph-notif-toast__bar-wrap" aria-hidden>
@@ -87,13 +95,10 @@ function SingleToast({
 }
 
 export function NotificationToasts() {
-  const items = useNotificationStore((s) => s.items);
   const markAsRead = useNotificationStore((s) => s.markAsRead);
-  const refreshItems = useNotificationStore((s) => s.refreshItems);
   const navigate = useNavigate();
   const { openModerationNotice } = useModerationNotice();
   const seen = useRef<Set<number>>(new Set());
-  const [listReady, setListReady] = useState(false);
   const [toasts, setToasts] = useState<ToastEntry[]>([]);
 
   const remove = useCallback((key: string) => {
@@ -131,49 +136,54 @@ export function NotificationToasts() {
     [markAsRead, navigate, remove, openModerationNotice],
   );
 
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      try {
-        await refreshItems();
-      } catch {
-        /* keep going */
-      } finally {
-        if (!alive) return;
-        for (const n of useNotificationStore.getState().items) {
-          seen.current.add(n.id);
-        }
-        setListReady(true);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [refreshItems]);
+  useLayoutEffect(() => {
+    for (const n of useNotificationStore.getState().items) {
+      seen.current.add(n.id);
+    }
 
-  useEffect(() => {
-    if (!listReady) return;
-    for (const n of items) {
-      if (seen.current.has(n.id)) continue;
+    const onLiveNotification = (event: Event) => {
+      const n = (event as AppNotificationToastEvent).detail;
+      if (!n || typeof n.id !== "number") return;
+      if (seen.current.has(n.id)) return;
       seen.current.add(n.id);
       push(n);
-    }
-  }, [items, listReady, push]);
+    };
 
-  return (
-    <div className="ph-notif-toast-stack" aria-label="New notifications">
-      <AnimatePresence initial={false}>
-        {toasts.map((e) => (
-          <SingleToast
-            key={e.key}
-            n={e.n}
-            entryKey={e.key}
-            onAutoClose={remove}
-            onDismiss={remove}
-            onOpen={onOpen}
-          />
-        ))}
-      </AnimatePresence>
+    window.addEventListener(APP_NOTIFICATION_TOAST_EVENT, onLiveNotification);
+    return () => window.removeEventListener(APP_NOTIFICATION_TOAST_EVENT, onLiveNotification);
+  }, [push]);
+
+  const stack = (
+    <div
+      style={{
+        position: "fixed",
+        zIndex: 99999,
+        left: "max(14px, env(safe-area-inset-left, 0px))",
+        bottom: "max(18px, calc(14px + env(safe-area-inset-bottom, 0px)))",
+        isolation: "isolate",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: 8,
+        pointerEvents: "none",
+      }}
+    >
+      <div className="ph-notif-toast-stack" aria-label="New notifications">
+        <AnimatePresence initial={false}>
+          {toasts.map((e) => (
+            <SingleToast
+              key={e.key}
+              n={e.n}
+              entryKey={e.key}
+              onAutoClose={remove}
+              onDismiss={remove}
+              onOpen={onOpen}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(stack, document.body) : null;
 }

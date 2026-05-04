@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link } from "react-router-dom";
 import { CopyMessageButton } from "../CopyMessageButton";
-import { NotificationToasts } from "../notifications/NotificationToasts";
 import { apiUrl, getToken } from "../../api/client";
 import { useMediaLightbox } from "../media/MediaLightboxContext";
 import { isPreviewableMediaUrl } from "../media/inferMediaKind";
@@ -882,10 +881,6 @@ export function ChatWidget() {
           </motion.button>
         ) : null}
       </AnimatePresence>
-
-      <div style={{ pointerEvents: "auto" }}>
-        <NotificationToasts />
-      </div>
 
       <motion.button
         type="button"

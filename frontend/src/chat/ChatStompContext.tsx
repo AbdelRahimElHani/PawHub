@@ -10,10 +10,43 @@ import {
 } from "react";
 import { useAuth } from "../auth/AuthContext";
 import type { MessageDto } from "../types";
-import { useNotificationStore } from "../store/useNotificationStore";
+import { type AppNotificationDto, useNotificationStore } from "../store/useNotificationStore";
+import { emitAppNotificationToast } from "../notifications/appNotificationToastEvents";
 import { createStompClient, sendChatTyping, sendTriageTyping as stompSendTriageTyping } from "./stomp";
 
 export type ChatInboxPayload = { type: "MESSAGE"; threadId: number; message: MessageDto };
+
+type AppNotificationPushPayload = {
+  type?: string;
+  notificationId?: unknown;
+  notification?: unknown;
+};
+
+function isAppNotificationDto(value: unknown): value is AppNotificationDto {
+  if (!value || typeof value !== "object") return false;
+  const n = value as Partial<AppNotificationDto>;
+  return (
+    typeof n.id === "number" &&
+    typeof n.kind === "string" &&
+    typeof n.title === "string" &&
+    typeof n.body === "string" &&
+    typeof n.read === "boolean" &&
+    typeof n.deepLink === "string" &&
+    typeof n.createdAt === "string"
+  );
+}
+
+function parseAppNotificationPush(body: string): { notificationId: number | null; notification: AppNotificationDto | null } {
+  try {
+    const payload = JSON.parse(body) as AppNotificationPushPayload;
+    const notification = isAppNotificationDto(payload.notification) ? payload.notification : null;
+    const rawId = notification?.id ?? payload.notificationId;
+    const notificationId = typeof rawId === "number" && Number.isFinite(rawId) ? rawId : null;
+    return { notificationId, notification };
+  } catch {
+    return { notificationId: null, notification: null };
+  }
+}
 
 export type ActiveThreadHandlers = {
   onMessage: (rawBody: string) => void;
@@ -189,8 +222,19 @@ export function ChatStompProvider({ children }: { children: ReactNode }) {
             console.error("PawHub inbox event parse", e);
           }
         });
-        appNotifSubRef.current = c.subscribe("/user/queue/pawhub-app-notifications", () => {
-          void useNotificationStore.getState().refreshItemsSilent();
+        appNotifSubRef.current = c.subscribe("/user/queue/pawhub-app-notifications", (message: IMessage) => {
+          const pushed = parseAppNotificationPush(message.body);
+          void useNotificationStore
+            .getState()
+            .refreshItemsSilent()
+            .then((rows) => {
+              const exact =
+                pushed.notificationId == null ? null : rows.find((n) => n.id === pushed.notificationId) ?? null;
+              const notification = exact ?? pushed.notification;
+              if (notification) {
+                emitAppNotificationToast(notification);
+              }
+            });
         });
         attachThreadSubscriptions(c);
         attachTriageSubscriptions(c);

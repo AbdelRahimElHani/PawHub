@@ -1,7 +1,12 @@
 import { motion } from "framer-motion";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../../api/client";
+import { api, apiUrl, getToken } from "../../api/client";
+import {
+  CatCheckVerificationBanners,
+  type CatCheckUiState,
+  CAT_CHECK_COPY_MYCAT_IMAGE,
+} from "../../components/catCheck/CatCheckVerificationBanners";
 import type { CatVibe, CatVisionProfile, ColorPalette } from "../catTypes";
 import { defaultPaletteForVibe, VIBE_OPTIONS } from "../catTypes";
 import { extractPaletteFromImageSource } from "./useColorExtract";
@@ -26,6 +31,43 @@ export function AddCatDrawer({ onClose }: Props) {
   const [localErr, setLocalErr] = useState<string | null>(null);
   const [visionProfile, setVisionProfile] = useState<CatVisionProfile | null>(null);
   const [visionLoading, setVisionLoading] = useState(false);
+  const [catCheck, setCatCheck] = useState<CatCheckUiState>({ state: "idle" });
+
+  const runImageCatCheck = useCallback(async (file: File) => {
+    setCatCheck({ state: "checking" });
+    try {
+      const token = getToken();
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(apiUrl("/api/cats/cat-check-image"), {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      if (!res.ok) {
+        setCatCheck({
+          state: "unavailable",
+          message:
+            "Live preview couldn’t run. Your photo is still verified when you save (if AI is enabled on the server).",
+        });
+        return;
+      }
+      const data = (await res.json()) as { isCatRelated: boolean; reason: string };
+      if (data.reason?.toLowerCase().includes("skipped")) {
+        setCatCheck({ state: "skipped" });
+      } else if (data.isCatRelated) {
+        setCatCheck({ state: "passed", reason: data.reason });
+      } else {
+        setCatCheck({ state: "failed", reason: data.reason });
+      }
+    } catch {
+      setCatCheck({
+        state: "unavailable",
+        message:
+          "Live preview couldn’t run. Your photo is still verified when you save (if AI is enabled on the server).",
+      });
+    }
+  }, []);
 
   const onFile = useCallback(async (f: File | null) => {
     setFile(f);
@@ -35,8 +77,10 @@ export function AddCatDrawer({ onClose }: Props) {
     if (!f) {
       setPreview(null);
       setPalette(defaultPaletteForVibe(vibe));
+      setCatCheck({ state: "idle" });
       return;
     }
+    setCatCheck({ state: "checking" });
     const url = URL.createObjectURL(f);
     setPreview(url);
     setVisionLoading(true);
@@ -61,6 +105,14 @@ export function AddCatDrawer({ onClose }: Props) {
     }
   }, [preview, vibe]);
 
+  useEffect(() => {
+    if (!file || !preview) return;
+    const id = window.setTimeout(() => {
+      void runImageCatCheck(file);
+    }, 650);
+    return () => window.clearTimeout(id);
+  }, [file, preview, runImageCatCheck]);
+
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDrag(false);
@@ -72,6 +124,18 @@ export function AddCatDrawer({ onClose }: Props) {
     e.preventDefault();
     if (!name.trim()) {
       setLocalErr("Name is required.");
+      return;
+    }
+    if (!file) {
+      setLocalErr("Add a photo of your cat — it’s required for the sanctuary and AI checks.");
+      return;
+    }
+    if (catCheck.state === "checking") {
+      setLocalErr("Wait for the photo check to finish.");
+      return;
+    }
+    if (catCheck.state === "failed") {
+      setLocalErr("Choose a photo that passes AI Cat-Check, then save again.");
       return;
     }
     setSubmitting(true);
@@ -96,7 +160,10 @@ export function AddCatDrawer({ onClose }: Props) {
     }
   }
 
-  const dropHint = visionLoading ? "AI profiling photo…" : "Drop a photo or tap to browse";
+  const dropHint =
+    visionLoading || catCheck.state === "checking"
+      ? "AI is checking your photo…"
+      : "Drop a photo or tap to browse (required)";
 
   return (
     <motion.div
@@ -141,8 +208,9 @@ export function AddCatDrawer({ onClose }: Props) {
               onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
             />
             {preview ? (
-              <div className="cats-dropzone-preview">
-                <img src={preview} alt="" />
+              <div className="cats-dropzone-preview" style={{ position: "relative" }}>
+                <img src={preview} alt="" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+                <CatCheckVerificationBanners catCheck={catCheck} copy={CAT_CHECK_COPY_MYCAT_IMAGE} variant="onImage" />
               </div>
             ) : (
               <div className="cats-dropzone-preview" style={{ background: "rgba(61,139,122,0.12)" }}>
@@ -204,7 +272,17 @@ export function AddCatDrawer({ onClose }: Props) {
             </div>
           </div>
 
-          <button className="cats-drawer-submit" type="submit" disabled={submitting || visionLoading}>
+          <button
+            className="cats-drawer-submit"
+            type="submit"
+            disabled={
+              submitting ||
+              visionLoading ||
+              !file ||
+              catCheck.state === "checking" ||
+              catCheck.state === "failed"
+            }
+          >
             {submitting ? "Saving…" : "Save & add to sanctuary"}
           </button>
         </form>

@@ -7,8 +7,15 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { ChatStompProvider } from "./chat/ChatStompContext";
 import { ThreadNotificationProvider } from "./notifications/ThreadNotificationContext";
 import { ModerationNoticeProvider } from "./components/notifications/ModerationNoticeContext";
+import { NotificationToasts } from "./components/notifications/NotificationToasts";
 import { MediaLightboxProvider } from "./components/media/MediaLightboxContext";
+import { useAuth } from "./auth/AuthContext";
 import "./theme.css";
+
+function NotificationToastHost() {
+  const { token } = useAuth();
+  return token ? <NotificationToasts /> : null;
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -19,6 +26,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <MediaLightboxProvider>
               <ChatStompProvider>
                 <ThreadNotificationProvider>
+                  <NotificationToastHost />
                   <div className="ph-app-root">
                     <App />
                   </div>

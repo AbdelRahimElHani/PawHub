@@ -30,6 +30,10 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class PawvetConsultationReviewService {
 
+    /** Stored in {@link VetLicenseApplication#setRejectionReason} when an admin revokes verification from reviews. */
+    private static final String VET_ADMIN_REVOKE_REASON_LEAD =
+            "Your PawVet verification was revoked by a PawHub administrator.";
+
     private final PawvetConsultationReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final VetLicenseApplicationRepository vetLicenseApplicationRepository;
@@ -107,10 +111,15 @@ public class PawvetConsultationReviewService {
         List<VetAccountReviewsAdminDto> out = new ArrayList<>();
         for (User vet : vets) {
             List<PawvetConsultationReview> revs = byVet.getOrDefault(vet.getId(), List.of());
-            String vStatus = vetLicenseApplicationRepository
-                    .findByUser_Id(vet.getId())
-                    .map(a -> a.getStatus().name())
-                    .orElse("NONE");
+            var appOpt = vetLicenseApplicationRepository.findByUser_Id(vet.getId());
+            String vStatus = appOpt.map(a -> a.getStatus().name()).orElse("NONE");
+            boolean revokedByAdmin =
+                    appOpt
+                            .map(a ->
+                                    a.getStatus() == VetVerificationStatus.REJECTED
+                                            && a.getRejectionReason() != null
+                                            && a.getRejectionReason().startsWith(VET_ADMIN_REVOKE_REASON_LEAD))
+                            .orElse(false);
             double avg = 0;
             if (!revs.isEmpty()) {
                 avg = revs.stream().mapToInt(PawvetConsultationReview::getStars).average().orElse(0);
@@ -121,6 +130,7 @@ public class PawvetConsultationReviewService {
                     vet.getDisplayName(),
                     vet.getEmail(),
                     vStatus,
+                    revokedByAdmin,
                     avg,
                     revs.size(),
                     dtos));
@@ -147,7 +157,8 @@ public class PawvetConsultationReviewService {
                         HttpStatus.CONFLICT, "No veterinarian license application on file for this account."));
         app.setStatus(VetVerificationStatus.REJECTED);
         app.setRejectionReason(
-                "Your PawVet verification was revoked by a PawHub administrator. Your account remains a veterinarian "
+                VET_ADMIN_REVOKE_REASON_LEAD
+                        + " Your account remains a veterinarian "
                         + "profile, but you cannot claim triage cases until credentials are approved again. Open your vet "
                         + "dashboard to read this notice—you may submit one appeal there if you believe this should be "
                         + "reconsidered.");

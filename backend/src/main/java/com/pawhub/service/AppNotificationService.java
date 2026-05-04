@@ -66,7 +66,7 @@ public class AppNotificationService {
                 .avatarUrl(avatarUrl != null ? trunc(avatarUrl, 1024) : null)
                 .build();
         appNotificationRepository.save(row);
-        scheduleAppNotificationPushToEmails(List.of(user.getEmail()));
+        scheduleAppNotificationPushToEmails(List.of(user.getEmail()), toDto(row));
     }
 
     /** Same as {@link #publish}; kept for call sites that emphasize inbox refresh. */
@@ -221,11 +221,13 @@ public class AppNotificationService {
         }
     }
 
-    private void scheduleAppNotificationPushToEmails(List<String> emails) {
+    private void scheduleAppNotificationPushToEmails(List<String> emails, AppNotificationDto notification) {
         if (emails == null || emails.isEmpty()) {
             return;
         }
-        AppNotificationPushPayload payload = new AppNotificationPushPayload("REFRESH");
+        AppNotificationPushPayload payload = notification != null
+                ? AppNotificationPushPayload.notification(notification)
+                : new AppNotificationPushPayload("REFRESH");
         Runnable push = () -> {
             for (String email : emails) {
                 try {

@@ -86,6 +86,7 @@ pawhub:
   # In production: set PAWHUB_PUBLIC_BASE_URL=https://your-api.example.com
   # On Railway, if you omit it, RAILWAY_PUBLIC_DOMAIN is auto-applied at startup (see PublicBaseUrlFromRailwayRunner).
   public-base-url: ${PAWHUB_PUBLIC_BASE_URL:http://localhost:8081}
+  # Cat-Check (Paw Market / adopt photos), vision-profile, PawBot: all require enabled=true AND a non-blank api-key.
   gemini:
     enabled: ${PAWHUB_GEMINI_ENABLED:${GEMINI_ENABLED:true}}
     api-key: ${PAWHUB_GEMINI_API_KEY:${GEMINI_API_KEY:}}

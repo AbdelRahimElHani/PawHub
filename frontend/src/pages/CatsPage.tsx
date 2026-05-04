@@ -1,6 +1,11 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api/client";
+import { api, apiUrl, getToken } from "../api/client";
+import {
+  CatCheckVerificationBanners,
+  type CatCheckUiState,
+  CAT_CHECK_COPY_MYCAT_IMAGE,
+} from "../components/catCheck/CatCheckVerificationBanners";
 import type { CatBehavior, CatDto, MatchBehaviorPreference, MatchGenderPreference } from "../types";
 import { CAT_BEHAVIORS } from "../types";
 
@@ -195,6 +200,7 @@ function CatDetailModal({
   onReload: () => Promise<void>;
 }) {
   const [photoErr, setPhotoErr] = useState<string | null>(null);
+  const [photoCatCheck, setPhotoCatCheck] = useState<CatCheckUiState>({ state: "idle" });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -292,17 +298,74 @@ function CatDetailModal({
                 e.target.value = "";
                 if (!f) return;
                 setPhotoErr(null);
-                const fd = new FormData();
-                fd.append("file", f);
+                setPhotoCatCheck({ state: "checking" });
                 try {
-                  await api(`/api/cats/${cat.id}/photos`, { method: "POST", body: fd });
+                  const token = getToken();
+                  const checkForm = new FormData();
+                  checkForm.append("file", f);
+                  const checkRes = await fetch(apiUrl("/api/cats/cat-check-image"), {
+                    method: "POST",
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    body: checkForm,
+                  });
+                  if (checkRes.ok) {
+                    const data = (await checkRes.json()) as { isCatRelated: boolean; reason: string };
+                    if (data.reason?.toLowerCase().includes("skipped")) {
+                      setPhotoCatCheck({ state: "skipped" });
+                    } else if (data.isCatRelated) {
+                      setPhotoCatCheck({ state: "passed", reason: data.reason });
+                    } else {
+                      setPhotoCatCheck({ state: "failed", reason: data.reason });
+                      setPhotoErr(data.reason || "This photo doesn’t pass AI verification for My Cats.");
+                      return;
+                    }
+                  } else {
+                    setPhotoCatCheck({
+                      state: "unavailable",
+                      message:
+                        "Live preview couldn’t run. The server still checks the image when you upload (if AI is enabled).",
+                    });
+                  }
+
+                  const fd = new FormData();
+                  fd.append("file", f);
+                  const photoRes = await fetch(apiUrl(`/api/cats/${cat.id}/photos`), {
+                    method: "POST",
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    body: fd,
+                  });
+                  if (photoRes.status === 422) {
+                    const json = (await photoRes.json().catch(() => ({}))) as { error?: string; reason?: string };
+                    const msg =
+                      json.reason ??
+                      json.error ??
+                      "This photo doesn’t pass verification (AI or vision). Try another image.";
+                    setPhotoCatCheck({ state: "failed", reason: msg });
+                    setPhotoErr(msg);
+                    return;
+                  }
+                  if (!photoRes.ok) {
+                    let msg = "Upload failed";
+                    try {
+                      const j = (await photoRes.json()) as { error?: string };
+                      if (j.error) msg = j.error;
+                    } catch {
+                      /* ignore */
+                    }
+                    setPhotoCatCheck({ state: "idle" });
+                    setPhotoErr(msg);
+                    return;
+                  }
+                  setPhotoCatCheck({ state: "idle" });
                   await onReload();
                 } catch (ex: unknown) {
+                  setPhotoCatCheck({ state: "idle" });
                   setPhotoErr(ex instanceof Error ? ex.message : "Upload failed");
                 }
               }}
             />
           </label>
+          <CatCheckVerificationBanners catCheck={photoCatCheck} copy={CAT_CHECK_COPY_MYCAT_IMAGE} />
           {photoErr && <p style={{ color: "#b42318", fontSize: "0.85rem", margin: "0.35rem 0 0" }}>{photoErr}</p>}
         </div>
         <CatPawMatchPrefsForm cat={cat} onSaved={onReload} />
@@ -333,6 +396,52 @@ export function CatsPage() {
   const [err, setErr] = useState<string | null>(null);
   const createPhotoRef = useRef<HTMLInputElement>(null);
   const [createPhotoPreview, setCreatePhotoPreview] = useState<string | null>(null);
+  const [createPhotoFile, setCreatePhotoFile] = useState<File | null>(null);
+  const [catCheck, setCatCheck] = useState<CatCheckUiState>({ state: "idle" });
+
+  const runImageCatCheck = useCallback(async (file: File) => {
+    setCatCheck({ state: "checking" });
+    try {
+      const token = getToken();
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(apiUrl("/api/cats/cat-check-image"), {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      if (!res.ok) {
+        setCatCheck({
+          state: "unavailable",
+          message:
+            "Live preview couldn’t run. Your photo is still verified when you upload (if AI is enabled on the server).",
+        });
+        return;
+      }
+      const data = (await res.json()) as { isCatRelated: boolean; reason: string };
+      if (data.reason?.toLowerCase().includes("skipped")) {
+        setCatCheck({ state: "skipped" });
+      } else if (data.isCatRelated) {
+        setCatCheck({ state: "passed", reason: data.reason });
+      } else {
+        setCatCheck({ state: "failed", reason: data.reason });
+      }
+    } catch {
+      setCatCheck({
+        state: "unavailable",
+        message:
+          "Live preview couldn’t run. Your photo is still verified when you upload (if AI is enabled on the server).",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!createPhotoFile || !createPhotoPreview) return;
+    const id = window.setTimeout(() => {
+      void runImageCatCheck(createPhotoFile);
+    }, 650);
+    return () => window.clearTimeout(id);
+  }, [createPhotoFile, createPhotoPreview, runImageCatCheck]);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -358,7 +467,19 @@ export function CatsPage() {
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     setErr(null);
-    const file = createPhotoRef.current?.files?.[0] ?? null;
+    const file = createPhotoFile ?? createPhotoRef.current?.files?.[0] ?? null;
+    if (!file) {
+      setErr("Add a cat photo — it’s required, and we run AI Cat-Check when Gemini is enabled on the server.");
+      return;
+    }
+    if (catCheck.state === "checking") {
+      setErr("Wait for the photo check to finish, then try again.");
+      return;
+    }
+    if (catCheck.state === "failed") {
+      setErr("Choose a different photo that passes the check, then save again.");
+      return;
+    }
     try {
       const created = await api<CatDto>("/api/cats", {
         method: "POST",
@@ -376,18 +497,38 @@ export function CatsPage() {
           prefBreed: prefBreed.trim() === "" ? null : prefBreed.trim(),
         }),
       });
-      if (file) {
-        const fd = new FormData();
-        fd.append("file", file);
+      const fd = new FormData();
+      fd.append("file", file);
+      const token = getToken();
+      const photoRes = await fetch(apiUrl(`/api/cats/${created.id}/photos`), {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      if (photoRes.status === 422) {
+        const json = (await photoRes.json().catch(() => ({}))) as { error?: string; reason?: string };
+        const msg =
+          json.reason ??
+          json.error ??
+          "Photo verification failed. The cat profile was created — open Manage to try another photo.";
+        setCatCheck({ state: "failed", reason: msg });
+        setErr(`${msg} (profile was saved — use Manage to add a different photo.)`);
+        await load();
+        setDetailCatId(created.id);
+        return;
+      }
+      if (!photoRes.ok) {
+        let msg = "Photo upload failed (cat was saved).";
         try {
-          await api(`/api/cats/${created.id}/photos`, { method: "POST", body: fd });
-        } catch (photoEx: unknown) {
-          setErr(
-            photoEx instanceof Error
-              ? `${photoEx.message} (cat was saved — open details to try another photo.)`
-              : "Photo upload failed (cat was saved).",
-          );
+          const j = (await photoRes.json()) as { error?: string };
+          if (j.error) msg = j.error;
+        } catch {
+          /* ignore */
         }
+        setErr(msg);
+        await load();
+        setDetailCatId(created.id);
+        return;
       }
       setName("");
       setBreed("");
@@ -402,6 +543,8 @@ export function CatsPage() {
       setPrefBreed("");
       if (createPhotoPreview) URL.revokeObjectURL(createPhotoPreview);
       setCreatePhotoPreview(null);
+      setCreatePhotoFile(null);
+      setCatCheck({ state: "idle" });
       if (createPhotoRef.current) createPhotoRef.current.value = "";
       await load();
       setDetailCatId(created.id);
@@ -411,11 +554,17 @@ export function CatsPage() {
   }
 
   function onCreatePhotoPick() {
-    const f = createPhotoRef.current?.files?.[0];
+    const f = createPhotoRef.current?.files?.[0] ?? null;
     setCreatePhotoPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return f ? URL.createObjectURL(f) : null;
     });
+    setCreatePhotoFile(f);
+    if (!f) {
+      setCatCheck({ state: "idle" });
+      return;
+    }
+    setCatCheck({ state: "checking" });
   }
 
   return (
@@ -499,43 +648,63 @@ export function CatsPage() {
           only the same gender as your cat.
         </p>
         <p style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginTop: "0.35rem" }}>
-          First photo (if any) is checked with AI when Gemini Cat-Check is on — must show a real domestic cat clearly.
-          Vision may also require a clear cat when enabled.
+          Add a <strong>required</strong> photo — we run <strong>AI Cat-Check</strong> on it when you pick the file (if Gemini
+          is enabled), then again on upload. Vision must also see a domestic cat for the 3D sanctuary.
         </p>
         <form onSubmit={onCreate} className="ph-grid">
-          <div style={{ gridColumn: "1 / -1", display: "flex", flexWrap: "wrap", gap: "1rem", alignItems: "center" }}>
-            {createPhotoPreview ? (
-              <img
-                src={createPhotoPreview}
-                alt=""
-                style={{ width: 88, height: 88, borderRadius: 12, objectFit: "cover", border: "1px solid var(--color-border)" }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: 88,
-                  height: 88,
-                  borderRadius: 12,
-                  background: "var(--color-bg)",
-                  border: "1px dashed var(--color-border)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "1.75rem",
-                  flexShrink: 0,
-                }}
-                aria-hidden
-              >
-                🐱
-              </div>
-            )}
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "1rem",
+              alignItems: "flex-start",
+            }}
+          >
+            <div style={{ position: "relative", width: 88, height: 88, flexShrink: 0 }}>
+              {createPhotoPreview ? (
+                <img
+                  src={createPhotoPreview}
+                  alt=""
+                  style={{
+                    width: 88,
+                    height: 88,
+                    borderRadius: 12,
+                    objectFit: "cover",
+                    border: "1px solid var(--color-border)",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 88,
+                    height: 88,
+                    borderRadius: 12,
+                    background: "var(--color-bg)",
+                    border: "1px dashed var(--color-border)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1.75rem",
+                  }}
+                  aria-hidden
+                >
+                  🐱
+                </div>
+              )}
+              {createPhotoPreview ? (
+                <CatCheckVerificationBanners catCheck={catCheck} copy={CAT_CHECK_COPY_MYCAT_IMAGE} variant="onImage" />
+              ) : null}
+            </div>
             <label style={{ flex: "1 1 200px", margin: 0 }}>
-              Photo (optional)
+              Photo (required)
               <input
                 ref={createPhotoRef}
                 className="ph-input"
                 type="file"
                 accept="image/*"
+                required
                 style={{ marginTop: "0.35rem", padding: "0.4rem" }}
                 onChange={onCreatePhotoPick}
               />
@@ -621,7 +790,15 @@ export function CatsPage() {
             />
           </label>
           {err && <div style={{ color: "#b42318", gridColumn: "1 / -1" }}>{err}</div>}
-          <button className="ph-btn ph-btn-primary" type="submit">
+          <button
+            className="ph-btn ph-btn-primary"
+            type="submit"
+            disabled={
+              catCheck.state === "checking" ||
+              catCheck.state === "failed" ||
+              !createPhotoFile
+            }
+          >
             Save cat
           </button>
         </form>
